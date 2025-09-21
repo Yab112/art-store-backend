@@ -1,0 +1,30 @@
+echo "🚀 Running pre-push checks..."
+
+# Check formatting with Prettier
+npx prettier --check .
+if [ $? -ne 0 ]; then
+	echo "❌ Prettier format check failed. Please format your code before pushing."
+	exit 1
+fi
+
+# Run type checking
+echo "📝 Type checking..."
+pnpm run type-check
+if [ $? -ne 0 ]; then
+	echo "❌ Type check failed. Please fix type errors before pushing."
+	exit 1
+fi
+
+# Run linting
+echo "🔍 Linting code..."
+pnpm run lint:strict
+if [ $? -ne 0 ]; then
+	echo "❌ Lint check failed. Please fix lint errors before pushing."
+	exit 1
+fi
+
+# Run tests
+echo "🧪 Running tests..."
+pnpm run test:ci
+
+echo "✅ Pre-push checks passed!"

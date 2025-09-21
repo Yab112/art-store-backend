@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String         @id @default(uuid())
+  name             String
+  profileType      PROFILE_TYPE   @default(CLIENT)
+  email            String         @unique
+  emailVerified    Boolean        @default(false)
+  image            String?
+  role             String
+  banned           Boolean        @default(false)
+  banReason        String?
+  banExpires       DateTime?
+  twoFactorEnabled Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  twoFactors       TwoFactor[]
+  firstlogin       Boolean?
+
+  @@map("users")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TwoFactor {
+  id          String   @id @default(uuid())
+  userId      String
+  secret      String
+  backupCodes String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+
+enum BOOKING_STATUS {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum CHAT_STATUS {
+  OPEN
+  CLOSED
+  RESTRICTED
+}
+
+enum MESSAGE_TYPE {
+  TEXT
+  IMAGE
+  FILE
+}
+
+enum MESSAGE_STATUS {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum PAYMENT_STATUS {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NOTIFICATION_TYPE {
+  REQUEST
+  BOOKING
+  CHAT
+  PAYMENT
+  REVIEW
+  SYSTEM
+}
+
+enum FILE_TYPE {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  AUDIO
+  OTHER
+}
+
+enum PROFILE_TYPE {
+  CLIENT
+  TASKER
+}
+
+enum RequestStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum DATE_OF_THE_WEEK {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum RESCHEDULE_STATUS {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}

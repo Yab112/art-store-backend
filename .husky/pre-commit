@@ -1,0 +1,19 @@
+echo "🔍 Running pre-commit checks..."
+
+# Check formatting with Prettier
+npx prettier --check .
+if [ $? -ne 0 ]; then
+	echo "❌ Prettier format check failed. Please format your code before committing."
+	exit 1
+fi
+
+# Run lint
+npx pnpm lint:strict
+if [ $? -ne 0 ]; then
+	echo "❌ Lint check failed. Please fix lint errors before committing."
+	exit 1
+fi
+# Run lint-staged to check and fix staged files
+npx lint-staged
+
+echo "✅ Pre-commit checks passed!"
