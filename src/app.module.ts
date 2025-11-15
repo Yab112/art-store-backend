@@ -9,6 +9,7 @@ import { LoggerModule } from './libraries/logger';
 import { AppInfrastructureModule } from './app.infrastructure.module';
 import { ConfigurationModule } from './core/configuration';
 import { CookieModule } from './core/cookie';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { CookieModule } from './core/cookie';
     EventModule,
     AppInfrastructureModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     ...ExceptionModule.getFilters(),
     ...LoggingModule.getInterceptors(),
