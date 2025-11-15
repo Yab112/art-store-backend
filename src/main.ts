@@ -15,15 +15,18 @@ import {
 import { toNodeHandler } from "better-auth/node";
 const express = require("express");
 import * as cors from "cors";
+import { join } from "path";
 
 async function bootstrap() {
   const server = express();
+  
   server.use(
     cors({
       origin: [
         "http://localhost:5173", // Vite dev server (frontend)
         "http://localhost:3000", // Backend (for Swagger, etc.)
         "http://localhost:3001",
+        "http://13.48.104.231:3000", // EC2 Production
         "https://art-store-backend-latest.onrender.com",
         "https://art-store-frontend-flame.vercel.app",
         process.env.FRONTEND_URL || "http://localhost:5173",
@@ -46,13 +49,21 @@ async function bootstrap() {
       bodyParser: false,
     }
   );
-
+  app.useStaticAssets(join(__dirname, '..', 'public'));
   const configurationService = app.get(ConfigurationService);
   const corsService = app.get(CorsService);
   const loggerService = app.get(LoggerService);
   const logger = loggerService.create({ name: "Bootstrap" });
 
-  app.use(helmet());
+  // Configure Helmet to allow Swagger
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: false,
+      originAgentCluster: false,
+    })
+  );
   app.enableCors(corsService.getOptions());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -77,6 +88,8 @@ async function bootstrap() {
     .setVersion("1.0")
     .addServer("http://localhost:3000/api", "Localhost")
     .addServer("http://localhost:3000", "Localhost")
+    .addServer("http://13.48.104.231:3000/api", "EC2 Production")
+    .addServer("http://13.48.104.231:3000", "EC2 Production (Root)")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
       "Render Production URL"
@@ -88,39 +101,76 @@ async function bootstrap() {
     .build();
 
   // get Better-Auth OpenAPI schema
-  // get Better-Auth OpenAPI schema
-  const openAPISchema = await auth.api.generateOpenAPISchema();
-  const document = SwaggerModule.createDocument(app, config);
+  let openAPISchema: any = { paths: {}, components: {} };
+  try {
+    openAPISchema = await auth.api.generateOpenAPISchema();
+    logger.log("Better Auth OpenAPI schema generated successfully");
+  } catch (error) {
+    logger.warn("Failed to generate Better Auth OpenAPI schema:", error);
+    // Continue without Better Auth schema
+  }
+
+  const document = SwaggerModule.createDocument(app, config, {
+    operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+  });
+
+  // Log initial document state
+  const initialPathCount = Object.keys(document.paths || {}).length;
+  logger.log(`Initial Swagger document has ${initialPathCount} paths`);
 
   // prefix Better-Auth paths with /auth
-  const prefixedPaths = Object.fromEntries(
-    Object.entries(openAPISchema.paths).map(([path, schema]) => [
-      `/auth${path}`, // e.g. /auth/sign-up/email
-      schema,
-    ])
-  );
+  if (openAPISchema?.paths && Object.keys(openAPISchema.paths).length > 0) {
+    const prefixedPaths = Object.fromEntries(
+      Object.entries(openAPISchema.paths).map(([path, schema]) => [
+        `/auth${path}`, // e.g. /auth/sign-up/email
+        schema,
+      ])
+    );
 
-  // merge into Nest Swagger doc
-  document.paths = {
-    ...document.paths,
-    ...(prefixedPaths as any), // ✅ use prefixed paths
-  };
+    // merge into Nest Swagger doc
+    document.paths = {
+      ...document.paths,
+      ...(prefixedPaths as any), // ✅ use prefixed paths
+    };
 
-  document.components = {
-    ...document.components,
-    ...(openAPISchema.components as any),
-    schemas: {
-      ...(document.components?.schemas || {}),
-      ...(openAPISchema.components?.schemas || {}),
+    if (openAPISchema.components) {
+      document.components = {
+        ...document.components,
+        ...(openAPISchema.components as any),
+        schemas: {
+          ...(document.components?.schemas || {}),
+          ...(openAPISchema.components?.schemas || {}),
+        },
+      };
+    }
+    logger.log(`Added ${Object.keys(prefixedPaths).length} Better Auth paths`);
+  } else {
+    logger.warn("Better Auth schema has no paths to add");
+  }
+
+  // Setup Swagger with custom options
+  SwaggerModule.setup("swagger", app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
     },
-  };
+    customSiteTitle: "Art Store API Documentation",
+    customCss: ".swagger-ui .topbar { display: none }",
+    customCssUrl: [],   // important
+    customJs: [],   
+  });
 
-  SwaggerModule.setup("swagger", app, document);
+  // Log Swagger info
+  const pathCount = Object.keys(document.paths || {}).length;
+  logger.log(`📚 Swagger configured with ${pathCount} endpoints`);
 
   const signals = ["SIGTERM", "SIGINT"];
   signals.forEach((signal) => {
     process.on(signal, async () => {
-      this.logger.warn(`Received ${signal}, starting graceful shutdown`);
+      logger.warn(`Received ${signal}, starting graceful shutdown`);
       await app.close();
       process.exit(0);
     });
