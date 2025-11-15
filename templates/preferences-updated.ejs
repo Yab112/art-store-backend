@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preferences Updated</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .message {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Preferences Updated</h1>
+    </div>
+    <div class="content">
+      <p class="message">Hi <strong><%= userName %></strong>,</p>
+      <p class="message">
+        Your preferences have been successfully updated.
+      </p>
+      <p class="message">
+        <strong>Language:</strong> <%= language %><br>
+        <strong>Timezone:</strong> <%= timezone %>
+      </p>
+      <p class="message">
+        Thank you for customizing your experience!
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -7,28 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id               String         @id @default(uuid())
-  name             String
-  profileType      PROFILE_TYPE   @default(CLIENT)
-  email            String         @unique
-  emailVerified    Boolean        @default(false)
-  image            String?
-  role             String
-  banned           Boolean        @default(false)
-  banReason        String?
-  banExpires       DateTime?
-  twoFactorEnabled Boolean        @default(false)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  accounts         Account[]
-  sessions         Session[]
-  twoFactors       TwoFactor[]
-  firstlogin       Boolean?
-
-  @@map("users")
-}
-
 model Account {
   id                    String    @id @default(uuid())
   userId                String
@@ -78,31 +56,394 @@ model Verification {
 }
 
 
-enum BOOKING_STATUS {
-  PENDING
-  ACCEPTED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  EXPIRED
+
+model Category {
+  id          String        @id
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  SubCategory SubCategory[]
 }
 
-enum CHAT_STATUS {
+model SubCategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model Chat {
+  id                       String      @id
+  requestId                String?
+  status                   CHAT_STATUS @default(OPEN)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime
+  clientId                 String
+  taskerId                 String
+  User_Chat_clientIdToUser User        @relation("Chat_clientIdToUser", fields: [clientId], references: [id])
+  User_Chat_taskerIdToUser User        @relation("Chat_taskerIdToUser", fields: [taskerId], references: [id])
+  Message                  Message[]
+}
+
+
+model Dispute {
+  id                              String         @id
+  artworkId                       String?
+  targetUserId                    String?
+  raisedById                      String
+  assignedToId                    String?
+  reason                          String
+  description                     String?
+  resolution                      String?
+  status                          DISPUTE_STATUS @default(IN_PROGRESS)
+  createdAt                       DateTime       @default(now())
+  updatedAt                       DateTime
+
+  // Relations
+  artwork                         Artwork?       @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  targetUser                      User?          @relation("Dispute_targetUser", fields: [targetUserId], references: [id])
+  User_Dispute_assignedToIdToUser User?          @relation("Dispute_assignedToIdToUser", fields: [assignedToId], references: [id], onDelete: Cascade)
+  User_Dispute_raisedByIdToUser   User           @relation("Dispute_raisedByIdToUser", fields: [raisedById], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id                            String         @id
+  chatId                        String
+  senderId                      String
+  type                          MESSAGE_TYPE
+  content                       String
+  status                        MESSAGE_STATUS @default(SENT)
+  createdAt                     DateTime       @default(now())
+  receiverId                    String
+  Chat                          Chat           @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  User_Message_receiverIdToUser User           @relation("Message_receiverIdToUser", fields: [receiverId], references: [id])
+  User_Message_senderIdToUser   User           @relation("Message_senderIdToUser", fields: [senderId], references: [id])
+}
+
+model Notification {
+  id        String            @id
+  userId    String
+  type      NOTIFICATION_TYPE
+  message   String
+  read      Boolean           @default(false)
+  entityId  String
+  createdAt DateTime          @default(now())
+  User      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String         @id
+  bookingId String
+  amount    Float
+  method    String
+  status    PAYMENT_STATUS @default(PENDING)
+  createdAt DateTime       @default(now())
+}
+
+
+
+model Review {
+  id        String         @id
+  artworkId String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  Artwork   Artwork        @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  User      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                                 String         @id @default(uuid())
+  name                               String
+  email                              String         @unique
+  emailVerified                      Boolean        @default(false)
+  image                              String?
+  coverImage                         String?
+  score                              Float          @default(0)
+  role                               String
+  banned                             Boolean        @default(false)
+  banReason                          String?
+  banExpires                         DateTime?
+  twoFactorEnabled                   Boolean        @default(false)
+  createdAt                          DateTime       @default(now())
+  updatedAt                          DateTime
+  firstlogin                         Boolean?
+  accounts                           Account[]
+  Chat_Chat_clientIdToUser           Chat[]         @relation("Chat_clientIdToUser")
+  Chat_Chat_taskerIdToUser           Chat[]         @relation("Chat_taskerIdToUser")
+  Dispute_Dispute_assignedToIdToUser Dispute[]      @relation("Dispute_assignedToIdToUser")
+  Dispute_Dispute_raisedByIdToUser   Dispute[]      @relation("Dispute_raisedByIdToUser")
+  disputesAgainstUser                Dispute[]      @relation("Dispute_targetUser")
+  reportsFiled                       Report[]       @relation("Report_reporter")
+  reportsResolved                    Report[]       @relation("Report_resolvedBy")
+  Message_Message_receiverIdToUser   Message[]      @relation("Message_receiverIdToUser")
+  Message_Message_senderIdToUser     Message[]      @relation("Message_senderIdToUser")
+  Notification                       Notification[]
+  sessions                           Session[]
+  twoFactors                         TwoFactor[]
+  artworks                           Artwork[]
+  reviews                            Review[]
+  collections                        Collection[]    @relation("Collection_createdBy")
+  interactions                       Interaction[]   @relation("Interaction_user")
+  favorites                          Favorite[]
+  cartItems                          CartItem[]
+
+  @@map("users")
+}
+
+
+model Artwork {
+  id                    String        @id @default(uuid())
+  title                 String?
+  artist                String
+  technique             String
+  support               String
+  state                 String
+  yearOfArtwork         String
+  dimensions            Json          // {height, width, depth}
+  isFramed              Boolean
+  weight                String
+  handDeliveryAccepted  Boolean
+  origin                String
+  yearOfAcquisition     String?
+  description           String?
+  desiredPrice          Float
+  acceptPriceNegotiation Boolean
+  accountHolder         String
+  iban                  String
+  bicCode               String?
+  acceptTermsOfSale     Boolean
+  giveSalesMandate      Boolean
+  proofOfOrigin         String?       // MinIO URL
+  photos                String[]      // Array of MinIO URLs
+  status                ArtworkStatus @default(PENDING)
+  isApproved            Boolean       @default(false)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reviews               Review[]
+  // Relations added by new models
+  collectionOnArtworks  CollectionOnArtwork[]
+  orderItems            OrderItem[]
+  interactions          Interaction[]
+  comments              Comment[]
+  featuredContents      FeaturedContent[]
+  disputes              Dispute[]
+  favorites              Favorite[]
+  cartItems              CartItem[]
+
+  @@map("artworks")
+}
+
+
+
+model Collection {
+  id          String                @id @default(uuid())
+  name        String
+  description String?
+  coverImage  String?
+  visibility  String                 @default("private")
+  createdAt   DateTime              @default(now())
+  createdBy   String
+
+  // Relations
+  user        User                  @relation("Collection_createdBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  artworks    CollectionOnArtwork[]
+}
+
+model CollectionOnArtwork {
+  id           String    @id @default(uuid())
+  collectionId String
+  artworkId    String
+
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  artwork      Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, artworkId])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  artworkId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artworkId])
+  @@map("favorites")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  artworkId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artworkId])
+  @@map("cart_items")
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  buyerEmail    String
+  totalAmount   Decimal       @db.Decimal(10,2)
+  status        OrderStatus   @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  items         OrderItem[]
+  transaction   Transaction?
+  receipt       Receipt?
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  artworkId  String
+  quantity   Int      @default(1)
+  price      Decimal  @db.Decimal(10,2)
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id               String         @id @default(uuid())
+  orderId          String         @unique
+  paymentGatewayId String?
+  status           PaymentStatus  @default(INITIATED)
+  amount           Decimal        @db.Decimal(10,2)
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentGateway   PaymentGateway? @relation(fields: [paymentGatewayId], references: [id])
+}
+
+model Receipt {
+  id         String   @id @default(uuid())
+  orderId    String   @unique
+  pdfUrl     String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model PaymentGateway {
+  id        String   @id @default(uuid())
+  name      String
+  enabled   Boolean  @default(true)
+  config    Json?
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model Interaction {
+  id         String   @id @default(uuid())
+  artworkId  String
+  userId     String?  // User who performed the interaction (for likes, views, etc.)
+  type       String
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+
+  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user       User?     @relation("Interaction_user", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  artworkId  String
+  authorName String
+  content    String
+  createdAt  DateTime  @default(now())
+
+  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id           String           @id @default(uuid())
+  targetId     String
+  targetType   ReportTargetType
+  reporterId   String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus     @default(OPEN)
+  resolved     Boolean          @default(false)
+  resolution   String?
+  resolvedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Relations
+  reporter     User             @relation("Report_reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy   User?            @relation("Report_resolvedBy", fields: [resolvedById], references: [id])
+}
+
+enum ReportTargetType {
+  ARTWORK
+  USER
+  COMMENT
+  OTHER
+}
+
+enum ReportStatus {
   OPEN
-  CLOSED
-  RESTRICTED
+  UNDER_REVIEW
+  ACTIONED
+  DISMISSED
 }
 
-enum MESSAGE_TYPE {
-  TEXT
-  IMAGE
-  FILE
+model Policy {
+  id        String   @id @default(uuid())
+  type      String
+  content   String
+  version   String?
+  updatedAt DateTime @updatedAt
 }
 
-enum MESSAGE_STATUS {
-  SENT
-  DELIVERED
-  READ
+model FeaturedContent {
+  id          String   @id @default(uuid())
+  label       String
+  description String?
+  artworkId   String?
+  createdAt   DateTime @default(now())
+
+  artwork     Artwork? @relation(fields: [artworkId], references: [id])
+}
+
+model Withdrawal {
+  id            String   @id @default(uuid())
+  payoutAccount String
+  amount        Decimal  @db.Decimal(10,2)
+  status        PaymentStatus @default(INITIATED)
+  createdAt     DateTime @default(now())
+}
+
+enum ArtworkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SOLD
+  WITHDRAWN
 }
 
 enum PAYMENT_STATUS {
@@ -113,46 +454,64 @@ enum PAYMENT_STATUS {
 }
 
 enum NOTIFICATION_TYPE {
-  REQUEST
-  BOOKING
-  CHAT
-  PAYMENT
-  REVIEW
+  INFO
+  WARNING
+  ALERT
+  MESSAGE
   SYSTEM
 }
 
-enum FILE_TYPE {
-  IMAGE
-  DOCUMENT
-  VIDEO
-  AUDIO
-  OTHER
+enum DISPUTE_STATUS {
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
 }
 
-enum PROFILE_TYPE {
-  CLIENT
-  TASKER
-}
-
-enum RequestStatus {
-  pending
-  accepted
-  rejected
-}
-
-enum DATE_OF_THE_WEEK {
-  SUNDAY
-  MONDAY
-  TUESDAY
-  WEDNESDAY
-  THURSDAY
-  FRIDAY
-  SATURDAY
-}
-
-enum RESCHEDULE_STATUS {
+enum MESSAGE_STATUS {
+  SENT
+  DELIVERED
+  READ
   PENDING
   APPROVED
   REJECTED
-  EXPIRED
+  SOLD
+  WITHDRAWN
 }
+
+enum MESSAGE_TYPE {
+  TEXT
+  IMAGE
+  VIDEO
+  SYSTEM
+}
+
+enum CHAT_STATUS {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ReportReason {
+  SPAM
+  COPYRIGHT
+  ABUSE
+  INAPPROPRIATE
+  OTHER
+}
+

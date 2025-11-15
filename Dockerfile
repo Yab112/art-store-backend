@@ -1,22 +1,30 @@
-
-# ----- Build stage -----
+# Stage 1: build
 FROM node:20-alpine AS builder
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.2.0 --activate
 WORKDIR /app
+# Copy package files first
 COPY package.json pnpm-lock.yaml ./
+# Copy Prisma schema before install (needed for postinstall script)
 COPY prisma ./prisma
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+# Install dependencies (postinstall will run prisma generate)
+RUN pnpm install --frozen-lockfile
+# Copy rest of the application
 COPY . .
 RUN pnpm run build
 
-
-# ----- Production stage -----
-FROM node:20-alpine AS production
+# Stage 2: runtime
+FROM node:20-alpine
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.2.0 --activate
 WORKDIR /app
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-lock.yaml ./
+# Copy package files
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+# Copy Prisma schema (needed for postinstall script to generate Prisma Client)
 COPY --from=builder /app/prisma ./prisma
+# Install production dependencies (postinstall will run prisma generate)
+RUN pnpm install --prod --frozen-lockfile
+# Copy built application
 COPY --from=builder /app/dist ./dist
-# Install pnpm and production dependencies
-RUN npm install -g pnpm && pnpm install --prod --frozen-lockfile
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main"]

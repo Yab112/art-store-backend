@@ -65,3 +65,6 @@ env/test.env
 
 # Ignore prisma .env file
 prisma/.env
+
+# Uploads directory
+uploads/

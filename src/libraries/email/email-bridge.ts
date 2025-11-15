@@ -140,6 +140,96 @@ class EmailBridge {
       throw error;
     }
   }
+
+  async sendVerificationOTPEmail({
+    email,
+    code,
+  }: {
+    email: string;
+    code: string;
+  }): Promise<void> {
+    if (!this.emailService) {
+      console.error('EmailService not initialized in EmailBridge');
+      return;
+    }
+
+    try {
+      await this.emailService.send({
+        name: 'User',
+        email,
+        subject: 'Verify Your Email - Finder App',
+        template: 'verification-otp',
+        variables: {
+          email,
+          code,
+        },
+      });
+      console.log(`✅ Verification OTP sent to: ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send verification OTP to ${email}:`, error);
+      throw error;
+    }
+  }
+
+  async sendPasswordResetOTPEmail({
+    email,
+    code,
+  }: {
+    email: string;
+    code: string;
+  }): Promise<void> {
+    if (!this.emailService) {
+      console.error('EmailService not initialized in EmailBridge');
+      return;
+    }
+
+    try {
+      await this.emailService.send({
+        name: 'User',
+        email,
+        subject: 'Reset Your Password - Finder App',
+        template: 'password-reset-otp',
+        variables: {
+          email,
+          code,
+        },
+      });
+      console.log(`✅ Password reset OTP sent to: ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send password reset OTP to ${email}:`, error);
+      throw error;
+    }
+  }
+
+  async sendSignInOTPEmail({
+    email,
+    code,
+  }: {
+    email: string;
+    code: string;
+  }): Promise<void> {
+    if (!this.emailService) {
+      console.error('EmailService not initialized in EmailBridge');
+      return;
+    }
+
+    try {
+      await this.emailService.send({
+        name: 'User',
+        email,
+        subject: 'Your Sign In Code - Finder App',
+        template: 'signin-otp',
+        variables: {
+          email,
+          code,
+        },
+      });
+      console.log(`✅ Sign in OTP sent to: ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send sign in OTP to ${email}:`, error);
+      throw error;
+    }
+  }
 }
 
 export const emailBridge = EmailBridge.getInstance();
