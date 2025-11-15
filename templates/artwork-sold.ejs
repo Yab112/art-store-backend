@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artwork Sold</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .success-icon {
+      font-size: 60px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .sale-details {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .price-highlight {
+      font-size: 32px;
+      font-weight: bold;
+      color: #f5576c;
+      margin: 10px 0;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="success-icon">🎊</div>
+      <h1>Congratulations! Your Artwork Sold!</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= artistName %></strong>,</p>
+      <p>
+        Excellent news! Your artwork "<strong><%= title %></strong>" by <%= artist %> has been sold!
+      </p>
+      <div class="sale-details" style="text-align: center;">
+        <h3 style="margin-top: 0;">Sale Price</h3>
+        <div class="price-highlight">$<%= salePrice %></div>
+      </div>
+      <p>
+        <strong>Artwork ID:</strong> <%= artworkId %><br>
+        <strong>Transaction ID:</strong> <%= transactionId %><br>
+        <strong>Sold At:</strong> <%= soldAt %>
+      </p>
+      <p>
+        The payment will be processed and transferred to your account according to our payment schedule.
+        You can view the transaction details in your dashboard.
+      </p>
+      <p>
+        Thank you for being part of our community. We look forward to featuring more of your work!
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

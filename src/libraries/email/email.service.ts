@@ -31,13 +31,34 @@ export class EmailService {
       this.transporter = nodemailer.createTransport({
         host: this.configurationService.get('SMTP_HOST'),
         port: parseInt(this.configurationService.get('SMTP_PORT') || '587'),
-        secure: false,
+        secure: false, // true for 465, false for other ports
+        requireTLS: true, // Force TLS for Gmail
         auth: {
           user: this.configurationService.get('SMTP_USER'),
-          pass: this.configurationService.get('SMTP_PASS'),
+          pass: this.configurationService.get('SMTP_PASS')?.trim(), // Trim whitespace
         },
+        tls: {
+          // Don't reject unauthorized certificates (for development)
+          // In production, set this to true and use proper certificates
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000, // 10 seconds
+        socketTimeout: 10000, // 10 seconds
+        // Retry configuration
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3,
       });
-      this.logger.success('Email transporter initialized');
+      
+      // Verify connection
+      this.transporter.verify((error, success) => {
+        if (error) {
+          this.logger.error(`SMTP connection verification failed: ${error.message}`);
+        } else {
+          this.logger.success('Email transporter initialized and verified');
+        }
+      });
     } catch (error) {
       this.logger.error(
         `Failed to initialize email transporter: ${error.message}`,
