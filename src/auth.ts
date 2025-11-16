@@ -249,7 +249,6 @@ export const auth = betterAuth({
         process.env.SERVER_GOOGLE_CLIENT_SECRET || "demo-client-secret",
       accessType: "offline", // Get refresh token
       prompt: "select_account consent", // Always show account selector
-      scopes: ["openid", "email", "profile"], // Explicitly set Google OAuth scopes
     },
     facebook: {
       clientId: process.env.SERVER_FACEBOOK_CLIENT_ID || "demo-client-id",
