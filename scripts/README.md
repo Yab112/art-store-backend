@@ -21,6 +21,7 @@ pnpm swagger:export
 ```
 
 Generates and exports the Swagger JSON schema to `swagger.json` in the project root. Useful for:
+
 - Importing into API testing tools (Postman, Insomnia)
 - Generating client SDKs
 - Version control of API documentation
@@ -33,6 +34,7 @@ pnpm swagger:validate
 ```
 
 Validates the Swagger documentation for completeness:
+
 - Checks for endpoints without descriptions
 - Identifies DTO properties without documentation
 - Provides a summary of documentation coverage
@@ -52,11 +54,13 @@ This will export the schema and validate it in one command.
 The Swagger documentation is automatically generated when the application starts. However, you can use these scripts to:
 
 1. **Validate documentation before committing**:
+
    ```bash
    pnpm swagger:validate
    ```
 
 2. **Export documentation for external tools**:
+
    ```bash
    pnpm swagger:export
    ```
@@ -75,6 +79,7 @@ The Swagger documentation is automatically generated when the application starts
    - Use `@ApiProperty()` on all DTO fields
 
 2. **Run validation before committing**:
+
    ```bash
    pnpm swagger:validate
    ```
@@ -86,14 +91,15 @@ The Swagger documentation is automatically generated when the application starts
 ## Viewing Documentation
 
 The Swagger UI is available at:
+
 - **Local**: http://localhost:3000/swagger
 - **Production**: https://your-domain.com/swagger
 
 ## Troubleshooting
 
 If the script fails:
+
 1. Ensure all dependencies are installed: `pnpm install`
 2. Check that Prisma client is generated: `pnpm prisma:generate`
 3. Verify TypeScript compiles: `pnpm type-check`
 4. Check for missing Swagger decorators on controllers/DTOs
-

@@ -3,6 +3,8 @@ name: Deploy NestJS to EC2 via Docker
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/nest-app
