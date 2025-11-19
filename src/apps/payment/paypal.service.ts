@@ -26,6 +26,11 @@ export class PaypalService {
 
     if (!this.clientId || !this.clientSecret) {
       this.logger.warn('PayPal credentials not configured');
+      this.logger.warn(`PAYPAL_CLIENT_ID: ${this.clientId ? 'Set (hidden)' : 'NOT SET'}`);
+      this.logger.warn(`PAYPAL_CLIENT_SECRET: ${this.clientSecret ? 'Set (hidden)' : 'NOT SET'}`);
+    } else {
+      this.logger.log(`PayPal configured for ${mode} mode`);
+      this.logger.log(`PayPal base URL: ${this.baseUrl}`);
     }
   }
 
@@ -50,7 +55,12 @@ export class PaypalService {
       return response.data.access_token;
     } catch (error) {
       this.logger.error('Failed to get PayPal access token:', error);
-      throw new BadRequestException('PayPal authentication failed');
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error_description || error.response?.data?.error || error.message;
+        this.logger.error(`PayPal API Error: ${JSON.stringify(error.response?.data)}`);
+        throw new BadRequestException(`PayPal authentication failed: ${errorMessage}. Check your CLIENT_ID and CLIENT_SECRET.`);
+      }
+      throw new BadRequestException('PayPal authentication failed. Please check your credentials.');
     }
   }
 
@@ -63,6 +73,9 @@ export class PaypalService {
     try {
       const accessToken = await this.getAccessToken();
 
+      const frontendUrl = this.configService.get('FRONTEND_URL');
+      const baseReturnUrl = paymentData.returnUrl || `${frontendUrl}/payment/success`;
+      
       const payload = {
         intent: 'CAPTURE',
         purchase_units: [
@@ -79,8 +92,8 @@ export class PaypalService {
           brand_name: 'Art Gallery',
           landing_page: 'BILLING',
           user_action: 'PAY_NOW',
-          return_url: paymentData.returnUrl || `${this.configService.get('FRONTEND_URL')}/payment/success`,
-          cancel_url: paymentData.callbackUrl || `${this.configService.get('FRONTEND_URL')}/payment/cancel`,
+          return_url: `${baseReturnUrl}?provider=paypal`,
+          cancel_url: paymentData.callbackUrl || `${frontendUrl}/payment/cancel`,
         },
       };
 
@@ -105,12 +118,14 @@ export class PaypalService {
         throw new BadRequestException('PayPal approval URL not found');
       }
 
+      // PayPal will return with token parameter (order ID) in the return URL
+      // We return the PayPal order ID as txRef for verification
       return {
         success: true,
         message: 'Payment initialized successfully',
         data: {
           checkoutUrl: approvalUrl,
-          txRef: response.data.id,
+          txRef: response.data.id, // PayPal order ID
           provider: 'paypal',
         },
       };
@@ -153,6 +168,7 @@ export class PaypalService {
 
   /**
    * Verify a PayPal payment
+   * If order is APPROVED, it will be automatically captured
    */
   async verifyPayment(orderId: string): Promise<PaymentVerifyResponse> {
     try {
@@ -160,7 +176,8 @@ export class PaypalService {
 
       this.logger.log(`Verifying PayPal payment: ${orderId}`);
 
-      const response = await axios.get(
+      // First, get the order status
+      const orderResponse = await axios.get(
         `${this.baseUrl}/v2/checkout/orders/${orderId}`,
         {
           headers: {
@@ -169,18 +186,46 @@ export class PaypalService {
         },
       );
 
-      const order = response.data;
-      const status = order.status;
+      const order = orderResponse.data;
+      let status = order.status;
       const purchaseUnit = order.purchase_units[0];
 
+      // If order is APPROVED, capture it to complete the payment
+      if (status === 'APPROVED') {
+        this.logger.log(`Capturing approved PayPal order: ${orderId}`);
+        try {
+          const captureResponse = await axios.post(
+            `${this.baseUrl}/v2/checkout/orders/${orderId}/capture`,
+            {},
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          );
+          status = captureResponse.data.status;
+          this.logger.log(`PayPal order captured successfully: ${orderId}, status: ${status}`);
+        } catch (captureError) {
+          this.logger.error(`Failed to capture PayPal order ${orderId}:`, captureError);
+          // Continue with verification even if capture fails
+        }
+      }
+
+      const isSuccess = status === 'COMPLETED' || status === 'APPROVED';
+      
+      // Get the original txRef from reference_id (stored when order was created)
+      const originalTxRef = purchaseUnit.reference_id || orderId;
+
       return {
-        success: status === 'COMPLETED' || status === 'APPROVED',
-        message: 'Payment verified successfully',
+        success: isSuccess,
+        message: isSuccess ? 'Payment verified successfully' : 'Payment not completed',
         data: {
-          status: status.toLowerCase(),
+          status: isSuccess ? 'success' : status.toLowerCase(),
           amount: parseFloat(purchaseUnit.amount.value),
           currency: purchaseUnit.amount.currency_code,
-          txRef: orderId,
+          txRef: orderId, // PayPal order ID
+          originalTxRef: originalTxRef, // Original TX-{orderId}-{timestamp} format
           provider: 'paypal',
           chargeResponseMessage: status,
           customerEmail: order.payer?.email_address,

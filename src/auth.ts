@@ -169,17 +169,7 @@ import {
 } from "better-auth/plugins";
 import { emailBridge } from "./libraries/email";
 
-// Initialize PrismaClient with connection handling
-const prisma = new PrismaClient({
-  log: ['error', 'warn'],
-});
-
-// Ensure database connection is established
-// PrismaClient connects lazily, but we can test the connection
-prisma.$connect().catch((error) => {
-  console.error('❌ Better Auth PrismaClient connection error:', error);
-  console.error('This may cause authentication to fail. Please check your DATABASE_URL.');
-});
+const prisma = new PrismaClient();
 
 // Helper function to get user permissions based on role
 
@@ -275,7 +265,7 @@ export const auth = betterAuth({
     "http://localhost:3001",
     "http://localhost:5173", // Vite dev server (frontend)
     "http://localhost:5174", // Vite dev server (alternative)
-    "https://art-store-backend-latest.onrender.com", // Production backend URL
+    "http://13.48.104.231:3000", // Production backend URL
     "https://art-store-frontend-flame.vercel.app", // Production frontend URL
     process.env.FRONTEND_URL || "http://localhost:5173", // From environment
   ],
@@ -291,7 +281,8 @@ export const auth = betterAuth({
   baseURL:
     process.env.BETTER_AUTH_URL ||
     process.env.BACKEND_URL ||
-    "http://localhost:3000",
+    "http://localhost:3000" ||
+    "http://13.48.104.231:3000",
 
   // Secret for encryption
   secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",

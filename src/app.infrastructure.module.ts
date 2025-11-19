@@ -3,7 +3,7 @@ import { UsersModule } from './apps/users/users.module';
 import { ArtworkModule } from './apps/artwork';
 import { ProfileModule } from './apps/profile';
 import { CollectionsModule } from './apps/collections';
-import { FavoritesModule } from './apps/favorites';
+import { FavoritesModule } from './apps/favorites';  
 import { CartModule } from './apps/cart';
 import { OrderModule } from './apps/order/order.module';
 import { PaymentModule } from './apps/payment/payment.module';
