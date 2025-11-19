@@ -18,7 +18,7 @@ import { join } from 'path';
 import { AppModule } from '../src/app.module';
 import { auth } from '../src/auth';
 
-async function generateSwagger() {
+async function generateSwagger() { 
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api');
 
