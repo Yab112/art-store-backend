@@ -262,13 +262,14 @@ export const auth = betterAuth({
   // Security configuration
   trustedOrigins: [
     "http://localhost:3000", // Backend
-    "http://localhost:3001",
+    "http://localhost:3001", // Admin dashboard (Next.js default)
     "http://localhost:5173", // Vite dev server (frontend)
     "http://localhost:5174", // Vite dev server (alternative)
-    "http://13.48.104.231:3000", // Production backend URL
+    "http://13.48.104.231:3000", // Production backend URL (EC2)
     "https://art-store-frontend-flame.vercel.app", // Production frontend URL
     process.env.FRONTEND_URL || "http://localhost:5173", // From environment
-  ],
+    process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
+  ].filter(Boolean), // Remove undefined values
 
   // Rate limiting
   rateLimit: {
@@ -278,11 +279,29 @@ export const auth = betterAuth({
 
   // Base URL configuration - should be the backend origin only (without /api/auth)
   // Better Auth automatically handles the /api/auth path
-  baseURL:
-    process.env.BETTER_AUTH_URL ||
-    process.env.BACKEND_URL ||
-    "http://localhost:3000" ||
-    "http://13.48.104.231:3000",
+  // Get the public URL from environment or detect from NODE_ENV
+  baseURL: (() => {
+    // Priority: BETTER_AUTH_URL > BACKEND_URL > detect from NODE_ENV
+    let baseURL: string;
+    if (process.env.BETTER_AUTH_URL) {
+      baseURL = process.env.BETTER_AUTH_URL;
+    } else if (process.env.BACKEND_URL) {
+      baseURL = process.env.BACKEND_URL;
+    } else if (process.env.NODE_ENV === "production") {
+      // For production, use EC2 URL
+      baseURL = "http://13.48.104.231:3000";
+    } else {
+      // Default to localhost for development
+      baseURL = "http://localhost:3000";
+    }
+
+    // Log the baseURL for debugging
+    console.log("🔐 Better Auth baseURL configured:", baseURL);
+    console.log("🔐 Better Auth NODE_ENV:", process.env.NODE_ENV);
+    console.log("🔐 Better Auth BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
+
+    return baseURL;
+  })(),
 
   // Secret for encryption
   secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",
@@ -359,11 +378,39 @@ export const auth = betterAuth({
     database: {
       generateId: false,
     },
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      partitioned: true,
-    },
+    defaultCookieAttributes: (() => {
+      // Determine if we're using HTTPS
+      const baseURL =
+        process.env.BETTER_AUTH_URL ||
+        process.env.BACKEND_URL ||
+        (process.env.NODE_ENV === "production"
+          ? "http://13.48.104.231:3000"
+          : "http://localhost:3000");
+
+      const isHTTPS = baseURL.startsWith("https");
+
+      // For HTTP (like EC2), we need:
+      // - secure: false (cookies can't be secure over HTTP)
+      // - sameSite: "lax" (works for same-site and top-level navigation)
+      //   Note: For cross-origin HTTP, we use "lax" which works for top-level navigation
+      // For HTTPS, we can use:
+      // - secure: true
+      // - sameSite: "none" (required for cross-origin)
+      // - partitioned: true (for better cross-site cookie handling)
+      const cookieAttrs = {
+        sameSite: isHTTPS ? ("none" as const) : ("lax" as const),
+        secure: isHTTPS,
+        partitioned: isHTTPS, // Only works with secure: true
+      };
+
+      console.log("🍪 Better Auth cookie attributes:", {
+        baseURL,
+        isHTTPS,
+        ...cookieAttrs,
+      });
+
+      return cookieAttrs;
+    })(),
   },
 });
 

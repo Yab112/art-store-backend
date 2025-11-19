@@ -7,7 +7,7 @@ import { FavoritesModule } from './apps/favorites';
 import { CartModule } from './apps/cart';
 import { OrderModule } from './apps/order/order.module';
 import { PaymentModule } from './apps/payment/payment.module';
-import { ArtistModule } from './apps/artist/artist.module';
+import { ArtistModule } from './apps/artist/artist.module'; 
 import { UploadModule } from './libraries/upload';
 import { TestModule } from './apps/test/test.module';
 
