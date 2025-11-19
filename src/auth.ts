@@ -169,7 +169,17 @@ import {
 } from "better-auth/plugins";
 import { emailBridge } from "./libraries/email";
 
-const prisma = new PrismaClient();
+// Initialize PrismaClient with connection handling
+const prisma = new PrismaClient({
+  log: ['error', 'warn'],
+});
+
+// Ensure database connection is established
+// PrismaClient connects lazily, but we can test the connection
+prisma.$connect().catch((error) => {
+  console.error('❌ Better Auth PrismaClient connection error:', error);
+  console.error('This may cause authentication to fail. Please check your DATABASE_URL.');
+});
 
 // Helper function to get user permissions based on role
 
