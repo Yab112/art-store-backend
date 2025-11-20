@@ -19,21 +19,44 @@ import { join } from "path";
 
 async function bootstrap() {
   const server = express();
-  
+
   server.use(
     cors({
-      origin: [
-        "http://localhost:5173", // Vite dev server (frontend)
-        "http://localhost:3000", // Backend (for Swagger, etc.)
-        "http://localhost:3001",
-        "http://13.48.104.231:3000", // EC2 Production
-        "https://art-store-backend-latest.onrender.com",
-        "https://art-store-frontend-flame.vercel.app",
-        process.env.FRONTEND_URL || "http://localhost:5173",
-      ],
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = [
+          "http://localhost:5173", // Vite dev server (frontend)
+          "http://localhost:3000", // Backend (for Swagger, etc.)
+          "http://localhost:3001", // Admin dashboard (Next.js default)
+          "http://13.48.104.231:3000", // EC2 Production backend
+          "https://art-store-backend-latest.onrender.com",
+          "https://art-store-frontend-flame.vercel.app",
+          process.env.FRONTEND_URL,
+          process.env.ADMIN_FRONTEND_URL,
+        ].filter(Boolean);
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          // Log for debugging
+          console.log("⚠️ CORS blocked origin:", origin);
+          callback(null, true); // Allow for now, but log it
+        }
+      },
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-      credentials: true, // Allow credentials (cookies, authorization headers, etc.)
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Cookie",
+        "Set-Cookie",
+        "Origin",
+        "Accept",
+      ],
+      exposedHeaders: ["Set-Cookie", "Cookie"],
+      credentials: true, // CRITICAL: Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
     })
@@ -49,7 +72,7 @@ async function bootstrap() {
       bodyParser: false,
     }
   );
-  app.useStaticAssets(join(__dirname, '..', 'public'));
+  app.useStaticAssets(join(__dirname, "..", "public"));
   const configurationService = app.get(ConfigurationService);
   const corsService = app.get(CorsService);
   const loggerService = app.get(LoggerService);
@@ -64,7 +87,7 @@ async function bootstrap() {
       originAgentCluster: false,
     })
   );
-  app.enableCors(corsService.getOptions());
+  // app.enableCors(corsService.getOptions());
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -159,8 +182,8 @@ async function bootstrap() {
     },
     customSiteTitle: "Art Store API Documentation",
     customCss: ".swagger-ui .topbar { display: none }",
-    customCssUrl: [],   // important
-    customJs: [],   
+    customCssUrl: [], // important
+    customJs: [],
   });
 
   // Log Swagger info

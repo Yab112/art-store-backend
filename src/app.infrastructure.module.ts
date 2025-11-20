@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersModule } from './apps/users/users.module';
-import { ArtworkModule } from './apps/artwork';
+import { ArtworkModule } from './apps/artwork'; 
 import { ProfileModule } from './apps/profile';
 import { CollectionsModule } from './apps/collections';
 import { FavoritesModule } from './apps/favorites';  
