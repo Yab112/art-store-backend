@@ -24,10 +24,22 @@ export class CartService {
       // Check if artwork exists
       const artwork = await this.prisma.artwork.findUnique({
         where: { id: artworkId },
+        include: {
+          user: {
+            select: {
+              id: true,
+            },
+          },
+        },
       });
 
       if (!artwork) {
         throw new NotFoundException(CART_MESSAGES.ERROR.ARTWORK_NOT_FOUND);
+      }
+
+      // Prevent users from adding their own artwork to cart
+      if (artwork.userId === userId) {
+        throw new BadRequestException('You cannot add your own artwork to the cart');
       }
 
       // Check if user has reached max cart items

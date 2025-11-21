@@ -70,11 +70,51 @@ export class PaymentService {
 
       // If payment successful, update order status
       if (verifyResponse.success && verifyResponse.data.status === 'success') {
-        // Extract orderId from txRef (format: TX-{orderId}-{timestamp})
-        const txRefParts = verifyData.txRef.split('-');
-        if (txRefParts.length >= 2) {
-          const orderId = txRefParts[1];
+        let orderId: string | null = null;
 
+        // Extract orderId from txRef
+        // For Chapa: format is TX-{orderId}-{timestamp}
+        // For PayPal: use originalTxRef if available, otherwise try to extract from txRef
+        if (verifyData.provider === 'paypal') {
+          // For PayPal, check if originalTxRef is available in the response
+          const originalTxRef = (verifyResponse.data as any).originalTxRef;
+          if (originalTxRef) {
+            // Extract orderId from original txRef format: TX-{orderId}-{timestamp}
+            const txRefParts = originalTxRef.split('-');
+            if (txRefParts.length >= 2 && txRefParts[0] === 'TX') {
+              orderId = txRefParts[1];
+            }
+          } else {
+            // Fallback: try to find transaction by PayPal order ID in metadata
+            try {
+              const transactions = await this.prisma.transaction.findMany({
+                where: {
+                  metadata: {
+                    path: ['paypalOrderId'],
+                    equals: verifyData.txRef,
+                  },
+                },
+                include: { order: true },
+              });
+
+              if (transactions.length > 0 && transactions[0]?.orderId) {
+                orderId = transactions[0].orderId;
+              } else {
+                this.logger.warn(`Could not find order for PayPal order ID: ${verifyData.txRef}. Original txRef not available.`);
+              }
+            } catch (lookupError) {
+              this.logger.error(`Failed to find order for PayPal txRef ${verifyData.txRef}:`, lookupError);
+            }
+          }
+        } else {
+          // For Chapa, extract from txRef format: TX-{orderId}-{timestamp}
+          const txRefParts = verifyData.txRef.split('-');
+          if (txRefParts.length >= 2 && txRefParts[0] === 'TX') {
+            orderId = txRefParts[1];
+          }
+        }
+
+        if (orderId) {
           try {
             // Update order status to PAID
             await this.prisma.order.update({
@@ -88,6 +128,7 @@ export class PaymentService {
                       txRef: verifyData.txRef,
                       paymentProvider: verifyData.provider,
                       verifiedAt: new Date().toISOString(),
+                      ...(verifyData.provider === 'paypal' && { paypalOrderId: verifyData.txRef }),
                     },
                   },
                 },
@@ -115,6 +156,8 @@ export class PaymentService {
             this.logger.error(`Failed to update order ${orderId}:`, orderError);
             // Don't throw error here, payment was successful
           }
+        } else {
+          this.logger.warn(`Could not extract orderId from txRef: ${verifyData.txRef} for provider: ${verifyData.provider}`);
         }
       }
 

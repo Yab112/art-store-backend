@@ -4,7 +4,12 @@ import { ConfigurationService } from './configuration.service';
 
 @Global()
 @Module({
-  imports: [ConfigModule.forRoot()],
+  imports: [
+    ConfigModule.forRoot({
+      envFilePath: process.env.ENV_FILE_PATH || 'env/local.env',
+      isGlobal: true,
+    }),
+  ],
   providers: [ConfigurationService],
   exports: [ConfigurationService],
 })

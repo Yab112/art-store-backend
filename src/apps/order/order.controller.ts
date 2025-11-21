@@ -28,9 +28,14 @@ export class OrderController {
   async createOrder(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     this.logger.log(`Create order request from: ${createOrderDto.buyerEmail}`);
 
-    // In a real app, get userId from authenticated session
-    // For now, we'll use a placeholder
-    const userId = req.user?.id || 'guest';
+    // Get userId from authenticated session or by email
+    let userId = req.user?.id;
+    
+    // If no user in session, try to get user by email
+    if (!userId) {
+      const user = await this.orderService.getUserByEmail(createOrderDto.buyerEmail);
+      userId = user?.id || 'guest';
+    }
 
     return this.orderService.createOrder(userId, createOrderDto);
   }

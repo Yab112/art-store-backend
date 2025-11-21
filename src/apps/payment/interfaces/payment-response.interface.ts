@@ -20,6 +20,7 @@ export interface PaymentVerifyResponse {
     chargeResponseMessage?: string;
     customerEmail?: string;
     customerName?: string;
+    originalTxRef?: string; // For PayPal: original TX-{orderId}-{timestamp} format
   };
 }
 

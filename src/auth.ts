@@ -169,17 +169,7 @@ import {
 } from "better-auth/plugins";
 import { emailBridge } from "./libraries/email";
 
-// Initialize PrismaClient with connection handling
-const prisma = new PrismaClient({
-  log: ['error', 'warn'],
-});
-
-// Ensure database connection is established
-// PrismaClient connects lazily, but we can test the connection
-prisma.$connect().catch((error) => {
-  console.error('❌ Better Auth PrismaClient connection error:', error);
-  console.error('This may cause authentication to fail. Please check your DATABASE_URL.');
-});
+const prisma = new PrismaClient();
 
 // Helper function to get user permissions based on role
 
@@ -272,13 +262,15 @@ export const auth = betterAuth({
   // Security configuration
   trustedOrigins: [
     "http://localhost:3000", // Backend
-    "http://localhost:3001",
+    "http://localhost:3001", // Admin dashboard (Next.js default)
     "http://localhost:5173", // Vite dev server (frontend)
     "http://localhost:5174", // Vite dev server (alternative)
-    "https://art-store-backend-latest.onrender.com", // Production backend URL
-    "https://art-store-frontend-flame.vercel.app", // Production frontend URL
+    "http://13.48.104.231:3000", // Production backend URL (EC2)
+    "https://art-store-frontend-flame.vercel.app",
+    "https://www.arthopia.com.et", // Production frontend URL
     process.env.FRONTEND_URL || "http://localhost:5173", // From environment
-  ],
+    process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
+  ].filter(Boolean), // Remove undefined values
 
   // Rate limiting
   rateLimit: {
@@ -288,10 +280,20 @@ export const auth = betterAuth({
 
   // Base URL configuration - should be the backend origin only (without /api/auth)
   // Better Auth automatically handles the /api/auth path
-  baseURL:
-    process.env.BETTER_AUTH_URL ||
-    process.env.BACKEND_URL ||
-    "http://localhost:3000",
+  // IMPORTANT: This must match the actual public URL where your server is accessible
+  baseURL: (() => {
+    const url =
+      process.env.BETTER_AUTH_URL ||
+      process.env.BACKEND_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://13.48.104.231:3000"
+        : "http://localhost:3000");
+    console.log("🔐 Better Auth baseURL:", url);
+    console.log("🔐 Better Auth NODE_ENV:", process.env.NODE_ENV);
+    console.log("🔐 Better Auth BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
+    console.log("🔐 Better Auth BACKEND_URL:", process.env.BACKEND_URL);
+    return url;
+  })(),
 
   // Secret for encryption
   secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",
@@ -299,6 +301,23 @@ export const auth = betterAuth({
   // Disable telemetry for cleaner logs
   telemetry: {
     enabled: false,
+  },
+
+  // Logger configuration for debugging session issues
+  logger: {
+    level: "debug", // Set to "debug" to see detailed auth logs
+    disabled: false,
+    log: (level, message, ...args) => {
+      // Custom logging to help debug session issues
+      if (
+        level === "error" ||
+        level === "warn" ||
+        message.includes("session") ||
+        message.includes("cookie")
+      ) {
+        console.log(`[Better Auth ${level.toUpperCase()}]`, message, ...args);
+      }
+    },
   },
 
   // Plugins for extended functionality
@@ -368,10 +387,57 @@ export const auth = betterAuth({
     database: {
       generateId: false,
     },
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      partitioned: true,
+    // Dynamically set cookie attributes based on baseURL protocol
+    // CRITICAL: secure: true requires HTTPS, sameSite: "none" requires secure: true
+    useSecureCookies: (() => {
+      const baseURL =
+        process.env.BETTER_AUTH_URL ||
+        process.env.BACKEND_URL ||
+        (process.env.NODE_ENV === "production"
+          ? "http://13.48.104.231:3000"
+          : "http://localhost:3000");
+      const isHTTPS = baseURL.startsWith("https://");
+      console.log(
+        "🔐 Better Auth useSecureCookies:",
+        isHTTPS,
+        "(baseURL:",
+        baseURL,
+        ")"
+      );
+      return isHTTPS;
+    })(),
+    defaultCookieAttributes: (() => {
+      const baseURL =
+        process.env.BETTER_AUTH_URL ||
+        process.env.BACKEND_URL ||
+        (process.env.NODE_ENV === "production"
+          ? "http://13.48.104.231:3000"
+          : "http://localhost:3000");
+      const isHTTPS = baseURL.startsWith("https://");
+
+      // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)
+      // For HTTP: use sameSite: "lax" + secure: false (won't work for cross-origin API requests)
+      // Note: HTTP cross-origin cookies are fundamentally limited by browser security
+      const attributes = isHTTPS
+        ? {
+            sameSite: "none" as const,
+            secure: true,
+            httpOnly: true,
+            partitioned: true, // Required for cross-site cookies in modern browsers
+          }
+        : {
+            sameSite: "lax" as const,
+            secure: false,
+            httpOnly: true,
+          };
+
+      console.log("🔐 Better Auth cookie attributes:", attributes);
+      return attributes;
+    })(),
+    // Add logger to debug cookie issues
+    logger: {
+      level: "debug",
+      disabled: false,
     },
   },
 });

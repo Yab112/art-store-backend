@@ -11,6 +11,16 @@ export class OrderService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * Get user by email (helper for order creation)
+   */
+  async getUserByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+  }
+
+  /**
    * Create a new order from cart items
    */
   async createOrder(userId: string, createOrderDto: CreateOrderDto) {
@@ -37,6 +47,15 @@ export class OrderService {
 
       if (artworks.length !== artworkIds.length) {
         throw new BadRequestException('Some artworks are not available');
+      }
+
+      // Prevent users from purchasing their own artwork
+      const ownArtworks = artworks.filter((artwork) => artwork.userId === userId);
+      if (ownArtworks.length > 0) {
+        const artworkTitles = ownArtworks.map((a) => a.title || a.id).join(', ');
+        throw new BadRequestException(
+          `You cannot purchase your own artwork: ${artworkTitles}`,
+        );
       }
 
       // Calculate totals
