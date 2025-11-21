@@ -58,23 +58,24 @@ model Verification {
 
 
 model Category {
-  id          String        @id
-  name        String
+  id          String              @id @default(uuid())
+  name        String              @unique
   description String?
-  icon        String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime
-  SubCategory SubCategory[]
+  slug        String              @unique
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  artworks    ArtworkOnCategory[]
 }
 
-model SubCategory {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  categoryId  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  Category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+model ArtworkOnCategory {
+  id         String   @id @default(uuid())
+  artworkId  String
+  categoryId String
+
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, categoryId])
 }
 
 model Chat {
@@ -204,7 +205,6 @@ model Artwork {
   id                    String        @id @default(uuid())
   title                 String?
   artist                String
-  technique             String
   support               String
   state                 String
   yearOfArtwork         String
@@ -241,6 +241,7 @@ model Artwork {
   disputes              Dispute[]
   favorites              Favorite[]
   cartItems              CartItem[]
+  categories            ArtworkOnCategory[]
 
   @@map("artworks")
 }

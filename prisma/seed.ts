@@ -61,43 +61,24 @@ async function main() {
   for (let i = 0; i < 12; i++) {
     const category = await prisma.category.create({
       data: {
-        id: `cat_${i}`,
         name: categoryNames[i],
         description: `Description for ${categoryNames[i]}`,
-        updatedAt: new Date(),
+        slug: categoryNames[i].toLowerCase().replace(/\s+/g, '-'),
       },
     });
     categories.push(category);
     console.log(`✅ Created category ${i + 1}: ${category.name}`);
   }
 
-  // 5. Seed SubCategories (12)
-  console.log('\n📝 Seeding SubCategories...');
-  for (let i = 0; i < 12; i++) {
-    const category = categories[i % categories.length];
-    await prisma.subCategory.create({
-      data: {
-        id: `subcat_${i}`,
-        name: `Sub ${category.name}`,
-        description: `Subcategory description ${i}`,
-        categoryId: category.id,
-        updatedAt: new Date(),
-      },
-    });
-    console.log(`✅ Created subcategory ${i + 1}`);
-  }
-
-  // 6. Seed Artworks (12)
+  // 5. Seed Artworks (12) with Categories
   console.log('\n📝 Seeding Artworks...');
   const artworks = [];
   const statuses: ArtworkStatus[] = ['PENDING', 'APPROVED', 'REJECTED', 'SOLD'];
-  const techniques = ['Oil Painting', 'Watercolor', 'Acrylic', 'Digital', 'Charcoal', 'Pastel', 'Ink', 'Mixed Media', 'Collage', 'Printmaking', 'Sculpture', 'Photography'];
   for (let i = 0; i < 12; i++) {
     const artwork = await prisma.artwork.create({
       data: {
         title: `Artwork ${i + 1}`,
         artist: `Artist ${i + 1}`,
-        technique: techniques[i],
         support: 'Canvas',
         state: 'Excellent',
         yearOfArtwork: String(2020 + i),
@@ -122,7 +103,23 @@ async function main() {
       },
     });
     artworks.push(artwork);
-    console.log(`✅ Created artwork ${i + 1}: ${artwork.title}`);
+
+    // Assign 1-3 random categories to each artwork
+    const numCategories = Math.floor(Math.random() * 3) + 1;
+    const selectedCategories = [];
+    for (let j = 0; j < numCategories; j++) {
+      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+      if (!selectedCategories.find(c => c.id === randomCategory.id)) {
+        selectedCategories.push(randomCategory);
+        await prisma.artworkOnCategory.create({
+          data: {
+            artworkId: artwork.id,
+            categoryId: randomCategory.id,
+          },
+        });
+      }
+    }
+    console.log(`✅ Created artwork ${i + 1}: ${artwork.title} with ${selectedCategories.length} categories`);
   }
 
   // 7. Seed Collections (12)

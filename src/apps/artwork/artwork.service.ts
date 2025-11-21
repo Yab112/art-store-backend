@@ -114,7 +114,7 @@ export class ArtworkService {
       );
 
       // Convert dimensions to JSON format for Prisma
-      const { dimensions, ...rest } = createArtworkDto;
+      const { dimensions, categoryIds, ...rest } = createArtworkDto;
 
       // CRITICAL: Use the exact user.id from the database lookup, not the trimmedUserId
       // This ensures we're using the exact ID format that exists in the database
@@ -169,17 +169,33 @@ export class ArtworkService {
         artworkData.userId === finalUserCheck.id
       );
 
-      const artwork = await this.prisma.artwork.create({
-        data: artworkData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+      // Create artwork with categories in a transaction
+      const artwork = await this.prisma.$transaction(async (tx) => {
+        // Create the artwork
+        const newArtwork = await tx.artwork.create({
+          data: artworkData,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
+        });
+
+        // Associate categories if provided
+        if (categoryIds && categoryIds.length > 0) {
+          await tx.artworkOnCategory.createMany({
+            data: categoryIds.map((categoryId) => ({
+              artworkId: newArtwork.id,
+              categoryId,
+            })),
+          });
+        }
+
+        return newArtwork;
       });
       console.log("✅ Artwork created successfully:", artwork.id);
 
@@ -194,7 +210,6 @@ export class ArtworkService {
           userEmail: artworkUser?.email || "",
           artist: artwork.artist,
           title: artwork.title,
-          technique: artwork.technique,
           desiredPrice: artwork.desiredPrice,
           photos: artwork.photos,
           proofOfOrigin: artwork.proofOfOrigin,
@@ -216,7 +231,7 @@ export class ArtworkService {
     status?: ArtworkStatus;
     search?: string;
     artist?: string;
-    technique?: string;
+    categoryId?: string;
     support?: string;
     origin?: string;
     yearOfArtwork?: string;
@@ -233,7 +248,7 @@ export class ArtworkService {
         status,
         search,
         artist,
-        technique,
+        categoryId,
         support,
         origin,
         yearOfArtwork,
@@ -264,10 +279,11 @@ export class ArtworkService {
         };
       }
 
-      if (technique) {
-        where.technique = {
-          contains: technique,
-          mode: "insensitive",
+      if (categoryId) {
+        where.categories = {
+          some: {
+            categoryId: categoryId,
+          },
         };
       }
 
@@ -305,7 +321,6 @@ export class ArtworkService {
           { title: { contains: search, mode: "insensitive" } },
           { artist: { contains: search, mode: "insensitive" } },
           { description: { contains: search, mode: "insensitive" } },
-          { technique: { contains: search, mode: "insensitive" } },
         ];
       }
 
@@ -327,6 +342,17 @@ export class ArtworkService {
                 image: true,
               },
             },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
             interactions: {
               where: { type: "LIKE" },
               select: { id: true },
@@ -346,6 +372,7 @@ export class ArtworkService {
       // Transform artworks to include like counts and other stats
       const artworksWithStats = artworks.map((artwork) => ({
         ...artwork,
+        categories: artwork.categories.map((ac) => ac.category),
         likeCount: artwork.interactions.length,
         commentCount: artwork._count.comments,
         reviewCount: artwork._count.reviews,
@@ -379,6 +406,17 @@ export class ArtworkService {
               name: true,
               email: true,
               image: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
             },
           },
           interactions: {
@@ -480,6 +518,8 @@ export class ArtworkService {
 
       return {
         ...artworkWithRelations,
+        categories:
+          artworkWithRelations.categories?.map((ac) => ac.category) || [],
         interactions: artworkWithRelations.interactions || [],
         comments: artworkWithRelations.comments || [],
         reviews: reviewsWithUser,
@@ -520,7 +560,7 @@ export class ArtworkService {
       }
 
       // Convert dimensions to JSON if present
-      const { dimensions, ...restUpdate } = updateArtworkDto;
+      const { dimensions, categoryIds, ...restUpdate } = updateArtworkDto;
       const updateData: any = {
         ...restUpdate,
       };
@@ -528,18 +568,42 @@ export class ArtworkService {
         updateData.dimensions = dimensions as unknown as any;
       }
 
-      const artwork = await this.prisma.artwork.update({
-        where: { id },
-        data: updateData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+      // Update artwork with categories in a transaction
+      const artwork = await this.prisma.$transaction(async (tx) => {
+        // Update the artwork
+        const updatedArtwork = await tx.artwork.update({
+          where: { id },
+          data: updateData,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
+        });
+
+        // Update categories if provided
+        if (categoryIds !== undefined) {
+          // Remove existing categories
+          await tx.artworkOnCategory.deleteMany({
+            where: { artworkId: id },
+          });
+
+          // Add new categories
+          if (categoryIds.length > 0) {
+            await tx.artworkOnCategory.createMany({
+              data: categoryIds.map((categoryId) => ({
+                artworkId: id,
+                categoryId,
+              })),
+            });
+          }
+        }
+
+        return updatedArtwork;
       });
 
       // Track changes for event
