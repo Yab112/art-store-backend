@@ -84,6 +84,7 @@ export class UsersService {
         }),
         this.prisma.user.count({ where }),
       ]);
+      console.log("users", users);
 
       return {
         users,
@@ -118,7 +119,7 @@ export class UsersService {
               createdAt: true,
             },
           },
-          collections: {
+          Collection: {
             take: 10,
             orderBy: { createdAt: "desc" },
             include: {
@@ -189,7 +190,7 @@ export class UsersService {
           _count: {
             select: {
               artworks: true,
-              collections: true,
+              Collection: true,
               reviews: true,
               interactions: true,
               favorites: true,

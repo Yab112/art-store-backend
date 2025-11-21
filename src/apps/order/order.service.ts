@@ -1,14 +1,18 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
-  private readonly PLATFORM_COMMISSION_RATE = 0.10; // 10% commission
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private settingsService: SettingsService,
+  ) {}
 
   /**
    * Get user by email (helper for order creation)
@@ -76,7 +80,9 @@ export class OrderService {
         };
       });
 
-      const platformFee = subtotal * this.PLATFORM_COMMISSION_RATE;
+      // Get platform commission rate from settings
+      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
+      const platformFee = subtotal * platformCommissionRate;
       const totalAmount = subtotal + platformFee;
 
       // Create order with transaction
@@ -85,6 +91,7 @@ export class OrderService {
           buyerEmail: createOrderDto.buyerEmail,
           totalAmount: new Decimal(totalAmount),
           status: 'PENDING',
+          updatedAt: new Date(),
           items: {
             create: orderItemsData,
           },
@@ -95,7 +102,7 @@ export class OrderService {
               metadata: JSON.parse(JSON.stringify({
                 subtotal,
                 platformFee,
-                platformCommissionRate: this.PLATFORM_COMMISSION_RATE,
+                platformCommissionRate,
                 shippingAddress: createOrderDto.shippingAddress,
                 paymentMethod: createOrderDto.paymentMethod,
                 userId,
@@ -213,7 +220,7 @@ export class OrderService {
 
       // Calculate artist earnings and create withdrawal entries
       const metadata = order.transaction.metadata as any;
-      const platformCommissionRate = metadata.platformCommissionRate || this.PLATFORM_COMMISSION_RATE;
+      const platformCommissionRate = metadata.platformCommissionRate || await this.settingsService.getPlatformCommissionRate();
 
       for (const item of order.items) {
         const itemPrice = Number(item.price) * item.quantity;
@@ -223,6 +230,7 @@ export class OrderService {
         // Create a withdrawal entry for the artist (pending state)
         await this.prisma.withdrawal.create({
           data: {
+            userId: item.artwork.userId,
             payoutAccount: item.artwork.iban || 'NOT_SET',
             amount: new Decimal(artistAmount),
             status: 'INITIATED', // Artist can request withdrawal later
@@ -274,6 +282,70 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  /**
+   * Get all orders with pagination and filters
+   */
+  async findAll(page: number = 1, limit: number = 20, search?: string, status?: OrderStatus) {
+    try {
+      const skip = (page - 1) * limit;
+
+      // Build where clause
+      const where: any = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.OR = [
+          { buyerEmail: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: 'insensitive' } },
+        ];
+      }
+
+      const [orders, total] = await Promise.all([
+        this.prisma.order.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            items: {
+              include: {
+                artwork: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            transaction: true,
+          },
+        }),
+        this.prisma.order.count({ where }),
+      ]);
+
+      return {
+        orders,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to fetch orders:', error);
+      throw error;
+    }
   }
 
   /**

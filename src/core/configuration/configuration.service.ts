@@ -45,6 +45,18 @@ export class ConfigurationService {
     return valueClean;
   }
 
+  /**
+   * Get the server/base backend URL
+   * Uses SERVER_BASE_URL env var or falls back to BASE_URL or constructs from port
+   */
+  getServerBaseUrl(): string {
+    const serverUrl = this.manager.get('SERVER_BASE_URL');
+    if (serverUrl) {
+      return serverUrl.replace(/\/$/, '');
+    }
+    return this.getBaseUrl();
+  }
+
   isEnvironmentDevelopment(): boolean {
     return this.getEnvironment() === 'development';
   }

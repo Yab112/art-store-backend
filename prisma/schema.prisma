@@ -37,7 +37,7 @@ model Session {
 }
 
 model TwoFactor {
-  id          String   @id @default(uuid())
+  id          String   @id
   userId      String
   secret      String
   backupCodes String?
@@ -47,7 +47,7 @@ model TwoFactor {
 }
 
 model Verification {
-  id         String   @id @default(uuid())
+  id         String   @id
   identifier String
   value      String
   expiresAt  DateTime
@@ -461,17 +461,7 @@ enum NOTIFICATION_TYPE {
   SYSTEM
 }
 
-enum DISPUTE_STATUS {
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-  REJECTED
-}
-
-enum MESSAGE_STATUS {
-  SENT
-  DELIVERED
-  READ
+enum ArtworkStatus {
   PENDING
   APPROVED
   REJECTED
@@ -479,17 +469,11 @@ enum MESSAGE_STATUS {
   WITHDRAWN
 }
 
-enum MESSAGE_TYPE {
-  TEXT
-  IMAGE
-  VIDEO
-  SYSTEM
-}
-
-enum CHAT_STATUS {
-  OPEN
+enum DISPUTE_STATUS {
+  IN_PROGRESS
+  RESOLVED
   CLOSED
-  ARCHIVED
+  REJECTED
 }
 
 enum OrderStatus {
@@ -497,6 +481,17 @@ enum OrderStatus {
   PAID
   CANCELLED
   REFUNDED
+}
+
+model Settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("platform") // platform, payment, order, collection
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("settings")
 }
 
 enum PaymentStatus {
@@ -515,3 +510,16 @@ enum ReportReason {
   OTHER
 }
 
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  ACTIONED
+  DISMISSED
+}
+
+enum ReportTargetType {
+  ARTWORK
+  USER
+  COMMENT
+  OTHER
+}

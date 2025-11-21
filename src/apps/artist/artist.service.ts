@@ -1,13 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ArtistService {
   private readonly logger = new Logger(ArtistService.name);
-  private readonly PLATFORM_COMMISSION_RATE = 0.10;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
   /**
    * Get artist earnings statistics
@@ -34,6 +37,7 @@ export class ArtistService {
       });
 
       // Calculate total sales, earnings, and commission
+      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
       let totalSales = 0;
       let totalCommission = 0;
       let totalEarnings = 0;
@@ -45,7 +49,7 @@ export class ArtistService {
         for (const orderItem of artwork.orderItems) {
           if (orderItem.order.status === 'PAID') {
             const salePrice = Number(orderItem.price);
-            const commission = salePrice * this.PLATFORM_COMMISSION_RATE;
+            const commission = salePrice * platformCommissionRate;
             const earnings = salePrice - commission;
 
             totalSales += salePrice;
@@ -173,13 +177,21 @@ export class ArtistService {
         );
       }
 
-      if (amount < 10) {
-        throw new Error('Minimum withdrawal amount is $10');
+      // Get payment settings from settings
+      const paymentSettings = await this.settingsService.getPaymentSettingsValues();
+      if (amount < paymentSettings.minWithdrawalAmount) {
+        throw new Error(`Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`);
+      }
+
+      // Check maximum withdrawal amount (0 = unlimited)
+      if (paymentSettings.maxWithdrawalAmount > 0 && amount > paymentSettings.maxWithdrawalAmount) {
+        throw new Error(`Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`);
       }
 
       // Create withdrawal request
       const withdrawal = await this.prisma.withdrawal.create({
         data: {
+          userId,
           payoutAccount: iban,
           amount: new Decimal(amount),
           status: 'INITIATED',

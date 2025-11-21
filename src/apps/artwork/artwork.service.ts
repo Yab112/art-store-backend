@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
+import { ConfigurationService } from "../../core/configuration";
 import { CreateArtworkDto, UpdateArtworkDto } from "./dto";
 import { ArtworkStatus } from "@prisma/client";
 import {
@@ -31,7 +32,8 @@ export class ArtworkService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventService: EventService
+    private readonly eventService: EventService,
+    private readonly configurationService: ConfigurationService
   ) {}
 
   async create(createArtworkDto: CreateArtworkDto, userId: string) {
@@ -405,7 +407,7 @@ export class ArtworkService {
               rating: true,
               comment: true,
               createdAt: true,
-              User: {
+              user: {
                 select: {
                   id: true,
                   name: true,
@@ -444,7 +446,7 @@ export class ArtworkService {
           rating: number;
           comment: string | null;
           createdAt: Date;
-          User: { id: string; name: string; email: string };
+          user: { id: string; name: string; email: string };
         }>;
       };
 
@@ -470,11 +472,10 @@ export class ArtworkService {
             reviews.length
           : undefined;
 
-      // Map User to user for frontend consistency
+      // Map user for frontend consistency
       const reviewsWithUser = reviews.map((review) => ({
         ...review,
-        user: review.User,
-        User: undefined, // Remove User to avoid confusion
+        user: review.user,
       }));
 
       return {
@@ -683,7 +684,7 @@ export class ArtworkService {
             title: artwork.title,
             approvedBy: adminId || "system",
             approvedAt: new Date(),
-            publicUrl: `http://localhost:3000/artwork/${artwork.id}`,
+            publicUrl: `${this.configurationService.getServerBaseUrl()}/artworks/${artwork.id}`,
           }
         );
       } else if (status === ArtworkStatus.REJECTED) {

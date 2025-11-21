@@ -6,9 +6,10 @@ import { PrismaModule } from '../../core/database';
 import { UploadModule } from '../../libraries/upload';
 import { EmailModule } from '../../libraries/email';
 import { GuardsModule } from '../../core/guards/guards.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
-  imports: [PrismaModule, UploadModule, EmailModule, GuardsModule],
+  imports: [PrismaModule, UploadModule, EmailModule, GuardsModule, SettingsModule],
   controllers: [ArtworkController],
   providers: [ArtworkService, ArtworkEventSubscriber],
   exports: [ArtworkService],
