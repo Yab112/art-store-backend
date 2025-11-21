@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { CorsModule } from './core/cors';
 import { ExceptionModule } from './core/exception';
 import { LoggingModule } from './core/logging';
@@ -9,10 +10,18 @@ import { LoggerModule } from './libraries/logger';
 import { AppInfrastructureModule } from './app.infrastructure.module';
 import { ConfigurationModule } from './core/configuration';
 import { CookieModule } from './core/cookie';
+import { UsersModule } from './apps/users/users.module';
+import { ArtworkModule } from './apps/artwork/artwork.module';
+import { CollectionsModule } from './apps/collections/collections.module';
+import { OrderModule } from './apps/order/order.module';
+import { TransactionsModule } from './apps/transactions/transactions.module';
+import { SettingsModule } from './apps/settings/settings.module';
+import { WithdrawalsModule } from './apps/withdrawals/withdrawals.module';
 
 @Module({
   imports: [
     // Core infrastructure modules
+    ScheduleModule.forRoot(),
     CorsModule,
     LoggerModule,
     ExceptionModule,
@@ -23,7 +32,15 @@ import { CookieModule } from './core/cookie';
     ConfigurationModule,
     EventModule,
     AppInfrastructureModule,
-  ],
+    // Application modules
+    UsersModule,
+    ArtworkModule,
+    CollectionsModule,
+          OrderModule,
+          TransactionsModule,
+          SettingsModule,
+          WithdrawalsModule,
+        ],
   controllers: [],
   providers: [
     ...ExceptionModule.getFilters(),

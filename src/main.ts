@@ -15,11 +15,9 @@ import { toNodeHandler } from 'better-auth/node';
 
 async function bootstrap() {
   const server = express();
-  server.all('/api/auth/*', toNodeHandler(auth));
-  server.use(express.urlencoded({ extended: true }));
-  server.use(express.json());
 
   // Create NestJS app with explicit bodyParser: false
+  // Note: Don't use express.json() before Better Auth handler
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     new ExpressAdapter(server),
@@ -33,11 +31,22 @@ async function bootstrap() {
   const loggerService = app.get(LoggerService);
   const logger = loggerService.create({ name: 'Bootstrap' });
 
+  const corsOptions = corsService.getOptions();
+
   // Basic security middleware
   app.use(helmet());
 
-  // CORS configuration
-  app.enableCors(corsService.getOptions());
+  // CORS configuration - must be before Better Auth routes
+  app.enableCors(corsOptions);
+
+  // Mount Better Auth routes AFTER NestJS initialization and CORS setup
+  // This ensures CORS headers are available for Better Auth endpoints
+  // Important: Don't use express.json() before this handler
+  server.all('/api/auth/*', toNodeHandler(auth));
+
+  // Parse request bodies for other routes (after Better Auth handler)
+  server.use(express.urlencoded({ extended: true }));
+  server.use(express.json());
 
   // Global pipes
   app.useGlobalPipes(
@@ -81,7 +90,7 @@ async function bootstrap() {
     });
   });
 
-  await app.listen(port);
+  await app.listen(3099);
   logger.success(`🚀 Application started on port ${port}`);
   logger.log(
     `📚 API Documentation available at http://localhost:${port}/swagger`,

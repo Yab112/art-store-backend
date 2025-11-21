@@ -13,9 +13,10 @@ export class CorsService {
     const options: Record<string, CorsOptions> = {
       development: {
         origin: [
-          clientBaseUrl,
+          clientBaseUrl || 'http://localhost:3000',
           'https://delala.vercel.app',
           'https://delala-admin.vercel.app',
+          'http://localhost:5173',
         ],
         credentials: true,
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
