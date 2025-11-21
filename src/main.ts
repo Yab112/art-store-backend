@@ -22,41 +22,25 @@ async function bootstrap() {
 
   server.use(
     cors({
-      origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman, etc.)
-        if (!origin) return callback(null, true);
-
-        const allowedOrigins = [
-          "http://localhost:5173", // Vite dev server (frontend)
-          "http://localhost:3000", // Backend (for Swagger, etc.)
-          "http://localhost:3001", // Admin dashboard (Next.js default)
-          "http://13.48.104.231:3000", // EC2 Production backend
-          "https://art-store-backend-latest.onrender.com",
-          "https://art-store-frontend-flame.vercel.app",
-          process.env.FRONTEND_URL,
-          process.env.ADMIN_FRONTEND_URL,
-        ].filter(Boolean);
-
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          // Log for debugging
-          console.log("⚠️ CORS blocked origin:", origin);
-          callback(null, true); // Allow for now, but log it
-        }
-      },
+      origin: [
+        "http://localhost:5173", // Vite dev server (frontend)
+        "http://localhost:3000", // Backend (for Swagger, etc.)
+        "http://localhost:3001", // Admin dashboard (Next.js default)
+        "http://localhost:3002", // Admin dashboard (alternative port)
+        "http://13.48.104.231:3000", // EC2 Production
+        "https://art-store-backend-latest.onrender.com",
+        "https://art-store-frontend-flame.vercel.app",
+        process.env.FRONTEND_URL || "http://localhost:5173",
+        process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
+      ].filter(Boolean), // Remove undefined values
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
         "Authorization",
         "X-Requested-With",
         "Cookie",
-        "Set-Cookie",
-        "Origin",
-        "Accept",
       ],
-      exposedHeaders: ["Set-Cookie", "Cookie"],
-      credentials: true, // CRITICAL: Allow credentials (cookies, authorization headers, etc.)
+      credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
     })

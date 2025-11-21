@@ -263,7 +263,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000", // Backend
     "http://localhost:3001", // Admin dashboard (Next.js default)
-    "http://localhost:5173", // Vite dev server (frontend)
+    "http://localhost:3002", // Admin dashboard (alternative port)
+    "http://localhost:5173", // Vite dev server (frontend - art-gallery)
     "http://localhost:5174", // Vite dev server (alternative)
     "http://13.48.104.231:3000", // Production backend URL (EC2)
     "https://art-store-frontend-flame.vercel.app",
