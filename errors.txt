@@ -1,0 +1,160 @@
+pnpm prisma migrate reset 
+e reset                                                                                     
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).                 
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from prisma\.env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "neondb", schema "public" at "ep-calm-queen-ad81zon9-pooler.c-2.us-east-1.aws.neon.tech"                                                           
+
+√ Are you sure you want to reset your database? All data will be lost. ... yes
+
+Applying migration `20251027074120_art_gallery_base_schemas`
+Applying migration `20251101201108_add_collection_fields`
+Applying migration `20251102091536_add_profile_enhancements`
+Applying migration `20251105125734_added_the_cart_and_favorite`
+Applying migration `20251116001943_add_cover_image_to_users`
+
+Database reset successful
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20251027074120_art_gallery_base_schemas/
+    └─ migration.sql
+  └─ 20251101201108_add_collection_fields/
+    └─ migration.sql
+  └─ 20251102091536_add_profile_enhancements/
+    └─ migration.sql
+  └─ 20251105125734_added_the_cart_and_favorite/
+    └─ migration.sql
+  └─ 20251116001943_add_cover_image_to_users/
+    └─ migration.sql
+
+✔ Generated Prisma Client (v6.18.0) to .\node_modules\.pnpm\@prisma+client@6.18.0_prisma@6. 
+18.0_typescript@5.9.3__typescript@5.9.3\node_modules\@prisma\client in 456ms
+
+Running seed command `ts-node prisma/seed.ts` ...
+C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:859     
+    return new TSError(diagnosticText, diagnosticCodes, diagnostics);
+           ^
+TSError: ⨯ Unable to compile TypeScript:
+prisma/seed.ts:14:7 - error TS2322: Type '{ name: string; email: string; role: string; emailVerified: boolean; score: number; banned: boolean; banReason: string; }' is not assignable to type '(Without<UserCreateInput, UserUncheckedCreateInput> & UserUncheckedCreateInput) | (Without<...> & UserCreateInput)'.                                                            
+  Type '{ name: string; email: string; role: string; emailVerified: boolean; score: number; banned: boolean; banReason: string; }' is not assignable to type 'Without<UserUncheckedCreateInput, UserCreateInput> & UserCreateInput'.                                                
+    Property 'updatedAt' is missing in type '{ name: string; email: string; role: string; emailVerified: boolean; score: number; banned: boolean; banReason: string; }' but required in type 'UserCreateInput'.                                                                     
+
+14       data: {
+         ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:41949:5                                              
+    41949     updatedAt: Date | string
+              ~~~~~~~~~
+    'updatedAt' is declared here.
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:18432:5                                              
+    18432     data: XOR<UserCreateInput, UserUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: UserSelect<DefaultArgs>; omit?: UserOmit<DefaultArgs>; include?: UserInclude<DefaultArgs>; data: (Without<...> & UserUncheckedCreateInput) | (Without<...> & UserCreateInput); }'       
+prisma/seed.ts:176:7 - error TS2322: Type '{ artworkId: any; raisedById: any; targetUserId: any; status: $Enums.DISPUTE_STATUS; reason: string; description: string; updatedAt: Date; }' is not assignable to type '(Without<DisputeCreateInput, DisputeUncheckedCreateInput> & DisputeUncheckedCreateInput) | (Without<...> & DisputeCreateInput)'.                            
+  Type '{ artworkId: any; raisedById: any; targetUserId: any; status: $Enums.DISPUTE_STATUS; reason: string; description: string; updatedAt: Date; }' is not assignable to type 'Without<DisputeUncheckedCreateInput, DisputeCreateInput> & DisputeCreateInput'.                    
+    Type '{ artworkId: any; raisedById: any; targetUserId: any; status: $Enums.DISPUTE_STATUS; reason: string; description: string; updatedAt: Date; }' is not assignable to type 'Without<DisputeUncheckedCreateInput, DisputeCreateInput>'.                                       
+      Types of property 'artworkId' are incompatible.
+        Type 'any' is not assignable to type 'never'.
+
+176       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:12716:5                                              
+    12716     data: XOR<DisputeCreateInput, DisputeUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: DisputeSelect<DefaultArgs>; omit?: DisputeOmit<DefaultArgs>; include?: DisputeInclude<DefaultArgs>; data: (Without<...> & DisputeUncheckedCreateInput) | (Without<...> & DisputeCreateInput); }'                                                                                    
+prisma/seed.ts:224:7 - error TS2322: Type '{ clientId: any; taskerId: any; status: $Enums.CHAT_STATUS; updatedAt: Date; }' is not assignable to type '(Without<ChatCreateInput, ChatUncheckedCreateInput> & ChatUncheckedCreateInput) | (Without<...> & ChatCreateInput)'.          
+  Type '{ clientId: any; taskerId: any; status: $Enums.CHAT_STATUS; updatedAt: Date; }' is not assignable to type 'Without<ChatUncheckedCreateInput, ChatCreateInput> & ChatCreateInput'.                                                                                           
+    Type '{ clientId: any; taskerId: any; status: $Enums.CHAT_STATUS; updatedAt: Date; }' is not assignable to type 'Without<ChatUncheckedCreateInput, ChatCreateInput>'.               
+      Types of property 'clientId' are incompatible.
+        Type 'any' is not assignable to type 'never'.
+
+224       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:11532:5                                              
+    11532     data: XOR<ChatCreateInput, ChatUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: ChatSelect<DefaultArgs>; omit?: ChatOmit<DefaultArgs>; include?: ChatInclude<DefaultArgs>; data: (Without<...> & ChatUncheckedCreateInput) | (Without<...> & ChatCreateInput); }'       
+prisma/seed.ts:237:58 - error TS2322: Type '"VIDEO"' is not assignable to type 'MESSAGE_TYPE'.                                                                                          
+
+237   const messageTypes: MESSAGE_TYPE[] = ['TEXT', 'IMAGE', 'VIDEO', 'SYSTEM'];
+                                                             ~~~~~~~
+prisma/seed.ts:241:7 - error TS2322: Type '{ chatId: any; senderId: any; receiverId: any; content: string; type: $Enums.MESSAGE_TYPE; status: $Enums.MESSAGE_STATUS; }' is not assignable to type '(Without<MessageCreateInput, MessageUncheckedCreateInput> & MessageUncheckedCreateInput) | (Without<...> & MessageCreateInput)'.                                             
+  Type '{ chatId: any; senderId: any; receiverId: any; content: string; type: $Enums.MESSAGE_TYPE; status: $Enums.MESSAGE_STATUS; }' is not assignable to type 'Without<MessageUncheckedCreateInput, MessageCreateInput> & MessageCreateInput'.                                     
+    Type '{ chatId: any; senderId: any; receiverId: any; content: string; type: $Enums.MESSAGE_TYPE; status: $Enums.MESSAGE_STATUS; }' is not assignable to type 'Without<MessageUncheckedCreateInput, MessageCreateInput>'.                                                        
+      Types of property 'chatId' are incompatible.
+        Type 'any' is not assignable to type 'never'.
+
+241       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:13886:5                                              
+    13886     data: XOR<MessageCreateInput, MessageUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: MessageSelect<DefaultArgs>; omit?: MessageOmit<DefaultArgs>; include?: MessageInclude<DefaultArgs>; data: (Without<...> & MessageUncheckedCreateInput) | (Without<...> & MessageCreateInput); }'                                                                                    
+prisma/seed.ts:258:7 - error TS2322: Type '{ userId: any; type: $Enums.NOTIFICATION_TYPE; message: string; entityId: any; }' is not assignable to type '(Without<NotificationCreateInput, NotificationUncheckedCreateInput> & NotificationUncheckedCreateInput) | (Without<...> & NotificationCreateInput)'.                                                                    
+  Type '{ userId: any; type: $Enums.NOTIFICATION_TYPE; message: string; entityId: any; }' is not assignable to type 'Without<NotificationUncheckedCreateInput, NotificationCreateInput> & NotificationCreateInput'.                                                                 
+    Type '{ userId: any; type: $Enums.NOTIFICATION_TYPE; message: string; entityId: any; }' is not assignable to type 'Without<NotificationUncheckedCreateInput, NotificationCreateInput>'.                                                                                         
+      Types of property 'userId' are incompatible.
+        Type 'any' is not assignable to type 'never'.
+
+258       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:14970:5                                              
+    14970     data: XOR<NotificationCreateInput, NotificationUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: NotificationSelect<DefaultArgs>; omit?: NotificationOmit<DefaultArgs>; include?: NotificationInclude<DefaultArgs>; data: (Without<...> & NotificationUncheckedCreateInput) | (Without<...> & NotificationCreateInput); }'                                                           
+prisma/seed.ts:337:7 - error TS2322: Type '{ bookingId: string; amount: number; method: any; status: $Enums.PAYMENT_STATUS; }' is not assignable to type '(Without<PaymentCreateInput, PaymentUncheckedCreateInput> & PaymentUncheckedCreateInput) | (Without<...> & PaymentCreateInput)'.                                                                                      
+  Type '{ bookingId: string; amount: number; method: any; status: $Enums.PAYMENT_STATUS; }' is not assignable to type 'Without<PaymentUncheckedCreateInput, PaymentCreateInput> & PaymentCreateInput'.                                                                              
+    Property 'id' is missing in type '{ bookingId: string; amount: number; method: any; status: $Enums.PAYMENT_STATUS; }' but required in type 'PaymentCreateInput'.                    
+
+337       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:41805:5                                              
+    41805     id: string
+              ~~
+    'id' is declared here.
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:16036:5                                              
+    16036     data: XOR<PaymentCreateInput, PaymentUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: PaymentSelect<DefaultArgs>; omit?: PaymentOmit<DefaultArgs>; data: (Without<PaymentCreateInput, PaymentUncheckedCreateInput> & PaymentUncheckedCreateInput) | (Without<...> & PaymentCreateInput); }'                                                                               
+prisma/seed.ts:388:7 - error TS2322: Type '{ artworkId: any; userId: any; rating: number; comment: string; updatedAt: Date; }' is not assignable to type '(Without<ReviewCreateInput, ReviewUncheckedCreateInput> & ReviewUncheckedCreateInput) | (Without<...> & ReviewCreateInput)'.                                                                                          
+  Type '{ artworkId: any; userId: any; rating: number; comment: string; updatedAt: Date; }' is not assignable to type 'Without<ReviewUncheckedCreateInput, ReviewCreateInput> & ReviewCreateInput'.                                                                                 
+    Type '{ artworkId: any; userId: any; rating: number; comment: string; updatedAt: Date; }' is not assignable to type 'Without<ReviewUncheckedCreateInput, ReviewCreateInput>'.       
+      Types of property 'userId' are incompatible.
+        Type 'any' is not assignable to type 'never'.
+
+388       data: {
+          ~~~~
+
+  node_modules/.pnpm/@prisma+client@6.18.0_prisma@6.18.0_typescript@5.9.3__typescript@5.9.3/node_modules/.prisma/client/index.d.ts:17138:5                                              
+    17138     data: XOR<ReviewCreateInput, ReviewUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: ReviewSelect<DefaultArgs>; omit?: ReviewOmit<DefaultArgs>; include?: ReviewInclude<DefaultArgs>; data: (Without<...> & ReviewUncheckedCreateInput) | (Without<...> & ReviewCreateInput); }'                                                                                         
+
+    at createTSError (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:859:12)                                                                       
+    at reportTSError (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:863:19)                                                                       
+    at getOutput (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:1077:36)                                                                          
+    at Object.compile (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:1433:41)                                                                     
+    at Module.m._compile (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:1617:30)                                                                  
+    at Module._extensions..js (node:internal/modules/cjs/loader:1435:10)
+    at Object.require.extensions.<computed> [as .ts] (C:\Users\USER\Documents\clientProjects\artgallery\art-gallery-backend\node_modules\.pnpm\ts-node@10.9.2_@types+node@20.19.23_typescript@5.9.3\node_modules\ts-node\src\index.ts:1621:12)                                      
+    at Module.load (node:internal/modules/cjs/loader:1207:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1023:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:135:12) {
+  diagnosticCodes: [
+    2322, 2322, 2322,
+    2322, 2322, 2322,
+    2322, 2322
+  ]
+}
+
+An error occurred while running the seed command:
+Error: Command failed with exit code 1: ts-node prisma/seed.ts

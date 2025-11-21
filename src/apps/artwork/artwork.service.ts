@@ -407,7 +407,7 @@ export class ArtworkService {
               rating: true,
               comment: true,
               createdAt: true,
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -446,7 +446,7 @@ export class ArtworkService {
           rating: number;
           comment: string | null;
           createdAt: Date;
-          user: { id: string; name: string; email: string };
+          User: { id: string; name: string; email: string };
         }>;
       };
 
@@ -475,7 +475,7 @@ export class ArtworkService {
       // Map user for frontend consistency
       const reviewsWithUser = reviews.map((review) => ({
         ...review,
-        user: review.user,
+        user: review.User,
       }));
 
       return {

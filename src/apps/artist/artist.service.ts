@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { SettingsService } from '../settings/settings.service';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { SettingsService } from "../settings/settings.service";
+import { Decimal } from "@prisma/client/runtime/library";
 
 @Injectable()
 export class ArtistService {
@@ -9,7 +9,7 @@ export class ArtistService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly settingsService: SettingsService,
+    private readonly settingsService: SettingsService
   ) {}
 
   /**
@@ -21,7 +21,7 @@ export class ArtistService {
       const soldArtworks = await this.prisma.artwork.findMany({
         where: {
           userId,
-          status: 'SOLD',
+          status: "SOLD",
         },
         include: {
           orderItems: {
@@ -37,7 +37,8 @@ export class ArtistService {
       });
 
       // Calculate total sales, earnings, and commission
-      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
+      const platformCommissionRate =
+        await this.settingsService.getPlatformCommissionRate();
       let totalSales = 0;
       let totalCommission = 0;
       let totalEarnings = 0;
@@ -47,7 +48,7 @@ export class ArtistService {
 
       for (const artwork of soldArtworks) {
         for (const orderItem of artwork.orderItems) {
-          if (orderItem.order.status === 'PAID') {
+          if (orderItem.order.status === "PAID") {
             const salePrice = Number(orderItem.price);
             const commission = salePrice * platformCommissionRate;
             const earnings = salePrice - commission;
@@ -75,15 +76,15 @@ export class ArtistService {
       const withdrawals = await this.prisma.withdrawal.findMany({
         where: {
           payoutAccount: {
-            in: soldArtworks.map(a => a.iban),
+            in: soldArtworks.map((a) => a.iban),
           },
-          status: 'COMPLETED',
+          status: "COMPLETED",
         },
       });
 
       const totalWithdrawn = withdrawals.reduce(
         (sum, w) => sum + Number(w.amount),
-        0,
+        0
       );
 
       // Calculate available balance
@@ -102,7 +103,7 @@ export class ArtistService {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to get earnings stats:', error);
+      this.logger.error("Failed to get earnings stats:", error);
       throw error;
     }
   }
@@ -118,7 +119,7 @@ export class ArtistService {
         select: { iban: true },
       });
 
-      const ibans = [...new Set(artworks.map(a => a.iban))];
+      const ibans = [...new Set(artworks.map((a) => a.iban))];
 
       // Get withdrawals for those IBANs
       const withdrawals = await this.prisma.withdrawal.findMany({
@@ -128,13 +129,13 @@ export class ArtistService {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
 
       return {
         success: true,
-        data: withdrawals.map(w => ({
+        data: withdrawals.map((w) => ({
           id: w.id,
           amount: Number(w.amount),
           status: w.status,
@@ -143,7 +144,7 @@ export class ArtistService {
         })),
       };
     } catch (error) {
-      this.logger.error('Failed to get withdrawal history:', error);
+      this.logger.error("Failed to get withdrawal history:", error);
       throw error;
     }
   }
@@ -163,7 +164,7 @@ export class ArtistService {
 
       if (!artwork) {
         throw new NotFoundException(
-          'Payment account not found or does not belong to you',
+          "Payment account not found or does not belong to you"
         );
       }
 
@@ -173,19 +174,27 @@ export class ArtistService {
 
       if (amount > availableBalance) {
         throw new Error(
-          `Insufficient balance. Available: $${availableBalance.toFixed(2)}`,
+          `Insufficient balance. Available: $${availableBalance.toFixed(2)}`
         );
       }
 
       // Get payment settings from settings
-      const paymentSettings = await this.settingsService.getPaymentSettingsValues();
+      const paymentSettings =
+        await this.settingsService.getPaymentSettingsValues();
       if (amount < paymentSettings.minWithdrawalAmount) {
-        throw new Error(`Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`);
+        throw new Error(
+          `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`
+        );
       }
 
       // Check maximum withdrawal amount (0 = unlimited)
-      if (paymentSettings.maxWithdrawalAmount > 0 && amount > paymentSettings.maxWithdrawalAmount) {
-        throw new Error(`Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`);
+      if (
+        paymentSettings.maxWithdrawalAmount > 0 &&
+        amount > paymentSettings.maxWithdrawalAmount
+      ) {
+        throw new Error(
+          `Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`
+        );
       }
 
       // Create withdrawal request
@@ -194,17 +203,17 @@ export class ArtistService {
           userId,
           payoutAccount: iban,
           amount: new Decimal(amount),
-          status: 'INITIATED',
-        },
+          status: "INITIATED",
+        } as any,
       });
 
       this.logger.log(
-        `Withdrawal request created: ${withdrawal.id} for user ${userId}`,
+        `Withdrawal request created: ${withdrawal.id} for user ${userId}`
       );
 
       return {
         success: true,
-        message: 'Withdrawal request submitted successfully',
+        message: "Withdrawal request submitted successfully",
         data: {
           id: withdrawal.id,
           amount: Number(withdrawal.amount),
@@ -213,7 +222,7 @@ export class ArtistService {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to request withdrawal:', error);
+      this.logger.error("Failed to request withdrawal:", error);
       throw error;
     }
   }
@@ -231,12 +240,12 @@ export class ArtistService {
           iban: true,
           bicCode: true,
         },
-        distinct: ['iban'],
+        distinct: ["iban"],
       });
 
       // Group by IBAN to avoid duplicates
       const uniquePaymentMethods = artworks.reduce((acc, artwork) => {
-        if (!acc.find(pm => pm.iban === artwork.iban)) {
+        if (!acc.find((pm) => pm.iban === artwork.iban)) {
           acc.push({
             accountHolder: artwork.accountHolder,
             iban: artwork.iban,
@@ -251,7 +260,7 @@ export class ArtistService {
         data: uniquePaymentMethods,
       };
     } catch (error) {
-      this.logger.error('Failed to get payment methods:', error);
+      this.logger.error("Failed to get payment methods:", error);
       throw error;
     }
   }
@@ -264,7 +273,7 @@ export class ArtistService {
     userId: string,
     accountHolder: string,
     iban: string,
-    bicCode?: string,
+    bicCode?: string
   ) {
     try {
       // Update all artworks by this user
@@ -278,18 +287,18 @@ export class ArtistService {
       });
 
       this.logger.log(
-        `Updated payment method for ${result.count} artworks for user ${userId}`,
+        `Updated payment method for ${result.count} artworks for user ${userId}`
       );
 
       return {
         success: true,
-        message: 'Payment method updated successfully',
+        message: "Payment method updated successfully",
         data: {
           artworksUpdated: result.count,
         },
       };
     } catch (error) {
-      this.logger.error('Failed to update payment method:', error);
+      this.logger.error("Failed to update payment method:", error);
       throw error;
     }
   }

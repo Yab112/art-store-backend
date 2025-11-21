@@ -19,6 +19,7 @@ async function main() {
         score: Math.random() * 100,
         banned: i === 12,
         banReason: i === 12 ? 'Violation of terms' : null,
+        updatedAt: new Date(),
       },
     });
     users.push(user);
@@ -174,6 +175,7 @@ async function main() {
     const targetUser = users[(i + 1) % users.length];
     await prisma.dispute.create({
       data: {
+        id: `dispute_${i}_${Date.now()}`,
         artworkId: artwork.id,
         raisedById: user.id,
         targetUserId: targetUser.id,
@@ -222,6 +224,7 @@ async function main() {
     const tasker = users[(i + 1) % users.length];
     const chat = await prisma.chat.create({
       data: {
+        id: `chat_${i}_${Date.now()}`,
         clientId: client.id,
         taskerId: tasker.id,
         status: chatStatuses[i % chatStatuses.length],
@@ -234,11 +237,12 @@ async function main() {
 
   // 14. Seed Messages (12)
   console.log('\n📝 Seeding Messages...');
-  const messageTypes: MESSAGE_TYPE[] = ['TEXT', 'IMAGE', 'VIDEO', 'SYSTEM'];
+  const messageTypes: MESSAGE_TYPE[] = ['TEXT', 'IMAGE', 'SYSTEM'];
   const messageStatuses: MESSAGE_STATUS[] = ['SENT', 'DELIVERED', 'READ'];
   for (let i = 0; i < 12; i++) {
     await prisma.message.create({
       data: {
+        id: `message_${i}_${Date.now()}`,
         chatId: chats[i].id,
         senderId: users[i].id,
         receiverId: users[(i + 1) % users.length].id,
@@ -256,6 +260,7 @@ async function main() {
   for (let i = 0; i < 12; i++) {
     await prisma.notification.create({
       data: {
+        id: `notification_${i}_${Date.now()}`,
         userId: users[i].id,
         type: notificationTypes[i % notificationTypes.length],
         message: `Notification message ${i + 1}`,
@@ -335,6 +340,7 @@ async function main() {
   for (let i = 0; i < 12; i++) {
     await prisma.payment.create({
       data: {
+        id: `payment_${i}_${Date.now()}`,
         bookingId: `booking_${i}`,
         amount: 500 + i * 50,
         method: gateways[i % gateways.length].name,
@@ -386,6 +392,7 @@ async function main() {
     const user = users[i];
     await prisma.review.create({
       data: {
+        id: `review_${i}_${Date.now()}`,
         artworkId: artwork.id,
         userId: user.id,
         rating: (i % 5) + 1,

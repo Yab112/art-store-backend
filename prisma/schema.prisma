@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 model Account {
@@ -194,6 +194,7 @@ model User {
   interactions                       Interaction[]   @relation("Interaction_user")
   favorites                          Favorite[]
   cartItems                          CartItem[]
+  withdrawals                        Withdrawal[]
 
   @@map("users")
 }
@@ -431,20 +432,17 @@ model FeaturedContent {
 }
 
 model Withdrawal {
-  id            String   @id @default(uuid())
+  id            String         @id @default(uuid())
+  userId        String?
   payoutAccount String
-  amount        Decimal  @db.Decimal(10,2)
-  status        PaymentStatus @default(INITIATED)
-  createdAt     DateTime @default(now())
+  amount        Decimal        @db.Decimal(10,2)
+  status        PaymentStatus  @default(INITIATED)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum ArtworkStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  SOLD
-  WITHDRAWN
-}
+
 
 enum PAYMENT_STATUS {
   PENDING
@@ -510,16 +508,27 @@ enum ReportReason {
   OTHER
 }
 
-enum ReportStatus {
+enum CHAT_STATUS {
   OPEN
-  UNDER_REVIEW
-  ACTIONED
-  DISMISSED
+  CLOSED
+  ARCHIVED
 }
 
-enum ReportTargetType {
-  ARTWORK
-  USER
-  COMMENT
-  OTHER
+enum MESSAGE_TYPE {
+  TEXT
+  IMAGE
+  VIDEO
+  SYSTEM
 }
+
+enum MESSAGE_STATUS {
+  SENT
+  DELIVERED
+  READ
+  PENDING
+  APPROVED
+  REJECTED
+  SOLD
+  WITHDRAWN
+}
+

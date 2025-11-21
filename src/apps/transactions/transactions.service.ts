@@ -58,7 +58,7 @@ export class TransactionsService {
               updatedAt: true,
             },
           },
-          PaymentGateway: {
+          paymentGateway: {
             select: {
               id: true,
               name: true,
@@ -124,7 +124,7 @@ export class TransactionsService {
             },
           },
         },
-        PaymentGateway: {
+        paymentGateway: {
           select: {
             id: true,
             name: true,
