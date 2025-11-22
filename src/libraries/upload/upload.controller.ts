@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { UploadService } from './upload.service';
 import { AuthGuard } from '@/core/guards/auth.guard';
+import { Public } from '@/core/decorators/public.decorator';
 import {
   ApiTags,
   ApiOperation,
@@ -30,7 +31,8 @@ export class UploadController {
    * Frontend will use this URL to upload directly to S3
    */
   @Post('presigned/image')
-  @UseGuards(AuthGuard)
+  // @UseGuards(new AuthGuard())
+  @Public()
   @ApiOperation({
     summary: 'Get presigned URL for image upload',
     description: 'Generate a presigned URL for uploading an image directly to S3 from the frontend. Frontend will use this URL to upload the file.',

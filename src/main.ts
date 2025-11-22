@@ -39,6 +39,8 @@ async function bootstrap() {
         "Authorization",
         "X-Requested-With",
         "Cookie",
+        "x-user-id",
+        "X-User-Id",
       ],
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
@@ -183,7 +185,7 @@ async function bootstrap() {
     });
   });
 
-  await app.listen(3000);
+  await app.listen(port);
   logger.success(`🚀 Application started on port ${port}`);
   logger.log(
     `📚 API Documentation available at http://localhost:${port}/swagger`
