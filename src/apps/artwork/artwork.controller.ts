@@ -16,7 +16,7 @@ import { CreateArtworkDto, UpdateArtworkDto, ArtworkQueryDto } from './dto';
 import { AuthGuard } from '@/core/guards/auth.guard';
 // import { ArtworkStatus } from '@prisma/client';
 
-@Controller('artwork')
+@Controller('artworks')
 export class ArtworkController {
   constructor(private readonly artworkService: ArtworkService) {}
 

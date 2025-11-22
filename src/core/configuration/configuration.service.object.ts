@@ -2,7 +2,7 @@ export interface ConfigurationObject {
   port: number;
   environment: string;
   databaseUrl: string;
-  jwtSecret: string;
+  jwtSecret: string; 
   jwtExpiresIn: string;
 }
 

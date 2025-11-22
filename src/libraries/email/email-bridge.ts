@@ -37,7 +37,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Verify Your Email Address - Finder App',
+        subject: 'Verify Your Email Address - Art Gallery',
         template: 'email-verification',
         variables: {
           email,
@@ -67,7 +67,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Reset Your Password - Finder App',
+        subject: 'Reset Your Password - Art Gallery',
         template: 'password-reset',
         variables: {
           email,
@@ -97,7 +97,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Your Magic Link - Finder App',
+        subject: 'Your Magic Link - Art Gallery',
         template: 'magic-link',
         variables: {
           email,
@@ -127,7 +127,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Your 2FA Code - Finder App',
+        subject: 'Your 2FA Code - Art Gallery',
         template: '2fa-code',
         variables: {
           email,
@@ -157,7 +157,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Verify Your Email - Finder App',
+        subject: 'Verify Your Email - Art Gallery',
         template: 'verification-otp',
         variables: {
           email,
@@ -187,7 +187,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Reset Your Password - Finder App',
+        subject: 'Reset Your Password - Art Gallery',
         template: 'password-reset-otp',
         variables: {
           email,
@@ -217,7 +217,7 @@ class EmailBridge {
       await this.emailService.send({
         name: 'User',
         email,
-        subject: 'Your Sign In Code - Finder App',
+        subject: 'Your Sign In Code - Art Gallery',
         template: 'signin-otp',
         variables: {
           email,

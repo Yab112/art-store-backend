@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 model Account {
@@ -37,7 +37,7 @@ model Session {
 }
 
 model TwoFactor {
-  id          String   @id @default(uuid())
+  id          String   @id
   userId      String
   secret      String
   backupCodes String?
@@ -58,23 +58,25 @@ model Verification {
 
 
 model Category {
-  id          String        @id
-  name        String
+  id          String              @id @default(uuid())
+  name        String              @unique
   description String?
-  icon        String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime
-  SubCategory SubCategory[]
+  slug        String              @unique
+  image       String?             // MinIO/S3 URL for background image
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  artworks    ArtworkOnCategory[]
 }
 
-model SubCategory {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  categoryId  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  Category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+model ArtworkOnCategory {
+  id         String   @id @default(uuid())
+  artworkId  String
+  categoryId String
+
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, categoryId])
 }
 
 model Chat {
@@ -194,6 +196,7 @@ model User {
   interactions                       Interaction[]   @relation("Interaction_user")
   favorites                          Favorite[]
   cartItems                          CartItem[]
+  withdrawals                        Withdrawal[]
 
   @@map("users")
 }
@@ -203,7 +206,6 @@ model Artwork {
   id                    String        @id @default(uuid())
   title                 String?
   artist                String
-  technique             String
   support               String
   state                 String
   yearOfArtwork         String
@@ -240,6 +242,7 @@ model Artwork {
   disputes              Dispute[]
   favorites              Favorite[]
   cartItems              CartItem[]
+  categories            ArtworkOnCategory[]
 
   @@map("artworks")
 }
@@ -431,20 +434,17 @@ model FeaturedContent {
 }
 
 model Withdrawal {
-  id            String   @id @default(uuid())
+  id            String         @id @default(uuid())
+  userId        String?
   payoutAccount String
-  amount        Decimal  @db.Decimal(10,2)
-  status        PaymentStatus @default(INITIATED)
-  createdAt     DateTime @default(now())
+  amount        Decimal        @db.Decimal(10,2)
+  status        PaymentStatus  @default(INITIATED)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum ArtworkStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  SOLD
-  WITHDRAWN
-}
+
 
 enum PAYMENT_STATUS {
   PENDING
@@ -461,17 +461,7 @@ enum NOTIFICATION_TYPE {
   SYSTEM
 }
 
-enum DISPUTE_STATUS {
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-  REJECTED
-}
-
-enum MESSAGE_STATUS {
-  SENT
-  DELIVERED
-  READ
+enum ArtworkStatus {
   PENDING
   APPROVED
   REJECTED
@@ -479,17 +469,11 @@ enum MESSAGE_STATUS {
   WITHDRAWN
 }
 
-enum MESSAGE_TYPE {
-  TEXT
-  IMAGE
-  VIDEO
-  SYSTEM
-}
-
-enum CHAT_STATUS {
-  OPEN
+enum DISPUTE_STATUS {
+  IN_PROGRESS
+  RESOLVED
   CLOSED
-  ARCHIVED
+  REJECTED
 }
 
 enum OrderStatus {
@@ -497,6 +481,17 @@ enum OrderStatus {
   PAID
   CANCELLED
   REFUNDED
+}
+
+model Settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("platform") // platform, payment, order, collection
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("settings")
 }
 
 enum PaymentStatus {
@@ -513,5 +508,29 @@ enum ReportReason {
   ABUSE
   INAPPROPRIATE
   OTHER
+}
+
+enum CHAT_STATUS {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum MESSAGE_TYPE {
+  TEXT
+  IMAGE
+  VIDEO
+  SYSTEM
+}
+
+enum MESSAGE_STATUS {
+  SENT
+  DELIVERED
+  READ
+  PENDING
+  APPROVED
+  REJECTED
+  SOLD
+  WITHDRAWN
 }
 

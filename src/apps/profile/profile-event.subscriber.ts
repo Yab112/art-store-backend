@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmailService } from '../../libraries/email';
+import { ConfigurationService } from '../../core/configuration';
 import {
   PROFILE_EVENTS,
   ProfileUpdatedEvent,
@@ -20,7 +21,10 @@ import {
 export class ProfileEventSubscriber {
   private readonly logger = new Logger(ProfileEventSubscriber.name);
 
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly configurationService: ConfigurationService,
+  ) {}
 
   /**
    * Handle profile updated event
@@ -177,7 +181,7 @@ export class ProfileEventSubscriber {
           template: 'email-verification',
           variables: {
             userName: event.userName,
-            verificationLink: `http://localhost:3000/verify-email/${event.userId}`,
+            verificationLink: `${this.configurationService.getServerBaseUrl()}/verify-email/${event.userId}`,
           },
         });
       }

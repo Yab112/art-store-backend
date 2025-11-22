@@ -8,10 +8,9 @@ import {
   Param, 
   Query,
   Request,
-  ParseIntPipe,
 } from '@nestjs/common';
 import { CollectionsService } from './collections.service';
-import { CreateCollectionDto, UpdateCollectionDto, AddArtworkDto } from './dto';
+import { CreateCollectionDto, UpdateCollectionDto, AddArtworkDto, CollectionsQueryDto } from './dto';
 import { AuthGuard } from '@/core/guards/auth.guard';
 import { UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
@@ -59,15 +58,23 @@ export class CollectionsController {
 
   /**
    * GET /collections
-   * List all public collections (paginated)
+   * List all collections (paginated)
+   * If visibility filter is provided, filters by it. Otherwise returns all collections.
    */
   @Get()
+  @ApiOperation({ summary: 'Get all collections with pagination and filters' })
   async findAll(
-    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Query() query: CollectionsQueryDto,
+    @Request() req: any,
   ) {
     try {
-      const result = await this.collectionsService.findAll(page, limit);
+      const result = await this.collectionsService.findAll(
+        query.page,
+        query.limit,
+        query.search,
+        req.user?.id,
+        query.visibility,
+      );
 
       return {
         success: true,
@@ -87,17 +94,17 @@ export class CollectionsController {
    */
   @Get('my-collections')
   @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Get user\'s own collections with pagination and filters' })
   async findMyCollections(
-    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Query() query: CollectionsQueryDto,
     @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       const result = await this.collectionsService.findByUser(
         userId,
-        page,
-        limit,
+        query.page,
+        query.limit,
       );
 
       return {
@@ -311,18 +318,35 @@ export class CollectionsController {
 
   /**
    * GET /collections/:id/artworks
-   * Get all artworks in a collection
+   * Get paginated artworks in a collection
    */
   @Get(':id/artworks')
-  async getCollectionArtworks(@Param('id') id: string, @Request() req: any) {
+  @ApiOperation({ summary: 'Get paginated artworks in a collection' })
+  async getCollectionArtworks(
+    @Param('id') id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Request() req?: any,
+  ) {
     try {
       const userId = req.user?.id; // Optional
-      const collection = await this.collectionsService.findOne(id, userId);
+      const pageNum = page ? Number(page) : 1;
+      const limitNum = limit ? Number(limit) : 12;
+      
+      const result = await this.collectionsService.findCollectionArtworks(
+        id,
+        pageNum,
+        limitNum,
+        userId,
+      );
 
       return {
         success: true,
-        artworks: collection.artworks,
-        count: collection.artworkCount,
+        artworks: result.artworks,
+        count: result.total,
+        page: result.page,
+        limit: result.limit,
+        pages: result.pages,
       };
     } catch (error) {
       return {

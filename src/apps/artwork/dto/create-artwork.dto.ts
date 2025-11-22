@@ -39,9 +39,14 @@ export class CreateArtworkDto {
   @IsString()
   artist: string;
 
-  @ApiProperty({ description: 'Art technique used', example: 'Oil on Canvas' })
-  @IsString()
-  technique: string;
+  @ApiProperty({
+    description: 'Category IDs for the artwork',
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    type: [String]
+  })
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds: string[];
 
   @ApiProperty({ description: 'Support material', example: 'Canvas' })
   @IsString()

@@ -140,9 +140,11 @@ SERVER_GOOGLE_CLIENT_ID="your-google-client-id"
 SERVER_GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
 # App Configuration
-PORT="3000"
+PORT="3099"
 NODE_ENV="development"
-SERVER_BASE_URL="http://localhost:3000"
+BASE_URL="http://localhost:3099"
+SERVER_BASE_URL="http://localhost:3099"
+BETTER_AUTH_URL="http://localhost:3099"
 ENCRYPTION_KEY="your-encryption-key"
 ```
 

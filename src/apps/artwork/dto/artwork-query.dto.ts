@@ -59,6 +59,14 @@ export class ArtworkQueryDto {
   artist?: string;
 
   @ApiPropertyOptional({ 
+    description: 'Filter by category ID',
+    example: '123e4567-e89b-12d3-a456-426614174000'
+  })
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ 
     description: 'Filter by art technique',
     example: 'Oil on Canvas'
   })

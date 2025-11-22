@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database';
 import { EventService } from '../../libraries/event';
+import { ConfigurationService } from '../../core/configuration';
+import { SettingsService } from '../settings/settings.service';
 import {
   CreateCollectionDto,
   UpdateCollectionDto,
@@ -33,6 +35,8 @@ export class CollectionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
+    private readonly configurationService: ConfigurationService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -41,12 +45,13 @@ export class CollectionsService {
   async create(createCollectionDto: CreateCollectionDto, userId: string) {
     try {
       // Check if user has reached max collections
+      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
       const userCollectionsCount = await this.prisma.collection.count({
         where: { createdBy: userId },
       });
 
       if (
-        userCollectionsCount >= COLLECTION_CONSTANTS.MAX_COLLECTIONS_PER_USER
+        userCollectionsCount >= collectionSettings.maxCollectionsPerUser
       ) {
         throw new BadRequestException(
           COLLECTION_MESSAGES.ERROR.MAX_COLLECTIONS_REACHED,
@@ -96,17 +101,83 @@ export class CollectionsService {
   }
 
   /**
-   * Find all public collections with pagination
+   * Find all collections with pagination
+   * @param visibility - Filter by visibility: 'public', 'private', 'unlisted', or 'all' (defaults to 'public' if not provided)
+   *                     If 'all' is specified, returns all collections regardless of visibility.
+   *                     If userId is provided, always includes user's own collections.
    */
-  async findAll(page: number = 1, limit: number = 10) {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    userId?: string,
+    visibility?: string,
+  ) {
     try {
       const skip = (page - 1) * limit;
+      const where: any = {};
+
+      // Determine visibility filter behavior
+      const includeAll = visibility === 'all';
+
+      // Build visibility filter
+      if (includeAll) {
+        // Requesting all collections - no visibility filter applied
+        // If userId is provided, we still show all but user's collections are included
+        // (No filter needed - Prisma will return all collections)
+      } else {
+        // Specific visibility requested or default to 'public'
+        const visibilityFilter = visibility || COLLECTION_CONSTANTS.VISIBILITY.PUBLIC;
+        
+        if (userId) {
+          // Include user's own collections + collections matching the visibility filter
+          where.OR = [
+              { createdBy: userId },
+            { visibility: visibilityFilter },
+          ];
+        } else {
+          // Only show collections matching the visibility filter
+          where.visibility = visibilityFilter;
+        }
+      }
+
+      // Build search filter if provided
+      if (search) {
+        const searchFilter = {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        };
+
+        // Combine filters using AND
+        const filters: any[] = [];
+        
+        // Add visibility filter if it exists
+        if (where.OR) {
+          filters.push({ OR: where.OR });
+        } else if (where.visibility) {
+          filters.push({ visibility: where.visibility });
+        }
+        
+        // Add search filter
+        filters.push(searchFilter);
+        
+        // Apply combined filters
+        if (filters.length > 0) {
+          where.AND = filters;
+          // Clean up individual filters
+          delete where.OR;
+          delete where.visibility;
+      } else {
+          // Only search, no visibility filter
+          Object.assign(where, searchFilter);
+        }
+      }
 
       const [collections, total] = await Promise.all([
         this.prisma.collection.findMany({
-          where: {
-            visibility: COLLECTION_CONSTANTS.VISIBILITY.PUBLIC,
-          },
+          where,
           skip,
           take: limit,
           include: {
@@ -127,11 +198,7 @@ export class CollectionsService {
             createdAt: 'desc',
           },
         }),
-        this.prisma.collection.count({
-          where: {
-            visibility: COLLECTION_CONSTANTS.VISIBILITY.PUBLIC,
-          },
-        }),
+        this.prisma.collection.count({ where }),
       ]);
 
       // Transform to include artwork count
@@ -201,6 +268,86 @@ export class CollectionsService {
       };
     } catch (error) {
       this.logger.error(`Failed to fetch collection ${id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get paginated artworks for a collection
+   */
+  async findCollectionArtworks(
+    id: string,
+    page: number = 1,
+    limit: number = 12,
+    userId?: string,
+  ) {
+    try {
+      // First verify collection exists and user has access
+      const collection = await this.prisma.collection.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          visibility: true,
+          createdBy: true,
+        },
+      });
+
+      if (!collection) {
+        throw new NotFoundException(COLLECTION_MESSAGES.ERROR.NOT_FOUND);
+      }
+
+      // Check if user has access to private collection
+      if (
+        collection.visibility === COLLECTION_CONSTANTS.VISIBILITY.PRIVATE &&
+        collection.createdBy !== userId
+      ) {
+        throw new ForbiddenException(COLLECTION_MESSAGES.ERROR.UNAUTHORIZED);
+      }
+
+      const skip = (page - 1) * limit;
+
+      // Get paginated artworks
+      const [collectionArtworks, total] = await Promise.all([
+        this.prisma.collectionOnArtwork.findMany({
+          where: { collectionId: id },
+          skip,
+          take: limit,
+          include: {
+            artwork: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            artwork: {
+              createdAt: 'desc',
+            },
+          },
+        }),
+        this.prisma.collectionOnArtwork.count({
+          where: { collectionId: id },
+        }),
+      ]);
+
+      const artworks = collectionArtworks.map((ca) => ca.artwork);
+
+      return {
+        artworks,
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch collection artworks ${id}:`, error);
       throw error;
     }
   }
@@ -405,9 +552,10 @@ export class CollectionsService {
       }
 
       // Check max artworks limit
+      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
       if (
         collection.artworks.length >=
-        COLLECTION_CONSTANTS.MAX_ARTWORKS_PER_COLLECTION
+        collectionSettings.maxArtworksPerCollection
       ) {
         throw new BadRequestException(
           COLLECTION_MESSAGES.ERROR.MAX_ARTWORKS_REACHED,
@@ -551,9 +699,10 @@ export class CollectionsService {
       }
 
       // Check minimum artworks requirement
+      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
       if (
         collection.artworks.length <
-        COLLECTION_CONSTANTS.MIN_ARTWORKS_FOR_PUBLISH
+        collectionSettings.minArtworksForPublish
       ) {
         throw new BadRequestException(COLLECTION_MESSAGES.ERROR.CANNOT_PUBLISH);
       }
@@ -581,7 +730,7 @@ export class CollectionsService {
           description: collection.description,
           artworkCount: collection.artworks.length,
           coverImage: collection.coverImage,
-          publicUrl: `http://localhost:3000/collections/${collectionId}`,
+          publicUrl: `${this.configurationService.getServerBaseUrl()}/collections/${collectionId}`,
           publishedAt: new Date(),
         },
       );

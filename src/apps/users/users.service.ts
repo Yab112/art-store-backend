@@ -84,6 +84,7 @@ export class UsersService {
         }),
         this.prisma.user.count({ where }),
       ]);
+      console.log("users", users);
 
       return {
         users,

@@ -1,14 +1,23 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { Decimal } from '@prisma/client/runtime/library';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { SettingsService } from "../settings/settings.service";
+import { CreateOrderDto } from "./dto/create-order.dto";
+import { Decimal } from "@prisma/client/runtime/library";
+import { OrderStatus } from "@prisma/client";
 
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
-  private readonly PLATFORM_COMMISSION_RATE = 0.10; // 10% commission
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private settingsService: SettingsService
+  ) {}
 
   /**
    * Get user by email (helper for order creation)
@@ -32,7 +41,7 @@ export class OrderService {
       const artworks = await this.prisma.artwork.findMany({
         where: {
           id: { in: artworkIds },
-          status: { in: ['APPROVED', 'PENDING'] },
+          status: { in: ["APPROVED", "PENDING"] },
         },
         include: {
           user: {
@@ -46,15 +55,19 @@ export class OrderService {
       });
 
       if (artworks.length !== artworkIds.length) {
-        throw new BadRequestException('Some artworks are not available');
+        throw new BadRequestException("Some artworks are not available");
       }
 
       // Prevent users from purchasing their own artwork
-      const ownArtworks = artworks.filter((artwork) => artwork.userId === userId);
+      const ownArtworks = artworks.filter(
+        (artwork) => artwork.userId === userId
+      );
       if (ownArtworks.length > 0) {
-        const artworkTitles = ownArtworks.map((a) => a.title || a.id).join(', ');
+        const artworkTitles = ownArtworks
+          .map((a) => a.title || a.id)
+          .join(", ");
         throw new BadRequestException(
-          `You cannot purchase your own artwork: ${artworkTitles}`,
+          `You cannot purchase your own artwork: ${artworkTitles}`
         );
       }
 
@@ -76,7 +89,10 @@ export class OrderService {
         };
       });
 
-      const platformFee = subtotal * this.PLATFORM_COMMISSION_RATE;
+      // Get platform commission rate from settings
+      const platformCommissionRate =
+        await this.settingsService.getPlatformCommissionRate();
+      const platformFee = subtotal * platformCommissionRate;
       const totalAmount = subtotal + platformFee;
 
       // Create order with transaction
@@ -84,22 +100,25 @@ export class OrderService {
         data: {
           buyerEmail: createOrderDto.buyerEmail,
           totalAmount: new Decimal(totalAmount),
-          status: 'PENDING',
+          status: "PENDING",
+          updatedAt: new Date(),
           items: {
             create: orderItemsData,
           },
           transaction: {
             create: {
               amount: new Decimal(totalAmount),
-              status: 'INITIATED',
-              metadata: JSON.parse(JSON.stringify({
-                subtotal,
-                platformFee,
-                platformCommissionRate: this.PLATFORM_COMMISSION_RATE,
-                shippingAddress: createOrderDto.shippingAddress,
-                paymentMethod: createOrderDto.paymentMethod,
-                userId,
-              })),
+              status: "INITIATED",
+              metadata: JSON.parse(
+                JSON.stringify({
+                  subtotal,
+                  platformFee,
+                  platformCommissionRate,
+                  shippingAddress: createOrderDto.shippingAddress,
+                  paymentMethod: createOrderDto.paymentMethod,
+                  userId,
+                })
+              ),
             },
           },
         },
@@ -140,7 +159,7 @@ export class OrderService {
         })),
       };
     } catch (error) {
-      this.logger.error('Order creation failed:', error);
+      this.logger.error("Order creation failed:", error);
       throw error;
     }
   }
@@ -169,10 +188,10 @@ export class OrderService {
       });
 
       if (!order) {
-        throw new NotFoundException('Order not found');
+        throw new NotFoundException("Order not found");
       }
 
-      if (order.status === 'PAID') {
+      if (order.status === "PAID") {
         this.logger.warn(`Order ${orderId} already paid`);
         return order;
       }
@@ -181,10 +200,10 @@ export class OrderService {
       const updatedOrder = await this.prisma.order.update({
         where: { id: orderId },
         data: {
-          status: 'PAID',
+          status: "PAID",
           transaction: {
             update: {
-              status: 'COMPLETED',
+              status: "COMPLETED",
               metadata: {
                 ...(order.transaction.metadata as any),
                 txRef,
@@ -208,12 +227,14 @@ export class OrderService {
       const artworkIds = order.items.map((item) => item.artworkId);
       await this.prisma.artwork.updateMany({
         where: { id: { in: artworkIds } },
-        data: { status: 'SOLD' },
+        data: { status: "SOLD" },
       });
 
       // Calculate artist earnings and create withdrawal entries
       const metadata = order.transaction.metadata as any;
-      const platformCommissionRate = metadata.platformCommissionRate || this.PLATFORM_COMMISSION_RATE;
+      const platformCommissionRate =
+        metadata.platformCommissionRate ||
+        (await this.settingsService.getPlatformCommissionRate());
 
       for (const item of order.items) {
         const itemPrice = Number(item.price) * item.quantity;
@@ -223,14 +244,15 @@ export class OrderService {
         // Create a withdrawal entry for the artist (pending state)
         await this.prisma.withdrawal.create({
           data: {
-            payoutAccount: item.artwork.iban || 'NOT_SET',
+            userId: item.artwork.userId,
+            payoutAccount: item.artwork.iban || "NOT_SET",
             amount: new Decimal(artistAmount),
-            status: 'INITIATED', // Artist can request withdrawal later
-          },
+            status: "INITIATED", // Artist can request withdrawal later
+          } as any,
         });
 
         this.logger.log(
-          `Created withdrawal for artist ${item.artwork.userId}: ${artistAmount} (Commission: ${platformCommission})`,
+          `Created withdrawal for artist ${item.artwork.userId}: ${artistAmount} (Commission: ${platformCommission})`
         );
       }
 
@@ -238,7 +260,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      this.logger.error('Order completion failed:', error);
+      this.logger.error("Order completion failed:", error);
       throw error;
     }
   }
@@ -270,10 +292,79 @@ export class OrderService {
     });
 
     if (!order) {
-      throw new NotFoundException('Order not found');
+      throw new NotFoundException("Order not found");
     }
 
     return order;
+  }
+
+  /**
+   * Get all orders with pagination and filters
+   */
+  async findAll(
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    status?: OrderStatus
+  ) {
+    try {
+      const skip = (page - 1) * limit;
+
+      // Build where clause
+      const where: any = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.OR = [
+          { buyerEmail: { contains: search, mode: "insensitive" } },
+          { id: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [orders, total] = await Promise.all([
+        this.prisma.order.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            items: {
+              include: {
+                artwork: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            transaction: true,
+          },
+        }),
+        this.prisma.order.count({ where }),
+      ]);
+
+      return {
+        orders,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error("Failed to fetch orders:", error);
+      throw error;
+    }
   }
 
   /**
@@ -296,7 +387,7 @@ export class OrderService {
         },
         transaction: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 }

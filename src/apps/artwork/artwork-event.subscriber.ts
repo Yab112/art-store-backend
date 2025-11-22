@@ -52,7 +52,6 @@ export class ArtworkEventSubscriber {
           artworkId: event.artworkId,
           artist: event.artist,
           title: event.title || 'Untitled',
-          technique: event.technique,
           desiredPrice: event.desiredPrice.toString(),
           photoCount: event.photos.length.toString(),
           submittedAt: event.submittedAt.toISOString(),
