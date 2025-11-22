@@ -47,7 +47,7 @@ model TwoFactor {
 }
 
 model Verification {
-  id         String   @id
+  id         String   @id @default(uuid())
   identifier String
   value      String
   expiresAt  DateTime
@@ -62,6 +62,7 @@ model Category {
   name        String              @unique
   description String?
   slug        String              @unique
+  image       String?             // MinIO/S3 URL for background image
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   artworks    ArtworkOnCategory[]

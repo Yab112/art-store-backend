@@ -183,7 +183,7 @@ async function bootstrap() {
     });
   });
 
-  await app.listen(3099);
+  await app.listen(3000);
   logger.success(`🚀 Application started on port ${port}`);
   logger.log(
     `📚 API Documentation available at http://localhost:${port}/swagger`

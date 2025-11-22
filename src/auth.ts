@@ -190,10 +190,51 @@ export const auth = betterAuth({
 
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
-      await emailBridge.sendVerificationEmail({
-        email: user.email,
-        link: url,
-      });
+      // Better-auth URL format can be:
+      // - Full URL: http://backend/api/auth/verify-email?token=xxx
+      // - Relative path: /api/auth/verify-email?token=xxx
+      // We need to extract the token and create a frontend link
+      try {
+        // Handle both absolute and relative URLs
+        let urlObj: URL;
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          urlObj = new URL(url);
+        } else {
+          // If relative, construct full URL using baseURL
+          const baseURL =
+            process.env.BETTER_AUTH_URL ||
+            process.env.BACKEND_URL ||
+            "http://localhost:3000";
+          urlObj = new URL(url, baseURL);
+        }
+
+        const token = urlObj.searchParams.get("token");
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+        if (token) {
+          // Create frontend verification link with token
+          const verificationLink = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(user.email)}`;
+          console.log("🔗 Verification link created:", verificationLink);
+          await emailBridge.sendVerificationEmail({
+            email: user.email,
+            link: verificationLink,
+          });
+        } else {
+          console.warn("⚠️ No token found in verification URL:", url);
+          // Fallback to original URL if token extraction fails
+          await emailBridge.sendVerificationEmail({
+            email: user.email,
+            link: url,
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error parsing verification URL:", error, "URL:", url);
+        // Fallback to original URL if parsing fails
+        await emailBridge.sendVerificationEmail({
+          email: user.email,
+          link: url,
+        });
+      }
     },
   },
 
@@ -241,7 +282,7 @@ export const auth = betterAuth({
     },
   },
 
-  // Social OAuth providers
+  // Social OAuth providers - Google only
   socialProviders: {
     google: {
       clientId: process.env.SERVER_GOOGLE_CLIENT_ID || "demo-client-id",
@@ -249,13 +290,6 @@ export const auth = betterAuth({
         process.env.SERVER_GOOGLE_CLIENT_SECRET || "demo-client-secret",
       accessType: "offline", // Get refresh token
       prompt: "select_account consent", // Always show account selector
-    },
-    facebook: {
-      clientId: process.env.SERVER_FACEBOOK_CLIENT_ID || "demo-client-id",
-      clientSecret:
-        process.env.SERVER_FACEBOOK_CLIENT_SECRET || "demo-client-secret",
-      scopes: ["email", "public_profile"],
-      fields: ["id", "name", "email", "picture"],
     },
   },
 
@@ -301,7 +335,7 @@ export const auth = betterAuth({
 
   // Disable telemetry for cleaner logs
   telemetry: {
-    enabled: false,
+    enabled: false, 
   },
 
   // Logger configuration for debugging session issues

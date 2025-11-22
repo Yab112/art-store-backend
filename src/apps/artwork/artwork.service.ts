@@ -8,7 +8,7 @@ import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { ConfigurationService } from "../../core/configuration";
 import { CreateArtworkDto, UpdateArtworkDto } from "./dto";
-import { ArtworkStatus } from "@prisma/client";
+import { ArtworkStatus, Prisma } from "@prisma/client";
 import {
   ARTWORK_EVENTS,
   ArtworkSubmittedEvent,
@@ -118,10 +118,12 @@ export class ArtworkService {
 
       // CRITICAL: Use the exact user.id from the database lookup, not the trimmedUserId
       // This ensures we're using the exact ID format that exists in the database
-      const artworkData = {
+      const artworkData: Prisma.ArtworkCreateInput = {
         ...rest,
-        dimensions: dimensions as unknown as any, // Convert ArtworkDimensionInputDto to JSON
-        userId: user.id, // Use the exact user.id from database lookup
+        dimensions: dimensions as unknown as Prisma.InputJsonValue,
+        user: {
+          connect: { id: user.id },
+        },
       };
 
       console.log("Artwork data prepared:");
@@ -130,11 +132,7 @@ export class ArtworkService {
       console.log("- userId length:", user.id?.length);
       console.log("- trimmedUserId:", trimmedUserId);
       console.log("- userId matches trimmedUserId:", user.id === trimmedUserId);
-      console.log("- artworkData.userId:", artworkData.userId);
-
-      this.logger.debug(
-        `Artwork data prepared, userId: "${artworkData.userId}" (from user.id: "${user.id}")`
-      );
+      this.logger.debug(`Artwork data prepared, userId: "${user.id}"`);
 
       // Final verification: Check user exists one more time right before creating
       console.log("Final verification: Checking user exists one more time...");
@@ -156,17 +154,7 @@ export class ArtworkService {
 
       console.log(
         "Attempting to create artwork in database with userId:",
-        artworkData.userId
-      );
-      console.log("Artwork data userId type:", typeof artworkData.userId);
-      console.log("Artwork data userId length:", artworkData.userId?.length);
-      console.log(
-        "Artwork data userId === user.id:",
-        artworkData.userId === user.id
-      );
-      console.log(
-        "Artwork data userId === finalUserCheck.id:",
-        artworkData.userId === finalUserCheck.id
+        user.id
       );
 
       // Create artwork with categories in a transaction
@@ -372,10 +360,10 @@ export class ArtworkService {
       // Transform artworks to include like counts and other stats
       const artworksWithStats = artworks.map((artwork) => ({
         ...artwork,
-        categories: artwork.categories.map((ac) => ac.category),
-        likeCount: artwork.interactions.length,
-        commentCount: artwork._count.comments,
-        reviewCount: artwork._count.reviews,
+        categories: artwork.categories?.map((ac) => ac.category) || [],
+        likeCount: artwork.interactions?.length || 0,
+        commentCount: artwork._count?.comments || 0,
+        reviewCount: artwork._count?.reviews || 0,
         interactions: undefined, // Remove interactions array from response
         _count: undefined, // Remove _count from response
       }));
@@ -561,11 +549,11 @@ export class ArtworkService {
 
       // Convert dimensions to JSON if present
       const { dimensions, categoryIds, ...restUpdate } = updateArtworkDto;
-      const updateData: any = {
+      const updateData: Prisma.ArtworkUpdateInput = {
         ...restUpdate,
       };
       if (dimensions) {
-        updateData.dimensions = dimensions as unknown as any;
+        updateData.dimensions = dimensions as unknown as Prisma.InputJsonValue;
       }
 
       // Update artwork with categories in a transaction
@@ -1096,12 +1084,15 @@ export class ArtworkService {
       const like = await this.prisma.interaction.create({
         data: {
           artworkId,
-          userId: userId, // Store userId directly for efficient querying
+          userId: userId,
           type: "LIKE",
           metadata: {
             userName: liker.name,
           },
-        } as any, // Type assertion until Prisma client is regenerated
+          artwork: {
+            connect: { id: artworkId },
+          },
+        } as Prisma.InteractionCreateInput,
       });
 
       // Get total likes count
@@ -1153,14 +1144,12 @@ export class ArtworkService {
         throw new NotFoundException(ARTWORK_MESSAGES.ERROR.NOT_FOUND);
       }
 
-      // Find the like - now using userId field directly
-      // Note: userId field added to Interaction model - regenerate Prisma client
       const existingLike = await this.prisma.interaction.findFirst({
         where: {
           artworkId,
           type: "LIKE",
-          userId: userId, // Direct userId field instead of metadata query
-        } as any, // Type assertion until Prisma client is regenerated
+          userId: userId,
+        } as Prisma.InteractionWhereInput,
       });
 
       if (!existingLike) {
@@ -1225,14 +1214,12 @@ export class ArtworkService {
 
       let isLikedByUser = false;
       if (userId) {
-        // Check if user has liked - now using userId field directly
-        // Note: userId field added to Interaction model - regenerate Prisma client
         const userLike = await this.prisma.interaction.findFirst({
           where: {
             artworkId,
             type: "LIKE",
-            userId: userId, // Direct userId field instead of metadata query
-          } as any, // Type assertion until Prisma client is regenerated
+            userId: userId,
+          } as Prisma.InteractionWhereInput,
         });
         isLikedByUser = !!userLike;
       }

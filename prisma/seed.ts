@@ -100,7 +100,7 @@ async function main() {
         status: statuses[i % statuses.length],
         isApproved: statuses[i % statuses.length] === 'APPROVED',
         userId: users[i].id,
-      },
+      } as any,
     });
     artworks.push(artwork);
 
@@ -116,7 +116,7 @@ async function main() {
             artworkId: artwork.id,
             categoryId: randomCategory.id,
           },
-        });
+        } as any);
       }
     }
     console.log(`✅ Created artwork ${i + 1}: ${artwork.title} with ${selectedCategories.length} categories`);

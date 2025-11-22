@@ -20,4 +20,12 @@ export class CreateCategoryDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Category background image URL (uploaded to S3/MinIO)',
+    example: 'https://s3.amazonaws.com/bucket/categories/category-image.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  image?: string;
 }

@@ -3,9 +3,9 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto';
+} from "@nestjs/common";
+import { PrismaClient, Prisma } from "@prisma/client";
+import { CreateCategoryDto, UpdateCategoryDto } from "./dto";
 
 @Injectable()
 export class CategoryService {
@@ -18,9 +18,9 @@ export class CategoryService {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/--+/g, '-'); // Replace multiple hyphens with single hyphen
+      .replace(/[^\w\s-]/g, "") // Remove special characters
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/--+/g, "-"); // Replace multiple hyphens with single hyphen
   }
 
   /**
@@ -38,9 +38,7 @@ export class CategoryService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        'Category with this name already exists',
-      );
+      throw new ConflictException("Category with this name already exists");
     }
 
     return this.prisma.category.create({
@@ -48,7 +46,8 @@ export class CategoryService {
         name,
         description,
         slug,
-      },
+        image: createCategoryDto.image,
+      } as Prisma.CategoryCreateInput,
       include: {
         _count: {
           select: { artworks: true },
@@ -64,17 +63,17 @@ export class CategoryService {
     const categories = await this.prisma.category.findMany({
       include: {
         _count: {
-          select: { artworks: true },
+          select: { artworks: true }, // artworks is the relation name in Category model
         },
       },
       orderBy: {
-        name: 'asc',
+        name: "asc",
       },
     });
 
     return categories.map((category) => ({
       ...category,
-      artworkCount: category._count.artworks,
+      artworkCount: category._count?.artworks || 0,
       _count: undefined,
     }));
   }
@@ -83,14 +82,14 @@ export class CategoryService {
    * Get a single category by ID
    */
   async findOne(id: string) {
-    const category = await this.prisma.category.findUnique({
+    const category = (await this.prisma.category.findUnique({
       where: { id },
       include: {
         _count: {
-          select: { artworks: true },
+          select: { artworkOnCategory: true } as any,
         },
       },
-    });
+    })) as any;
 
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
@@ -98,7 +97,7 @@ export class CategoryService {
 
     return {
       ...category,
-      artworkCount: category._count.artworks,
+      artworkCount: category._count?.artworks || 0,
       _count: undefined,
     };
   }
@@ -127,9 +126,7 @@ export class CategoryService {
       });
 
       if (existing) {
-        throw new ConflictException(
-          'Category with this name already exists',
-        );
+        throw new ConflictException("Category with this name already exists");
       }
     }
 
@@ -138,7 +135,10 @@ export class CategoryService {
       data: {
         ...(name && { name, slug }),
         ...(description !== undefined && { description }),
-      },
+        ...(updateCategoryDto.image !== undefined && {
+          image: updateCategoryDto.image,
+        }),
+      } as Prisma.CategoryUpdateInput,
       include: {
         _count: {
           select: { artworks: true },
@@ -164,9 +164,9 @@ export class CategoryService {
       },
     });
 
-    if (category._count.artworks > 0) {
+    if (category._count?.artworks > 0) {
       throw new BadRequestException(
-        `Cannot delete category. It has ${category._count.artworks} associated artworks. Please reassign or remove the artworks first.`,
+        `Cannot delete category. It has ${category._count.artworks} associated artworks. Please reassign or remove the artworks first.`
       );
     }
 
@@ -174,6 +174,6 @@ export class CategoryService {
       where: { id },
     });
 
-    return { message: 'Category deleted successfully' };
+    return { message: "Category deleted successfully" };
   }
 }
