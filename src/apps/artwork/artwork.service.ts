@@ -812,6 +812,122 @@ export class ArtworkService {
     }
   }
 
+  /**
+   * Get artworks similar to a specific artwork based on shared collections
+   * Finds artworks that are in the same collections as the given artwork
+   * Excludes the current artwork and ranks by number of shared collections
+   */
+  async getSimilarArtworks(artworkId: string, limit: number = 12) {
+    try {
+      // 1. Get all collections that contain this artwork
+      const artworkCollections = await this.prisma.collectionOnArtwork.findMany({
+        where: { artworkId },
+        select: { collectionId: true },
+      });
+
+      const collectionIds = artworkCollections.map((ac) => ac.collectionId);
+
+      // If artwork is not in any collections, return empty
+      if (collectionIds.length === 0) {
+        this.logger.warn(`Artwork ${artworkId} is not in any collections`);
+        return [];
+      }
+
+      this.logger.log(
+        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(', ')}`
+      );
+
+      // 2. Get all CollectionOnArtwork records from those collections (excluding the current artwork)
+      const artworksInCollections = await this.prisma.collectionOnArtwork.findMany({
+        where: {
+          collectionId: { in: collectionIds },
+          artworkId: { not: artworkId }, // Exclude the current artwork
+        },
+        select: {
+          artworkId: true,
+          collectionId: true,
+        },
+      });
+
+      // 3. Get unique artwork IDs and fetch the artworks with their details
+      const uniqueArtworkIds = [...new Set(artworksInCollections.map((ac) => ac.artworkId))];
+
+      if (uniqueArtworkIds.length === 0) {
+        this.logger.warn(`No other artworks found in collections for artwork ${artworkId}`);
+        return [];
+      }
+
+      // 4. Fetch artworks with their details (only approved ones)
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          id: { in: uniqueArtworkIds },
+          isApproved: true,
+          status: 'APPROVED',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // 5. Count shared collections for each artwork
+      const artworkCollectionCount = new Map<string, { artwork: any; sharedCollections: number }>();
+
+      artworks.forEach((artwork) => {
+        // Count how many collections this artwork shares with the original artwork
+        const sharedCount = artworksInCollections.filter(
+          (ac) => ac.artworkId === artwork.id
+        ).length;
+
+        artworkCollectionCount.set(artwork.id, {
+          artwork,
+          sharedCollections: sharedCount,
+        });
+      });
+
+      // 6. Sort by shared collections count (descending) and limit
+      const rankedArtworks = Array.from(artworkCollectionCount.values())
+        .sort((a, b) => b.sharedCollections - a.sharedCollections)
+        .slice(0, limit)
+        .map(({ sharedCollections, artwork }) => {
+          // Transform categories to match expected format
+          return {
+            ...artwork,
+            categories: artwork.categories.map((ac: any) => ac.category),
+          };
+        });
+
+      // 7. Ensure no duplicates by ID (additional safeguard)
+      const uniqueArtworks = rankedArtworks.filter((artwork, index, self) =>
+        index === self.findIndex((a) => a.id === artwork.id)
+      );
+
+      this.logger.log(
+        `[Similar Artworks] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`
+      );
+      return uniqueArtworks;
+    } catch (error) {
+      this.logger.error(`Failed to fetch similar artworks for artwork ${artworkId}:`, error);
+      throw error;
+    }
+  }
+
   // ==================== COMMENTS ====================
 
   /**

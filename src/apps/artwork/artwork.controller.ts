@@ -113,6 +113,40 @@ export class ArtworkController {
     };
   }
 
+  @Get(':id/similar-artworks')
+  @ApiOperation({
+    summary: 'Get artworks similar to a specific artwork',
+    description: 'Returns artworks that share collections with the given artwork, ranked by number of shared collections. Excludes the current artwork.'
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of similar artworks to return (default: 12)',
+    example: 12
+  })
+  async getSimilarArtworks(
+    @Param('id') artworkId: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    try {
+      const artworks = await this.artworkService.getSimilarArtworks(
+        artworkId,
+        limit || 12,
+      );
+
+      return {
+        success: true,
+        artworks,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch similar artworks',
+      };
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Request() req: any) {
     const userId = req.user?.id;
