@@ -5,7 +5,7 @@ import { ArtworkStatus } from '@prisma/client';
  * Response DTOs for Artwork endpoints
  */
 
-export class ArtworkDimensionDto {
+export class ArtworkDimensionDto {  
   @ApiProperty({ description: 'Height of the artwork', example: '50cm' })
   height: string;
 
