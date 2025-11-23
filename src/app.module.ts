@@ -12,6 +12,7 @@ import { ConfigurationModule } from './core/configuration';
 import { CookieModule } from './core/cookie';
 import { UsersModule } from './apps/users/users.module';
 import { ArtworkModule } from './apps/artwork/artwork.module';
+import { CategoryModule } from './apps/category/category.module';
 import { CollectionsModule } from './apps/collections/collections.module';
 import { OrderModule } from './apps/order/order.module';
 import { TransactionsModule } from './apps/transactions/transactions.module';
@@ -35,6 +36,7 @@ import { WithdrawalsModule } from './apps/withdrawals/withdrawals.module';
     // Application modules
     UsersModule,
     ArtworkModule,
+    CategoryModule,
     CollectionsModule,
           OrderModule,
           TransactionsModule,

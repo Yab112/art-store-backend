@@ -34,12 +34,14 @@ export class UpdateArtworkDto {
   artist?: string;
 
   @ApiPropertyOptional({
-    description: 'Art technique used',
-    example: 'Oil on Canvas',
+    description: 'Category IDs for the artwork',
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    type: [String]
   })
   @IsOptional()
-  @IsString()
-  technique?: string;
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
 
   @ApiPropertyOptional({ description: 'Support material', example: 'Canvas' })
   @IsOptional()

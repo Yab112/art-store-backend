@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artwork Submitted</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .artwork-details {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .detail-row {
+      display: flex;
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    .detail-label {
+      font-weight: bold;
+      width: 150px;
+      color: #666;
+    }
+    .detail-value {
+      flex: 1;
+      color: #333;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Artwork Submitted Successfully!</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= artistName %></strong>,</p>
+      <p>
+        Thank you for submitting your artwork to our gallery. We have received your submission and it is now under review.
+      </p>
+      <div class="artwork-details">
+        <h3 style="margin-top: 0;">Artwork Details</h3>
+        <div class="detail-row">
+          <span class="detail-label">Submission ID:</span>
+          <span class="detail-value"><%= artworkId %></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Title:</span>
+          <span class="detail-value"><%= title %></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Artist:</span>
+          <span class="detail-value"><%= artist %></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Technique:</span>
+          <span class="detail-value"><%= technique %></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Desired Price:</span>
+          <span class="detail-value">$<%= desiredPrice %></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Photos:</span>
+          <span class="detail-value"><%= photoCount %> uploaded</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Submitted At:</span>
+          <span class="detail-value"><%= submittedAt %></span>
+        </div>
+      </div>
+      <div class="info-box">
+        <strong>ℹ️ What's Next?</strong>
+        <p style="margin: 10px 0 0 0;">
+          Our team will review your artwork within <strong>1-2 business days</strong>.
+          You'll receive an email notification once the review is complete.
+        </p>
+      </div>
+      <p>
+        If you have any questions, please don't hesitate to contact our support team.
+      </p>
+      <p>
+        Thank you for choosing our platform!
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

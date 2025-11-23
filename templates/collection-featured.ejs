@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collection Featured</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .success-icon {
+      font-size: 60px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 15px 30px;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="success-icon">⭐</div>
+      <h1>Your Collection Has Been Featured!</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= userName %></strong>,</p>
+      <p>
+        Congratulations! Your collection "<strong><%= collectionName %></strong>" has been selected as a featured collection by our team!
+      </p>
+      <p>
+        Your carefully curated selection will now be showcased on our homepage and featured collections page, giving it maximum visibility to our community.
+      </p>
+      <div style="text-align: center;">
+        <a href="<%= publicUrl %>" class="cta-button">View Your Featured Collection</a>
+      </div>
+      <p>
+        This is a great opportunity to reach a wider audience and showcase your taste in art!
+      </p>
+      <p>
+        <small>Featured at: <%= featuredAt %></small>
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

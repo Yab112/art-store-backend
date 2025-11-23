@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmailService } from '../../libraries/email';
-import { ConfigurationService } from '../../core/configuration';
 import {
   ARTWORK_EVENTS,
   ArtworkSubmittedEvent,
@@ -29,10 +28,7 @@ import { ARTWORK_EMAIL_SUBJECTS } from './constants';
 export class ArtworkEventSubscriber {
   private readonly logger = new Logger(ArtworkEventSubscriber.name);
 
-  constructor(
-    private readonly emailService: EmailService,
-    private readonly configurationService: ConfigurationService,
-  ) {}
+  constructor(private readonly emailService: EmailService) {}
 
   /**
    * Handle artwork submitted event
@@ -56,7 +52,6 @@ export class ArtworkEventSubscriber {
           artworkId: event.artworkId,
           artist: event.artist,
           title: event.title || 'Untitled',
-          technique: event.technique,
           desiredPrice: event.desiredPrice.toString(),
           photoCount: event.photos.length.toString(),
           submittedAt: event.submittedAt.toISOString(),
@@ -172,7 +167,7 @@ export class ArtworkEventSubscriber {
           approvedAt: event.approvedAt.toISOString(),
           publicUrl:
             event.publicUrl ||
-            `${this.configurationService.getServerBaseUrl()}/artworks/${event.artworkId}`,
+            `http://localhost:3000/artwork/${event.artworkId}`,
         },
       });
 
@@ -372,7 +367,7 @@ export class ArtworkEventSubscriber {
             commenterAvatar: event.commenterAvatar || '',
             comment: event.comment,
             commentedAt: event.createdAt.toISOString(),
-            artworkUrl: `${this.configurationService.getServerBaseUrl()}/artworks/${event.artworkId}`,
+            artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
           },
         });
 
@@ -452,7 +447,7 @@ export class ArtworkEventSubscriber {
             likerAvatar: event.likerAvatar || '',
             totalLikes: event.totalLikes.toString(),
             likedAt: event.likedAt.toISOString(),
-            artworkUrl: `${this.configurationService.getServerBaseUrl()}/artworks/${event.artworkId}`,
+            artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
           },
         });
 

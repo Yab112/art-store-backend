@@ -119,7 +119,7 @@ export class UsersService {
               createdAt: true,
             },
           },
-          Collection: {
+          collections: {
             take: 10,
             orderBy: { createdAt: "desc" },
             include: {
@@ -190,7 +190,7 @@ export class UsersService {
           _count: {
             select: {
               artworks: true,
-              Collection: true,
+              collections: true,
               reviews: true,
               interactions: true,
               favorites: true,

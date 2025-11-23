@@ -5,7 +5,7 @@ import { ArtworkStatus } from '@prisma/client';
  * Response DTOs for Artwork endpoints
  */
 
-export class ArtworkDimensionDto {
+export class ArtworkDimensionDto {  
   @ApiProperty({ description: 'Height of the artwork', example: '50cm' })
   height: string;
 
@@ -26,8 +26,16 @@ export class ArtworkDto {
   @ApiProperty({ description: 'Artist name', example: 'John Doe' })
   artist: string;
 
-  @ApiProperty({ description: 'Art technique used', example: 'Oil on Canvas' })
-  technique: string;
+  @ApiPropertyOptional({
+    description: 'Categories assigned to this artwork',
+    type: [Object],
+    example: [{ id: 'uuid', name: 'Abstract Art', slug: 'abstract-art' }]
+  })
+  categories?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
 
   @ApiProperty({ description: 'Support material', example: 'Canvas' })
   support: string;
@@ -112,8 +120,15 @@ export class ArtworkListItemDto {
   @ApiProperty({ description: 'Artist name' })
   artist: string;
 
-  @ApiProperty({ description: 'Art technique used' })
-  technique: string;
+  @ApiPropertyOptional({
+    description: 'Categories assigned to this artwork',
+    type: [Object],
+  })
+  categories?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
 
   @ApiProperty({ description: 'Main photo URL' })
   mainPhoto: string;

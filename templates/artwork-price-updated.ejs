@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artwork Price Updated</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .price-comparison {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin: 30px 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+    }
+    .price-box {
+      text-align: center;
+    }
+    .price-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .price-value {
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .old-price {
+      color: #999;
+      text-decoration: line-through;
+    }
+    .new-price {
+      color: #f5576c;
+    }
+    .arrow {
+      font-size: 30px;
+      color: #666;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Artwork Price Updated</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= artistName %></strong>,</p>
+      <p>
+        The price for your artwork has been successfully updated.
+      </p>
+      <div class="price-comparison">
+        <div class="price-box">
+          <div class="price-label">Previous Price</div>
+          <div class="price-value old-price">$<%= oldPrice %></div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="price-box">
+          <div class="price-label">New Price</div>
+          <div class="price-value new-price">$<%= newPrice %></div>
+        </div>
+      </div>
+      <p>
+        <strong>Artwork ID:</strong> <%= artworkId %><br>
+        <strong>Updated At:</strong> <%= updatedAt %>
+      </p>
+      <p>
+        The new price is now visible to all visitors on our platform.
+      </p>
+      <p>
+        If this change was made in error, you can update the price again from your dashboard.
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

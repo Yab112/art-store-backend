@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artwork Submission Update</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .reason-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Artwork Submission Update</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= artistName %></strong>,</p>
+      <p>
+        Thank you for submitting your artwork "<strong><%= title %></strong>" by <%= artist %> to our gallery.
+      </p>
+      <p>
+        After careful review, we regret to inform you that your submission does not meet our current criteria for publication.
+      </p>
+      <div class="reason-box">
+        <strong>Reason:</strong>
+        <p style="margin: 10px 0 0 0;"><%= reason %></p>
+      </div>
+      <% if (canResubmit === 'Yes') { %>
+      <div class="info-box">
+        <strong>✨ Good News!</strong>
+        <p style="margin: 10px 0 0 0;">
+          You can revise and resubmit your artwork after addressing the feedback above.
+          We encourage you to make the necessary improvements and try again.
+        </p>
+      </div>
+      <% } %>
+      <p>
+        <strong>Artwork ID:</strong> <%= artworkId %><br>
+        <strong>Rejected At:</strong> <%= rejectedAt %>
+      </p>
+      <p>
+        If you have any questions about this decision or need clarification on the feedback,
+        please don't hesitate to contact our support team.
+      </p>
+      <p>
+        We appreciate your interest in our platform and hope to see more of your work in the future.
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

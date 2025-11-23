@@ -234,7 +234,7 @@ export class WithdrawalsService {
           },
         },
       },
-    });
+    }) as any;
 
     this.logger.log(
       `Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CookieOptions, Request, Response } from 'express';
 import { ConfigurationService } from '../configuration';
 
-import { SystemConst } from 'src/common/constant/system.const';
+import { SystemConst } from '@/common/constant/system.const';
 
 @Injectable()
 export class CookieService {
