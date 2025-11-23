@@ -220,6 +220,7 @@ export class ArtworkService {
     search?: string;
     artist?: string;
     categoryId?: string;
+    categoryIds?: string[];
     support?: string;
     origin?: string;
     yearOfArtwork?: string;
@@ -237,6 +238,7 @@ export class ArtworkService {
         search,
         artist,
         categoryId,
+        categoryIds,
         support,
         origin,
         yearOfArtwork,
@@ -267,7 +269,16 @@ export class ArtworkService {
         };
       }
 
-      if (categoryId) {
+      // Support both single categoryId (for backward compatibility) and categoryIds array
+      if (categoryIds && categoryIds.length > 0) {
+        where.categories = {
+          some: {
+            categoryId: {
+              in: categoryIds,
+            },
+          },
+        };
+      } else if (categoryId) {
         where.categories = {
           some: {
             categoryId: categoryId,
