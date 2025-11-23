@@ -55,6 +55,8 @@
     "prisma:generate": "npx prisma generate",
     "prisma:generate:watch": "npx prisma generate --watch",
     "db:seed": "dotenv -e env/local.env -- ts-node prisma/seed.ts",
+    "db:seed:landing": "dotenv -e env/local.env -- ts-node scripts/seed-landing-page.ts",
+    "db:seed:engagement": "dotenv -e env/local.env -- ts-node scripts/seed-engagement-data.ts",
     "clean": "rimraf dist coverage",
     "prebuild": "npm run clean",
     "postinstall": "npm run prisma:generate",

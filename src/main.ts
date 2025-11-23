@@ -24,7 +24,8 @@ async function bootstrap() {
     cors({
       origin: [
         "http://localhost:5173", // Vite dev server (frontend)
-        "http://localhost:3000", // Backend (for Swagger, etc.)
+        "http://localhost:3000", // Backend (legacy)
+        "http://localhost:3099", // Backend (current)
         "http://localhost:3001", // Admin dashboard (Next.js default)
         "http://localhost:3002", // Admin dashboard (alternative port)
         "http://13.48.104.231:3000", // EC2 Production
@@ -47,7 +48,8 @@ async function bootstrap() {
       optionsSuccessStatus: 204,
     })
   );
-  server.all("/api/auth/*", toNodeHandler(auth));
+  // Mount Better Auth handler - it handles all routes under /api/auth/*
+  server.use("/api/auth", toNodeHandler(auth));
   server.use(express.urlencoded({ extended: true }));
   server.use(express.json());
 

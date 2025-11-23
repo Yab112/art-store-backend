@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { ConfigurationService } from "../../core/configuration";
+import { SettingsService } from "../settings/settings.service";
 import { CreateArtworkDto, UpdateArtworkDto } from "./dto";
 import { ArtworkStatus, Prisma } from "@prisma/client";
 import {
@@ -33,7 +34,8 @@ export class ArtworkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
-    private readonly configurationService: ConfigurationService
+    private readonly configurationService: ConfigurationService,
+    private readonly settingsService: SettingsService
   ) {}
 
   async create(createArtworkDto: CreateArtworkDto, userId: string) {
@@ -1246,6 +1248,276 @@ export class ArtworkService {
         `❌ Failed to get likes for artwork ${artworkId}:`,
         error
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Get trending artists based on comprehensive metrics
+   * Calculates trending score from: engagement (views, likes, comments, favorites), 
+   * sales (totalSales, salesCount, earnings), and artwork count
+   */
+  async getTrendingArtists(limit: number = 10) {
+    try {
+      // Get platform commission rate for earnings calculation
+      const platformCommissionRate =
+        await this.settingsService.getPlatformCommissionRate();
+
+      // Get all approved artworks with their engagement data and user info
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          isApproved: true,
+          status: 'APPROVED',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          interactions: {
+            select: {
+              type: true,
+            },
+          },
+          comments: {
+            select: {
+              id: true,
+            },
+          },
+          favorites: {
+            select: {
+              id: true,
+            },
+          },
+          orderItems: {
+            where: {
+              order: {
+                status: 'PAID',
+              },
+            },
+            select: {
+              price: true,
+              order: {
+                select: {
+                  status: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Group artworks by userId (actual artist) and calculate metrics
+      const artistMap = new Map<
+        string,
+        {
+          userId: string;
+          name: string;
+          avatar: string;
+          artworkCount: number;
+          totalViews: number;
+          totalLikes: number;
+          totalComments: number;
+          totalFavorites: number;
+          totalSales: number;
+          salesCount: number;
+          totalEarnings: number;
+          engagementScore: number;
+        }
+      >();
+
+      artworks.forEach((artwork) => {
+        if (!artwork.userId || !artwork.user) return;
+
+        const userId = artwork.userId;
+        const existing = artistMap.get(userId);
+
+        // Count interactions by type (case-insensitive)
+        const views = artwork.interactions.filter((i) => 
+          i.type?.toUpperCase() === 'VIEW'
+        ).length;
+        const likes = artwork.interactions.filter((i) => 
+          i.type?.toUpperCase() === 'LIKE'
+        ).length;
+
+        const comments = artwork.comments.length;
+        const favorites = artwork.favorites.length;
+
+        // Calculate sales metrics for this artwork
+        const artworkSales = artwork.orderItems
+          .filter((item) => item.order.status === 'PAID')
+          .reduce(
+            (acc, item) => {
+              const salePrice = Number(item.price);
+              const commission = salePrice * platformCommissionRate;
+              const earnings = salePrice - commission;
+              return {
+                totalSales: acc.totalSales + salePrice,
+                salesCount: acc.salesCount + 1,
+                totalEarnings: acc.totalEarnings + earnings,
+              };
+            },
+            { totalSales: 0, salesCount: 0, totalEarnings: 0 }
+          );
+
+        // Get user profile avatar (prefer user image, fallback to placeholder)
+        const artistAvatar = artwork.user.image || '/placeholder.svg';
+
+        if (existing) {
+          existing.artworkCount += 1;
+          existing.totalViews += views;
+          existing.totalLikes += likes;
+          existing.totalComments += comments;
+          existing.totalFavorites += favorites;
+          existing.totalSales += artworkSales.totalSales;
+          existing.salesCount += artworkSales.salesCount;
+          existing.totalEarnings += artworkSales.totalEarnings;
+          // Update avatar if user has a profile image
+          if (artwork.user.image) {
+            existing.avatar = artwork.user.image;
+          }
+        } else {
+          artistMap.set(userId, {
+            userId,
+            name: artwork.user.name || artwork.artist || 'Unknown Artist',
+            avatar: artistAvatar,
+            artworkCount: 1,
+            totalViews: views,
+            totalLikes: likes,
+            totalComments: comments,
+            totalFavorites: favorites,
+            totalSales: artworkSales.totalSales,
+            salesCount: artworkSales.salesCount,
+            totalEarnings: artworkSales.totalEarnings,
+            engagementScore: 0, // Will calculate below
+          });
+        }
+      });
+
+      // Calculate comprehensive trending score for each artist
+      // Weighted formula: 
+      // - Engagement: views (1x) + likes (3x) + comments (2x) + favorites (2x) + artwork count (1x)
+      // - Sales: totalSales (0.01x per euro) + salesCount (10x) + totalEarnings (0.01x per euro)
+      const artistsWithScores = Array.from(artistMap.values()).map((artist) => {
+        const engagementScore =
+          artist.totalViews * 1 +
+          artist.totalLikes * 3 +
+          artist.totalComments * 2 +
+          artist.totalFavorites * 2 +
+          artist.artworkCount * 1;
+
+        const salesScore =
+          artist.totalSales * 0.01 + // 1 point per 100 euros in sales
+          artist.salesCount * 10 + // 10 points per sale
+          artist.totalEarnings * 0.01; // 1 point per 100 euros in earnings
+
+        const trendingScore = engagementScore + salesScore;
+
+        return {
+          ...artist,
+          engagementScore,
+          trendingScore,
+        };
+      });
+
+      // Sort by trending score (descending) and limit
+      const trendingArtists = artistsWithScores
+        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .slice(0, limit)
+        .map(({ engagementScore, trendingScore, ...artist }) => artist); // Remove scores from response
+
+      return trendingArtists;
+    } catch (error) {
+      this.logger.error('❌ Failed to get trending artists:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get trending artworks based on engagement metrics
+   * Calculates trending score from: views, likes, comments, favorites, and recency
+   */
+  async getTrendingArtworks(limit: number = 12) {
+    try {
+      // Get all approved artworks with their engagement data
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          isApproved: true,
+          status: 'APPROVED',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          interactions: {
+            select: {
+              type: true,
+              createdAt: true,
+            },
+          },
+          comments: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+          },
+          favorites: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Calculate trending score for each artwork
+      const now = new Date();
+      const artworksWithScores = artworks.map((artwork) => {
+        // Count interactions by type (case-insensitive)
+        const views = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === 'VIEW'
+        ).length;
+        const likes = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === 'LIKE'
+        ).length;
+        const comments = artwork.comments.length;
+        const favorites = artwork.favorites.length;
+
+        // Calculate time decay factor (artworks created in last 7 days get bonus)
+        const daysSinceCreation =
+          (now.getTime() - artwork.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+        const recencyBonus = daysSinceCreation <= 7 ? 1.5 : daysSinceCreation <= 30 ? 1.2 : 1.0;
+
+        // Calculate engagement score with time decay
+        // Weighted formula: views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
+        const engagementScore =
+          (views * 1 + likes * 3 + comments * 2 + favorites * 2.5) * recencyBonus;
+
+        return {
+          artwork,
+          engagementScore,
+        };
+      });
+
+      // Sort by engagement score (descending) and limit
+      const trendingArtworks = artworksWithScores
+        .sort((a, b) => b.engagementScore - a.engagementScore)
+        .slice(0, limit)
+        .map(({ artwork }) => artwork);
+
+      return trendingArtworks;
+    } catch (error) {
+      this.logger.error('❌ Failed to get trending artworks:', error);
       throw error;
     }
   }

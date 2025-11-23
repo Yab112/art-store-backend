@@ -11,11 +11,13 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ArtworkService } from './artwork.service';
 import { CreateArtworkDto, UpdateArtworkDto, ArtworkQueryDto } from './dto';
 import { AuthGuard } from '@/core/guards/auth.guard';
 // import { ArtworkStatus } from '@prisma/client';
 
+@ApiTags('Artworks')
 @Controller('artworks')
 export class ArtworkController {
   constructor(private readonly artworkService: ArtworkService) {}
@@ -87,6 +89,28 @@ export class ArtworkController {
   ) {
     const userId = req.user.id;
     return this.artworkService.findByUser(userId, page, limit);
+  }
+
+  @Get('trending')
+  @ApiOperation({
+    summary: 'Get trending artworks',
+    description: 'Returns artworks sorted by engagement metrics (views, likes, comments, favorites) with recency bonus'
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of trending artworks to return (default: 12)',
+    example: 12
+  })
+  async getTrendingArtworks(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 12,
+  ) {
+    const artworks = await this.artworkService.getTrendingArtworks(limit);
+    return {
+      success: true,
+      artworks,
+    };
   }
 
   @Get(':id')
