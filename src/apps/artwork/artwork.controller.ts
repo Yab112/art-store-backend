@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   Request,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ArtworkService } from './artwork.service';
@@ -147,6 +148,40 @@ export class ArtworkController {
     }
   }
 
+  @Get(':id/similar-artworks-by-category')
+  @ApiOperation({
+    summary: 'Get artworks similar to a specific artwork by category',
+    description: 'Returns artworks that share at least one category with the given artwork, ranked by number of shared categories. Excludes the current artwork.'
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of similar artworks to return (default: 12)',
+    example: 12
+  })
+  async getSimilarArtworksByCategory(
+    @Param('id') artworkId: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    try {
+      const artworks = await this.artworkService.getSimilarArtworksByCategory(
+        artworkId,
+        limit || 12,
+      );
+
+      return {
+        success: true,
+        artworks,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch similar artworks by category',
+      };
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Request() req: any) {
     const userId = req.user?.id;
@@ -158,21 +193,29 @@ export class ArtworkController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateArtworkDto: UpdateArtworkDto,
-    @Request() req: any, // This will be replaced with proper auth guard
+    @Request() req: any,
   ) {
-    const userId = req.user?.id || 'mock-user-id';
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
     return this.artworkService.update(id, updateArtworkDto, userId);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
   async remove(
     @Param('id') id: string,
-    @Request() req: any, // This will be replaced with proper auth guard
+    @Request() req: any,
   ) {
-    const userId = req.user?.id || 'mock-user-id';
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
     return this.artworkService.remove(id, userId);
   }
 
