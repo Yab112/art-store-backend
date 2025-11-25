@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 import {
   IsOptional,
   IsString,
@@ -9,6 +9,7 @@ import {
   IsArray,
   Min,
   Max,
+  ValidateIf,
 } from "class-validator";
 import { ArtworkStatus } from "@prisma/client";
 
@@ -69,7 +70,7 @@ export class ArtworkQueryDto {
 
   @ApiPropertyOptional({
     description:
-      "Filter by category IDs (array) - artworks matching any of these categories. Can be passed as repeated query params: categoryIds=id1&categoryIds=id2",
+      "Filter by category IDs (array) - artworks matching any of these categories. Can be passed as single value: categoryIds=id or multiple: categoryIds=id1&categoryIds=id2 or comma-separated: categoryIds=id1,id2",
     example: [
       "123e4567-e89b-12d3-a456-426614174000",
       "123e4567-e89b-12d3-a456-426614174001",
@@ -77,7 +78,25 @@ export class ArtworkQueryDto {
     type: [String],
   })
   @IsOptional()
-  @IsArray()
+  @Transform(({ value }) => {
+    // Handle both array and single value from query params
+    if (value === undefined || value === null) return undefined;
+    if (Array.isArray(value)) {
+      // Filter out empty strings and return
+      return value.filter((id) => id && id.trim().length > 0);
+    }
+    if (typeof value === 'string' && value.trim()) {
+      // If it's a comma-separated string, split it
+      if (value.includes(',')) {
+        return value.split(',').map((id) => id.trim()).filter(Boolean);
+      }
+      // If it's a single string, return as array
+      return [value.trim()];
+    }
+    return undefined;
+  })
+  @ValidateIf((o, value) => value !== undefined && value !== null)
+  @IsArray({ message: 'categoryIds must be an array' })
   @IsString({ each: true })
   categoryIds?: string[];
 

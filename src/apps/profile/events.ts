@@ -50,13 +50,16 @@ export interface PreferencesUpdatedEvent {
   userName: string;
   email: string;
   preferences: {
+    themePreference?: string;
+    languagePreference?: string;
+    timezone?: string;
+    messagingPreferences?: any;
     notifications?: {
       email?: boolean;
       push?: boolean;
       sms?: boolean;
     };
     language?: string;
-    timezone?: string;
   };
   updatedAt: Date;
 }

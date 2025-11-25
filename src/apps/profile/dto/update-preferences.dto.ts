@@ -64,4 +64,16 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   showPhone?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['light', 'dark'])
+  themePreference?: string;
+
+  @IsOptional()
+  @IsString()
+  languagePreference?: string;
+
+  @IsOptional()
+  messagingPreferences?: any; // JSON object
 }

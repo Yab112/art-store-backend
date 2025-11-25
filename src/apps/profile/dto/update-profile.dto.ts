@@ -53,4 +53,8 @@ export class UpdateProfileDto {
   @TransformEmptyToUndefined()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @TransformEmptyToUndefined()
+  talentTypeIds?: string[]; // Array of talent type IDs for multiple talents
 }

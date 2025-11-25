@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database';
 import { EventService } from '../../libraries/event';
+import { AnalyticsService } from '../analytics/analytics.service';
 import {
   UpdateProfileDto,
   UpdatePreferencesDto,
@@ -25,6 +26,7 @@ export class ProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   /**
@@ -58,11 +60,42 @@ export class ProfileService {
               createdAt: true,
             },
           },
+          talentTypes: {
+            select: {
+              talentType: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
         },
       });
 
       if (!user) {
         throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
+      }
+
+      // Track profile view (async, don't wait)
+      if (viewerIp && viewerUserId !== profileId) {
+        // Don't track if user is viewing their own profile
+        this.analyticsService
+          .trackProfileView(profileId, {
+            viewerId: viewerUserId,
+            ip: viewerIp,
+          })
+          .catch((err) => {
+            this.logger.warn('Failed to track profile view:', err);
+          });
+      }
+
+      // Update lastActiveAt if viewer is the profile owner
+      if (viewerUserId === profileId) {
+        this.analyticsService.updateLastActiveAt(profileId).catch((err) => {
+          this.logger.warn('Failed to update lastActiveAt:', err);
+        });
       }
 
       // Emit profile viewed event
@@ -89,6 +122,11 @@ export class ProfileService {
         artworkCount: user.artworks.length,
         artworks: user.artworks,
         reviewCount: user.reviews.length,
+        // New fields
+        profileViews: user.profileViews || 0,
+        heatScore: user.heatScore || 0,
+        lastActiveAt: user.lastActiveAt,
+        talentTypes: user.talentTypes?.map((ut) => ut.talentType) || [],
       };
     } catch (error) {
       this.logger.error(`Failed to fetch public profile ${profileId}:`, error);
@@ -181,11 +219,48 @@ export class ProfileService {
       if (updateProfileDto.phone !== undefined && updateProfileDto.phone !== '')
         updateData.phone = updateProfileDto.phone;
 
-      // Update user
+      // Update user first
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
+
+      // Handle talent types (many-to-many relationship)
+      if (updateProfileDto.talentTypeIds !== undefined) {
+        // Validate all talent types exist
+        if (updateProfileDto.talentTypeIds.length > 0) {
+          const talentTypes = await this.prisma.talentType.findMany({
+            where: {
+              id: { in: updateProfileDto.talentTypeIds },
+            },
+          });
+
+          if (talentTypes.length !== updateProfileDto.talentTypeIds.length) {
+            const foundIds = talentTypes.map((tt) => tt.id);
+            const missingIds = updateProfileDto.talentTypeIds.filter(
+              (id) => !foundIds.includes(id),
+            );
+            throw new NotFoundException(
+              `Talent type(s) not found: ${missingIds.join(', ')}`,
+            );
+          }
+        }
+
+        // Delete existing talent type associations
+        await this.prisma.userOnTalentType.deleteMany({
+          where: { userId },
+        });
+
+        // Create new associations
+        if (updateProfileDto.talentTypeIds.length > 0) {
+          await this.prisma.userOnTalentType.createMany({
+            data: updateProfileDto.talentTypeIds.map((talentTypeId) => ({
+              userId,
+              talentTypeId,
+            })),
+          });
+        }
+      }
 
       // Track changes for event
       const changes: Array<{ field: string; oldValue: any; newValue: any }> =
@@ -240,49 +315,114 @@ export class ProfileService {
 
   /**
    * Get user preferences
-   * TODO: Implement UserPreferences model in Prisma schema if needed
    */
   async getPreferences(userId: string) {
-    // TODO: Implement preferences model in Prisma schema
-    throw new NotFoundException('Preferences feature not yet implemented');
-    // try {
-    //   const user = await this.prisma.user.findUnique({
-    //     where: { id: userId },
-    //     include: { preferences: true },
-    //   });
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          themePreference: true,
+          languagePreference: true,
+          timezone: true,
+          messagingPreferences: true,
+        },
+      });
 
-    //   if (!user) {
-    //     throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
-    //   }
+      if (!user) {
+        throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
+      }
 
-    //   // Create default preferences if they don't exist
-    //   if (!user.preferences) {
-    //     const defaultPreferences = await this.prisma.userPreferences.create({
-    //       data: { userId },
-    //     });
-    //     return defaultPreferences;
-    //   }
-
-    //   return user.preferences;
-    // } catch (error) {
-    //   this.logger.error(
-    //     `Failed to fetch preferences for user ${userId}:`,
-    //     error,
-    //   );
-    //   throw error;
-    // }
+      return {
+        success: true,
+        data: {
+          themePreference: user.themePreference || 'light',
+          languagePreference: user.languagePreference || 'en',
+          timezone: user.timezone || 'UTC',
+          messagingPreferences: user.messagingPreferences || {},
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch preferences for user ${userId}:`,
+        error,
+      );
+      throw error;
+    }
   }
 
   /**
    * Update user preferences
-   * TODO: Implement UserPreferences model in Prisma schema if needed
    */
   async updatePreferences(
     userId: string,
     updatePreferencesDto: UpdatePreferencesDto,
   ) {
-    // TODO: Implement preferences model in Prisma schema
-    throw new NotFoundException('Preferences feature not yet implemented');
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
+      }
+
+      const updateData: any = {};
+
+      if (updatePreferencesDto.themePreference !== undefined) {
+        updateData.themePreference = updatePreferencesDto.themePreference;
+      }
+      if (updatePreferencesDto.languagePreference !== undefined) {
+        updateData.languagePreference = updatePreferencesDto.languagePreference;
+      }
+      if (updatePreferencesDto.timezone !== undefined) {
+        updateData.timezone = updatePreferencesDto.timezone;
+      }
+      if (updatePreferencesDto.messagingPreferences !== undefined) {
+        updateData.messagingPreferences = updatePreferencesDto.messagingPreferences;
+      }
+
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+
+      // Emit preferences updated event
+      await this.eventService.emit<PreferencesUpdatedEvent>(
+        PROFILE_EVENTS.PREFERENCES_UPDATED,
+        {
+          userId: updatedUser.id,
+          userName: updatedUser.name,
+          email: updatedUser.email,
+          preferences: {
+            themePreference: updatedUser.themePreference,
+            languagePreference: updatedUser.languagePreference,
+            timezone: updatedUser.timezone,
+            messagingPreferences: updatedUser.messagingPreferences,
+          },
+          updatedAt: new Date(),
+        },
+      );
+
+      this.logger.log(`Preferences updated for user ${userId}`);
+
+      return {
+        success: true,
+        message: PROFILE_MESSAGES.SUCCESS.PREFERENCES_UPDATED || 'Preferences updated successfully',
+        data: {
+          themePreference: updatedUser.themePreference,
+          languagePreference: updatedUser.languagePreference,
+          timezone: updatedUser.timezone,
+          messagingPreferences: updatedUser.messagingPreferences,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to update preferences for user ${userId}:`,
+        error,
+      );
+      throw error;
+    }
   }
 
   /**
