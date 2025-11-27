@@ -3,10 +3,16 @@ import {
   Get,
   Param,
   Query,
+  Request,
+  UseGuards,
+  UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { TransactionsQueryDto } from './dto';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { AuthGuard } from '../../core/guards/auth.guard';
+import { PaymentStatus } from '@prisma/client';
 
 @ApiTags('Transactions')
 @Controller('transactions')
@@ -27,6 +33,54 @@ export class TransactionsController {
       query.status,
       query.provider,
     );
+  }
+
+  /**
+   * Get user's transactions (for logged-in user)
+   * GET /api/transactions/my-transactions
+   */
+  @Get('my-transactions')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Get transactions for the authenticated user' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20)' })
+  @ApiQuery({ name: 'status', required: false, enum: PaymentStatus, description: 'Filter by transaction status' })
+  @ApiQuery({ name: 'provider', required: false, type: String, description: 'Filter by payment provider (chapa, paypal)' })
+  async getMyTransactions(
+    @Request() req: any,
+    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
+    @Query('status') status?: PaymentStatus,
+    @Query('provider') provider?: string,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.transactionsService.getUserTransactions(userId, page, limit, status, provider);
+  }
+
+  /**
+   * Get user's transaction statistics (for charts)
+   * GET /api/transactions/my-transactions/stats
+   */
+  @Get('my-transactions/stats')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Get transaction statistics for the authenticated user' })
+  @ApiQuery({ name: 'period', required: false, enum: ['week', 'month', 'year'], description: 'Time period for statistics (default: month)' })
+  async getMyTransactionStats(
+    @Request() req: any,
+    @Query('period') period: 'week' | 'month' | 'year' = 'month',
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.transactionsService.getUserTransactionStats(userId, period);
   }
 
   /**

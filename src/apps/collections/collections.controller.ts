@@ -8,12 +8,13 @@ import {
   Param, 
   Query,
   Request,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { CollectionsService } from './collections.service';
 import { CreateCollectionDto, UpdateCollectionDto, AddArtworkDto, CollectionsQueryDto } from './dto';
 import { AuthGuard } from '@/core/guards/auth.guard';
 import { UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 /**
  * Collections Controller
@@ -52,6 +53,42 @@ export class CollectionsController {
       return {
         success: false,
         message: error.message || 'Failed to create collection',
+      };
+    }
+  }
+
+  /**
+   * GET /collections/hot
+   * Get hot collections sorted by engagement score
+   */
+  @Get('hot')
+  @ApiOperation({ 
+    summary: 'Get hot collections',
+    description: 'Returns public collections sorted by engagement score (views, likes, comments, favorites)'
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of hot collections to return (default: 10)',
+    example: 10
+  })
+  async getHotCollections(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    try {
+      const collections = await this.collectionsService.getHotCollections(
+        limit || 10,
+      );
+
+      return {
+        success: true,
+        collections,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch hot collections',
       };
     }
   }

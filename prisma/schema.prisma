@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model Account {
@@ -55,26 +55,24 @@ model Verification {
   updatedAt  DateTime @updatedAt
 }
 
-
-
 model Category {
   id          String              @id @default(uuid())
   name        String              @unique
   description String?
   slug        String              @unique
-  image       String?             // MinIO/S3 URL for background image
+  image       String? // MinIO/S3 URL for background image
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   artworks    ArtworkOnCategory[]
 }
 
 model ArtworkOnCategory {
-  id         String   @id @default(uuid())
+  id         String @id @default(uuid())
   artworkId  String
   categoryId String
 
-  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  artwork  Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([artworkId, categoryId])
 }
@@ -92,25 +90,24 @@ model Chat {
   Message                  Message[]
 }
 
-
 model Dispute {
-  id                              String         @id
-  artworkId                       String?
-  targetUserId                    String?
-  raisedById                      String
-  assignedToId                    String?
-  reason                          String
-  description                     String?
-  resolution                      String?
-  status                          DISPUTE_STATUS @default(IN_PROGRESS)
-  createdAt                       DateTime       @default(now())
-  updatedAt                       DateTime
+  id           String         @id
+  artworkId    String?
+  targetUserId String?
+  raisedById   String
+  assignedToId String?
+  reason       String
+  description  String?
+  resolution   String?
+  status       DISPUTE_STATUS @default(IN_PROGRESS)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
 
   // Relations
-  artwork                         Artwork?       @relation(fields: [artworkId], references: [id], onDelete: Cascade)
-  targetUser                      User?          @relation("Dispute_targetUser", fields: [targetUserId], references: [id])
-  User_Dispute_assignedToIdToUser User?          @relation("Dispute_assignedToIdToUser", fields: [assignedToId], references: [id], onDelete: Cascade)
-  User_Dispute_raisedByIdToUser   User           @relation("Dispute_raisedByIdToUser", fields: [raisedById], references: [id], onDelete: Cascade)
+  artwork                         Artwork? @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  targetUser                      User?    @relation("Dispute_targetUser", fields: [targetUserId], references: [id])
+  User_Dispute_assignedToIdToUser User?    @relation("Dispute_assignedToIdToUser", fields: [assignedToId], references: [id], onDelete: Cascade)
+  User_Dispute_raisedByIdToUser   User     @relation("Dispute_raisedByIdToUser", fields: [raisedById], references: [id], onDelete: Cascade)
 }
 
 model Message {
@@ -147,18 +144,16 @@ model Payment {
   createdAt DateTime       @default(now())
 }
 
-
-
 model Review {
-  id        String         @id
+  id        String   @id
   artworkId String
   userId    String
   rating    Int
   comment   String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  Artwork   Artwork        @relation(fields: [artworkId], references: [id], onDelete: Cascade)
-  User      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model User {
@@ -192,84 +187,82 @@ model User {
   twoFactors                         TwoFactor[]
   artworks                           Artwork[]
   reviews                            Review[]
-  collections                        Collection[]    @relation("Collection_createdBy")
-  interactions                       Interaction[]   @relation("Interaction_user")
+  collections                        Collection[]   @relation("Collection_createdBy")
+  interactions                       Interaction[]  @relation("Interaction_user")
   favorites                          Favorite[]
   cartItems                          CartItem[]
   withdrawals                        Withdrawal[]
+  orders                             Order[]
 
   @@map("users")
 }
 
-
 model Artwork {
-  id                    String        @id @default(uuid())
-  title                 String?
-  artist                String
-  support               String
-  state                 String
-  yearOfArtwork         String
-  dimensions            Json          // {height, width, depth}
-  isFramed              Boolean
-  weight                String
-  handDeliveryAccepted  Boolean
-  origin                String
-  yearOfAcquisition     String?
-  description           String?
-  desiredPrice          Float
+  id                     String        @id @default(uuid())
+  title                  String?
+  artist                 String
+  support                String
+  state                  String
+  yearOfArtwork          String
+  dimensions             Json // {height, width, depth}
+  isFramed               Boolean
+  weight                 String
+  handDeliveryAccepted   Boolean
+  origin                 String
+  yearOfAcquisition      String?
+  description            String?
+  desiredPrice           Float
   acceptPriceNegotiation Boolean
-  accountHolder         String
-  iban                  String
-  bicCode               String?
-  acceptTermsOfSale     Boolean
-  giveSalesMandate      Boolean
-  proofOfOrigin         String?       // MinIO URL
-  photos                String[]      // Array of MinIO URLs
-  status                ArtworkStatus @default(PENDING)
-  isApproved            Boolean       @default(false)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  userId                String
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountHolder          String
+  iban                   String
+  bicCode                String?
+  acceptTermsOfSale      Boolean
+  giveSalesMandate       Boolean
+  proofOfOrigin          String? // MinIO URL
+  photos                 String[] // Array of MinIO URLs
+  status                 ArtworkStatus @default(PENDING)
+  isApproved             Boolean       @default(false)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  userId                 String
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  reviews               Review[]
+  reviews              Review[]
   // Relations added by new models
-  collectionOnArtworks  CollectionOnArtwork[]
-  orderItems            OrderItem[]
-  interactions          Interaction[]
-  comments              Comment[]
-  featuredContents      FeaturedContent[]
-  disputes              Dispute[]
-  favorites              Favorite[]
-  cartItems              CartItem[]
-  categories            ArtworkOnCategory[]
+  collectionOnArtworks CollectionOnArtwork[]
+  orderItems           OrderItem[]
+  interactions         Interaction[]
+  comments             Comment[]
+  featuredContents     FeaturedContent[]
+  disputes             Dispute[]
+  favorites            Favorite[]
+  cartItems            CartItem[]
+  categories           ArtworkOnCategory[]
 
   @@map("artworks")
 }
 
-
-
 model Collection {
-  id          String                @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
   coverImage  String?
-  visibility  String                 @default("private")
-  createdAt   DateTime              @default(now())
+  visibility  String   @default("private")
+  createdAt   DateTime @default(now())
   createdBy   String
 
   // Relations
-  user        User                  @relation("Collection_createdBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  artworks    CollectionOnArtwork[]
+  user     User                  @relation("Collection_createdBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  artworks CollectionOnArtwork[]
 }
 
 model CollectionOnArtwork {
-  id           String    @id @default(uuid())
+  id           String @id @default(uuid())
   collectionId String
   artworkId    String
 
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  artwork      Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  artwork    Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
 
   @@unique([collectionId, artworkId])
 }
@@ -303,51 +296,54 @@ model CartItem {
 }
 
 model Order {
-  id            String        @id @default(uuid())
-  buyerEmail    String
-  totalAmount   Decimal       @db.Decimal(10,2)
-  status        OrderStatus   @default(PENDING)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id          String      @id @default(uuid())
+  buyerEmail  String
+  userId      String? // User who created the order (authenticated user)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   // Relations
-  items         OrderItem[]
-  transaction   Transaction?
-  receipt       Receipt?
+  items       OrderItem[]
+  transaction Transaction?
+  receipt     Receipt?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String
-  artworkId  String
-  quantity   Int      @default(1)
-  price      Decimal  @db.Decimal(10,2)
+  id        String  @id @default(uuid())
+  orderId   String
+  artworkId String
+  quantity  Int     @default(1)
+  price     Decimal @db.Decimal(10, 2)
 
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
 }
 
 model Transaction {
-  id               String         @id @default(uuid())
-  orderId          String         @unique
+  id               String        @id @default(uuid())
+  orderId          String        @unique
   paymentGatewayId String?
-  status           PaymentStatus  @default(INITIATED)
-  amount           Decimal        @db.Decimal(10,2)
+  status           PaymentStatus @default(INITIATED)
+  amount           Decimal       @db.Decimal(10, 2)
   metadata         Json?
-  createdAt        DateTime       @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  paymentGateway   PaymentGateway? @relation(fields: [paymentGatewayId], references: [id])
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentGateway PaymentGateway? @relation(fields: [paymentGatewayId], references: [id])
 }
 
 model Receipt {
-  id         String   @id @default(uuid())
-  orderId    String   @unique
-  pdfUrl     String
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  pdfUrl    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model PaymentGateway {
@@ -361,15 +357,15 @@ model PaymentGateway {
 }
 
 model Interaction {
-  id         String   @id @default(uuid())
-  artworkId  String
-  userId     String?  // User who performed the interaction (for likes, views, etc.)
-  type       String
-  metadata   Json?
-  createdAt  DateTime  @default(now())
+  id        String   @id @default(uuid())
+  artworkId String
+  userId    String? // User who performed the interaction (for likes, views, etc.)
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
 
-  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
-  user       User?     @relation("Interaction_user", fields: [userId], references: [id], onDelete: Cascade)
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user    User?   @relation("Interaction_user", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Comment {
@@ -377,9 +373,9 @@ model Comment {
   artworkId  String
   authorName String
   content    String
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime @default(now())
 
-  artwork    Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
 }
 
 model Report {
@@ -397,8 +393,8 @@ model Report {
   updatedAt    DateTime         @updatedAt
 
   // Relations
-  reporter     User             @relation("Report_reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  resolvedBy   User?            @relation("Report_resolvedBy", fields: [resolvedById], references: [id])
+  reporter   User  @relation("Report_reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("Report_resolvedBy", fields: [resolvedById], references: [id])
 }
 
 enum ReportTargetType {
@@ -430,21 +426,21 @@ model FeaturedContent {
   artworkId   String?
   createdAt   DateTime @default(now())
 
-  artwork     Artwork? @relation(fields: [artworkId], references: [id])
+  artwork Artwork? @relation(fields: [artworkId], references: [id])
 }
 
 model Withdrawal {
-  id            String         @id @default(uuid())
+  id            String        @id @default(uuid())
   userId        String?
   payoutAccount String
-  amount        Decimal        @db.Decimal(10,2)
-  status        PaymentStatus  @default(INITIATED)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(INITIATED)
+  payoutBatchId String? // PayPal payout batch ID for webhook matching
+  metadata      Json? // Additional payout transaction details
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-
 
 enum PAYMENT_STATUS {
   PENDING
@@ -499,6 +495,7 @@ enum PaymentStatus {
   PROCESSING
   COMPLETED
   FAILED
+  REJECTED
   REFUNDED
 }
 
@@ -533,4 +530,3 @@ enum MESSAGE_STATUS {
   SOLD
   WITHDRAWN
 }
-

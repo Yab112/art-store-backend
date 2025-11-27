@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { ConfigurationService } from "../../core/configuration";
+import { SettingsService } from "../settings/settings.service";
 import { CreateArtworkDto, UpdateArtworkDto } from "./dto";
 import { ArtworkStatus, Prisma } from "@prisma/client";
 import {
@@ -33,7 +34,8 @@ export class ArtworkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
-    private readonly configurationService: ConfigurationService
+    private readonly configurationService: ConfigurationService,
+    private readonly settingsService: SettingsService
   ) {}
 
   async create(createArtworkDto: CreateArtworkDto, userId: string) {
@@ -254,8 +256,15 @@ export class ArtworkService {
       // Build where clause
       const where: any = {};
 
+      // By default, only show APPROVED and SOLD artworks (exclude PENDING and REJECTED)
+      // This ensures only approved artworks are available for purchase
       if (status) {
         where.status = status;
+      } else {
+        // If no status filter is provided, only show APPROVED and SOLD
+        where.status = {
+          in: ['APPROVED', 'SOLD'],
+        };
       }
 
       if (isApproved !== undefined) {
@@ -810,6 +819,264 @@ export class ArtworkService {
     }
   }
 
+  /**
+   * Get artworks similar to a specific artwork based on shared collections
+   * Finds artworks that are in the same collections as the given artwork
+   * Excludes the current artwork and ranks by number of shared collections
+   */
+  async getSimilarArtworks(artworkId: string, limit: number = 12) {
+    try {
+      // 1. Get all collections that contain this artwork
+      const artworkCollections = await this.prisma.collectionOnArtwork.findMany({
+        where: { artworkId },
+        select: { collectionId: true },
+      });
+
+      const collectionIds = artworkCollections.map((ac) => ac.collectionId);
+
+      // If artwork is not in any collections, return empty
+      if (collectionIds.length === 0) {
+        this.logger.warn(`Artwork ${artworkId} is not in any collections`);
+        return [];
+      }
+
+      this.logger.log(
+        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(', ')}`
+      );
+
+      // 2. Get all CollectionOnArtwork records from those collections (excluding the current artwork)
+      const artworksInCollections = await this.prisma.collectionOnArtwork.findMany({
+        where: {
+          collectionId: { in: collectionIds },
+          artworkId: { not: artworkId }, // Exclude the current artwork
+        },
+        select: {
+          artworkId: true,
+          collectionId: true,
+        },
+      });
+
+      // 3. Get unique artwork IDs and fetch the artworks with their details
+      const uniqueArtworkIds = [...new Set(artworksInCollections.map((ac) => ac.artworkId))];
+
+      if (uniqueArtworkIds.length === 0) {
+        this.logger.warn(`No other artworks found in collections for artwork ${artworkId}`);
+        return [];
+      }
+
+      // 4. Fetch artworks with their details (only approved and sold ones)
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          id: { in: uniqueArtworkIds },
+          isApproved: true,
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // 5. Count shared collections for each artwork
+      const artworkCollectionCount = new Map<string, { artwork: any; sharedCollections: number }>();
+
+      artworks.forEach((artwork) => {
+        // Count how many collections this artwork shares with the original artwork
+        const sharedCount = artworksInCollections.filter(
+          (ac) => ac.artworkId === artwork.id
+        ).length;
+
+        artworkCollectionCount.set(artwork.id, {
+          artwork,
+          sharedCollections: sharedCount,
+        });
+      });
+
+      // 6. Sort by shared collections count (descending) and limit
+      const rankedArtworks = Array.from(artworkCollectionCount.values())
+        .sort((a, b) => b.sharedCollections - a.sharedCollections)
+        .slice(0, limit)
+        .map(({ sharedCollections, artwork }) => {
+          // Transform categories to match expected format
+          return {
+            ...artwork,
+            categories: artwork.categories.map((ac: any) => ac.category),
+          };
+        });
+
+      // 7. Ensure no duplicates by ID (additional safeguard)
+      const uniqueArtworks = rankedArtworks.filter((artwork, index, self) =>
+        index === self.findIndex((a) => a.id === artwork.id)
+      );
+
+      this.logger.log(
+        `[Similar Artworks] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`
+      );
+      return uniqueArtworks;
+    } catch (error) {
+      this.logger.error(`Failed to fetch similar artworks for artwork ${artworkId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get artworks similar to a specific artwork based on shared categories
+   * Returns artworks that share at least one category with the given artwork
+   */
+  async getSimilarArtworksByCategory(artworkId: string, limit: number = 12) {
+    try {
+      // 1. Get the current artwork and its categories
+      const currentArtwork = await this.prisma.artwork.findUnique({
+        where: { id: artworkId },
+        include: {
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!currentArtwork) {
+        this.logger.warn(`Artwork ${artworkId} not found`);
+        return [];
+      }
+
+      const categoryIds = currentArtwork.categories.map((ac) => ac.categoryId);
+
+      // If artwork has no categories, return empty
+      if (categoryIds.length === 0) {
+        this.logger.warn(`Artwork ${artworkId} has no categories`);
+        return [];
+      }
+
+      this.logger.log(
+        `[Similar Artworks by Category] Artwork ${artworkId} has ${categoryIds.length} categories: ${categoryIds.join(', ')}`
+      );
+
+      // 2. Get all artwork IDs that share at least one category (excluding the current artwork)
+      const artworksWithCategories = await this.prisma.artworkOnCategory.findMany({
+        where: {
+          categoryId: { in: categoryIds },
+          artworkId: { not: artworkId }, // Exclude the current artwork
+        },
+        select: {
+          artworkId: true,
+          categoryId: true,
+        },
+      });
+
+      if (artworksWithCategories.length === 0) {
+        this.logger.warn(`No other artworks found with shared categories for artwork ${artworkId}`);
+        return [];
+      }
+
+      // Get unique artwork IDs
+      const uniqueArtworkIds = [...new Set(artworksWithCategories.map((ac) => ac.artworkId))];
+
+      // 3. Fetch artworks with their details (only approved and sold ones)
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          id: { in: uniqueArtworkIds },
+          isApproved: true,
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (artworks.length === 0) {
+        this.logger.warn(`No approved artworks found with shared categories for artwork ${artworkId}`);
+        return [];
+      }
+
+      // 4. Count shared categories for each artwork
+      const artworkCategoryCount = new Map<string, { artwork: any; sharedCategories: number }>();
+
+      artworks.forEach((artwork) => {
+        // Count how many categories this artwork shares with the original artwork
+        const artworkCategoryIds = artwork.categories.map((ac: any) => ac.categoryId);
+        const sharedCount = categoryIds.filter((id) => artworkCategoryIds.includes(id)).length;
+
+        if (sharedCount > 0) {
+          artworkCategoryCount.set(artwork.id, {
+            artwork,
+            sharedCategories: sharedCount,
+          });
+        }
+      });
+
+      // 4. Sort by shared categories count (descending) and limit
+      const rankedArtworks = Array.from(artworkCategoryCount.values())
+        .sort((a, b) => b.sharedCategories - a.sharedCategories)
+        .slice(0, limit)
+        .map(({ sharedCategories, artwork }) => {
+          // Transform categories to match expected format
+          return {
+            ...artwork,
+            categories: artwork.categories.map((ac: any) => ac.category),
+          };
+        });
+
+      // 5. Ensure no duplicates by ID (additional safeguard)
+      const uniqueArtworks = rankedArtworks.filter((artwork, index, self) =>
+        index === self.findIndex((a) => a.id === artwork.id)
+      );
+
+      this.logger.log(
+        `[Similar Artworks by Category] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`
+      );
+      return uniqueArtworks;
+    } catch (error) {
+      this.logger.error(`Failed to fetch similar artworks by category for artwork ${artworkId}:`, error);
+      throw error;
+    }
+  }
+
   // ==================== COMMENTS ====================
 
   /**
@@ -1246,6 +1513,278 @@ export class ArtworkService {
         `❌ Failed to get likes for artwork ${artworkId}:`,
         error
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Get trending artists based on comprehensive metrics
+   * Calculates trending score from: engagement (views, likes, comments, favorites), 
+   * sales (totalSales, salesCount, earnings), and artwork count
+   */
+  async getTrendingArtists(limit: number = 10) {
+    try {
+      // Get platform commission rate for earnings calculation
+      const platformCommissionRate =
+        await this.settingsService.getPlatformCommissionRate();
+
+      // Get all approved artworks with their engagement data and user info
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          isApproved: true,
+          status: 'APPROVED',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          interactions: {
+            select: {
+              type: true,
+            },
+          },
+          comments: {
+            select: {
+              id: true,
+            },
+          },
+          favorites: {
+            select: {
+              id: true,
+            },
+          },
+          orderItems: {
+            where: {
+              order: {
+                status: 'PAID',
+              },
+            },
+            select: {
+              price: true,
+              order: {
+                select: {
+                  status: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Group artworks by userId (actual artist) and calculate metrics
+      const artistMap = new Map<
+        string,
+        {
+          userId: string;
+          name: string;
+          avatar: string;
+          artworkCount: number;
+          totalViews: number;
+          totalLikes: number;
+          totalComments: number;
+          totalFavorites: number;
+          totalSales: number;
+          salesCount: number;
+          totalEarnings: number;
+          engagementScore: number;
+        }
+      >();
+
+      artworks.forEach((artwork) => {
+        if (!artwork.userId || !artwork.user) return;
+
+        const userId = artwork.userId;
+        const existing = artistMap.get(userId);
+
+        // Count interactions by type (case-insensitive)
+        const views = artwork.interactions.filter((i) => 
+          i.type?.toUpperCase() === 'VIEW'
+        ).length;
+        const likes = artwork.interactions.filter((i) => 
+          i.type?.toUpperCase() === 'LIKE'
+        ).length;
+
+        const comments = artwork.comments.length;
+        const favorites = artwork.favorites.length;
+
+        // Calculate sales metrics for this artwork
+        const artworkSales = artwork.orderItems
+          .filter((item) => item.order.status === 'PAID')
+          .reduce(
+            (acc, item) => {
+              const salePrice = Number(item.price);
+              const commission = salePrice * platformCommissionRate;
+              const earnings = salePrice - commission;
+              return {
+                totalSales: acc.totalSales + salePrice,
+                salesCount: acc.salesCount + 1,
+                totalEarnings: acc.totalEarnings + earnings,
+              };
+            },
+            { totalSales: 0, salesCount: 0, totalEarnings: 0 }
+          );
+
+        // Get user profile avatar (prefer user image, fallback to placeholder)
+        const artistAvatar = artwork.user.image || '/placeholder.svg';
+
+        if (existing) {
+          existing.artworkCount += 1;
+          existing.totalViews += views;
+          existing.totalLikes += likes;
+          existing.totalComments += comments;
+          existing.totalFavorites += favorites;
+          existing.totalSales += artworkSales.totalSales;
+          existing.salesCount += artworkSales.salesCount;
+          existing.totalEarnings += artworkSales.totalEarnings;
+          // Update avatar if user has a profile image
+          if (artwork.user.image) {
+            existing.avatar = artwork.user.image;
+          }
+        } else {
+          artistMap.set(userId, {
+            userId,
+            name: artwork.user.name || artwork.artist || 'Unknown Artist',
+            avatar: artistAvatar,
+            artworkCount: 1,
+            totalViews: views,
+            totalLikes: likes,
+            totalComments: comments,
+            totalFavorites: favorites,
+            totalSales: artworkSales.totalSales,
+            salesCount: artworkSales.salesCount,
+            totalEarnings: artworkSales.totalEarnings,
+            engagementScore: 0, // Will calculate below
+          });
+        }
+      });
+
+      // Calculate comprehensive trending score for each artist
+      // Weighted formula: 
+      // - Engagement: views (1x) + likes (3x) + comments (2x) + favorites (2x) + artwork count (1x)
+      // - Sales: totalSales (0.01x per euro) + salesCount (10x) + totalEarnings (0.01x per euro)
+      const artistsWithScores = Array.from(artistMap.values()).map((artist) => {
+        const engagementScore =
+          artist.totalViews * 1 +
+          artist.totalLikes * 3 +
+          artist.totalComments * 2 +
+          artist.totalFavorites * 2 +
+          artist.artworkCount * 1;
+
+        const salesScore =
+          artist.totalSales * 0.01 + // 1 point per 100 euros in sales
+          artist.salesCount * 10 + // 10 points per sale
+          artist.totalEarnings * 0.01; // 1 point per 100 euros in earnings
+
+        const trendingScore = engagementScore + salesScore;
+
+        return {
+          ...artist,
+          engagementScore,
+          trendingScore,
+        };
+      });
+
+      // Sort by trending score (descending) and limit
+      const trendingArtists = artistsWithScores
+        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .slice(0, limit)
+        .map(({ engagementScore, trendingScore, ...artist }) => artist); // Remove scores from response
+
+      return trendingArtists;
+    } catch (error) {
+      this.logger.error('❌ Failed to get trending artists:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get trending artworks based on engagement metrics
+   * Calculates trending score from: views, likes, comments, favorites, and recency
+   */
+  async getTrendingArtworks(limit: number = 12) {
+    try {
+      // Get all approved and sold artworks with their engagement data
+      const artworks = await this.prisma.artwork.findMany({
+        where: {
+          isApproved: true,
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          interactions: {
+            select: {
+              type: true,
+              createdAt: true,
+            },
+          },
+          comments: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+          },
+          favorites: {
+            select: {
+              id: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Calculate trending score for each artwork
+      const now = new Date();
+      const artworksWithScores = artworks.map((artwork) => {
+        // Count interactions by type (case-insensitive)
+        const views = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === 'VIEW'
+        ).length;
+        const likes = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === 'LIKE'
+        ).length;
+        const comments = artwork.comments.length;
+        const favorites = artwork.favorites.length;
+
+        // Calculate time decay factor (artworks created in last 7 days get bonus)
+        const daysSinceCreation =
+          (now.getTime() - artwork.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+        const recencyBonus = daysSinceCreation <= 7 ? 1.5 : daysSinceCreation <= 30 ? 1.2 : 1.0;
+
+        // Calculate engagement score with time decay
+        // Weighted formula: views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
+        const engagementScore =
+          (views * 1 + likes * 3 + comments * 2 + favorites * 2.5) * recencyBonus;
+
+        return {
+          artwork,
+          engagementScore,
+        };
+      });
+
+      // Sort by engagement score (descending) and limit
+      const trendingArtworks = artworksWithScores
+        .sort((a, b) => b.engagementScore - a.engagementScore)
+        .slice(0, limit)
+        .map(({ artwork }) => artwork);
+
+      return trendingArtworks;
+    } catch (error) {
+      this.logger.error('❌ Failed to get trending artworks:', error);
       throw error;
     }
   }

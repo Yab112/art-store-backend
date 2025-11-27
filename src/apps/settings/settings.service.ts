@@ -33,6 +33,8 @@ export class SettingsService implements OnModuleInit {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0, // 0 = unlimited
         paymentTimeoutMinutes: 30,
+        holdingPeriodDays: 7, // Funds must be held for 7 days before withdrawal
+        platformCommissionRate: 10, // 10% platform commission
       };
 
       const defaultOrderSettings = {
@@ -549,17 +551,23 @@ export class SettingsService implements OnModuleInit {
     minWithdrawalAmount: number;
     maxWithdrawalAmount: number;
     paymentTimeoutMinutes: number;
+    holdingPeriodDays: number;
+    platformCommissionRate: number;
   }> {
     try {
       const settings = await this.getSetting('payment') || {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
+        holdingPeriodDays: 7,
+        platformCommissionRate: 10,
       };
       return {
         minWithdrawalAmount: settings.minWithdrawalAmount || 10,
         maxWithdrawalAmount: settings.maxWithdrawalAmount || 0,
         paymentTimeoutMinutes: settings.paymentTimeoutMinutes || 30,
+        holdingPeriodDays: settings.holdingPeriodDays || 7,
+        platformCommissionRate: settings.platformCommissionRate || 10,
       };
     } catch (error) {
       this.logger.error('Failed to get payment settings:', error);
@@ -567,6 +575,8 @@ export class SettingsService implements OnModuleInit {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
+        holdingPeriodDays: 7,
+        platformCommissionRate: 10,
       };
     }
   }
