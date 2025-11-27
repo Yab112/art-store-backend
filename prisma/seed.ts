@@ -17,8 +17,30 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 const prisma = new PrismaClient();
 
+// S3 Base URL
+const S3_BASE_URL = "https://art-gallery-s3-bucket.s3.eu-north-1.amazonaws.com/images";
+
+// Real S3 images available
+const S3_IMAGES = [
+  "05cee9bf-0c12-4e23-b22c-7da905c2a12f.jpg",
+  "05f10c53-4016-4ddf-bbaa-2211d13d17c6.webp",
+  "06cc265b-8a9b-4c48-a0d4-22a4d39101b3.jpg",
+  "081d31bf-10f4-47f0-8b25-705a7b8bfb27.png",
+  "0c57e5c8-2031-4d3d-a9d5-11d282adfaaf.jpg",
+  "0ea1e2b3-f87a-4d41-b23f-dca1f13780a2.png",
+  "10b35a8c-17a3-4c09-a3fd-1cf9cd1ed961.png",
+  "23b77d70-3bc4-480e-a288-e4a21adaa68f.jpg",
+  "2c18227f-83a1-4be9-a13d-eb6fd286e349.jpg",
+];
+
+// Helper to get S3 image URL
+const getImageUrl = (filename: string) => `${S3_BASE_URL}/${filename}`;
+
+// Helper to get random S3 image
+const getRandomImage = () => getImageUrl(S3_IMAGES[Math.floor(Math.random() * S3_IMAGES.length)]);
+
 async function main() {
-  console.log("🌱 Seeding database with 12 rows per table...");
+  console.log("🌱 Seeding database with comprehensive data...");
 
   // 0. Seed Talent Types
   console.log("\n📝 Seeding Talent Types...");
@@ -28,84 +50,84 @@ async function main() {
       name: "Painter",
       slug: "painter",
       description: "Traditional and digital painters",
-      image: "talent-types/painter.png", // S3 object key
+      image: "talent-types/painter.png",
       sortOrder: 1,
     },
     {
       name: "Photographer",
       slug: "photographer",
       description: "Professional and artistic photographers",
-      image: "talent-types/photographer.png", // S3 object key
+      image: "talent-types/photographer.png",
       sortOrder: 2,
     },
     {
       name: "Digital Artist",
       slug: "digital-artist",
       description: "Digital art creators and illustrators",
-      image: "talent-types/digital-artist.png", // S3 object key
+      image: "talent-types/digital-artist.png",
       sortOrder: 3,
     },
     {
       name: "Sculptor",
       slug: "sculptor",
       description: "Sculpture artists working with various materials",
-      image: "talent-types/sculptor.png", // S3 object key
+      image: "talent-types/sculptor.png",
       sortOrder: 4,
     },
     {
       name: "Calligrapher",
       slug: "calligrapher",
       description: "Calligraphy and lettering artists",
-      image: "talent-types/calligrapher.png", // S3 object key
+      image: "talent-types/calligrapher.png",
       sortOrder: 5,
     },
     {
       name: "Tattoo Artist",
       slug: "tattoo-artist",
       description: "Professional tattoo artists",
-      image: "talent-types/tattoo-artist.png", // S3 object key
+      image: "talent-types/tattoo-artist.png",
       sortOrder: 6,
     },
     {
       name: "Fashion Designer",
       slug: "fashion-designer",
       description: "Fashion and textile designers",
-      image: "talent-types/fashion-designer.png", // S3 object key
+      image: "talent-types/fashion-designer.png",
       sortOrder: 7,
     },
     {
       name: "Mixed Media",
       slug: "mixed-media",
       description: "Artists working with multiple mediums",
-      image: "talent-types/mixed-media.png", // S3 object key
+      image: "talent-types/mixed-media.png",
       sortOrder: 8,
     },
     {
       name: "Illustrator",
       slug: "illustrator",
       description: "Illustration and graphic design artists",
-      image: "talent-types/illustrator.png", // S3 object key
+      image: "talent-types/illustrator.png",
       sortOrder: 9,
     },
     {
       name: "Ceramicist",
       slug: "ceramicist",
       description: "Pottery and ceramic artists",
-      image: "talent-types/ceramicist.png", // S3 object key
+      image: "talent-types/ceramicist.png",
       sortOrder: 10,
     },
     {
       name: "Street Artist",
       slug: "street-artist",
       description: "Graffiti and street art creators",
-      image: "talent-types/street-artist.png", // S3 object key
+      image: "talent-types/street-artist.png",
       sortOrder: 11,
     },
     {
       name: "Other",
       slug: "other",
       description: "Other artistic talents",
-      image: "talent-types/other.png", // S3 object key
+      image: "talent-types/other.png",
       sortOrder: 12,
     },
   ];
@@ -113,13 +135,17 @@ async function main() {
   for (const talentTypeInfo of talentTypeData) {
     const talentType = await prisma.talentType.upsert({
       where: { slug: talentTypeInfo.slug },
-      update: {},
+      update: {
+        name: talentTypeInfo.name,
+        description: talentTypeInfo.description,
+        image: talentTypeInfo.image,
+        sortOrder: talentTypeInfo.sortOrder,
+      },
       create: {
         name: talentTypeInfo.name,
         slug: talentTypeInfo.slug,
         description: talentTypeInfo.description,
         image: talentTypeInfo.image,
-        isActive: true,
         sortOrder: talentTypeInfo.sortOrder,
       },
     });
@@ -127,76 +153,7 @@ async function main() {
     console.log(`✅ Created/Updated talent type: ${talentType.name}`);
   }
 
-  // 1. Seed Users (12)
-  console.log("\n📝 Seeding Users...");
-  const users = [];
-  for (let i = 1; i <= 12; i++) {
-    const user = await prisma.user.upsert({
-      where: { email: `user${i}@example.com` },
-      update: {},
-      create: {
-        name: `User ${i}`,
-        email: `user${i}@example.com`,
-        role: i <= 2 ? "ADMIN" : "USER",
-        emailVerified: i % 2 === 0,
-        score: Math.random() * 100,
-        banned: i === 12,
-        banReason: i === 12 ? "Violation of terms" : null,
-        updatedAt: new Date(),
-      },
-    });
-    users.push(user);
-    console.log(`✅ Created/Updated user ${i}: ${user.email}`);
-  }
-
-  // 2. Seed Accounts (12)
-  console.log("\n📝 Seeding Accounts...");
-  for (let i = 0; i < 12; i++) {
-    try {
-      await prisma.account.create({
-        data: {
-          userId: users[i].id,
-          accountId: `acc_${i}_seed`,
-          providerId: i % 2 === 0 ? "google" : "email",
-          accessToken: `token_${i}`,
-        },
-      });
-      console.log(`✅ Created account ${i + 1}`);
-    } catch (error: any) {
-      if (error.code === "P2002") {
-        console.log(`⏭️  Account ${i + 1} already exists, skipping...`);
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  // 3. Seed Verifications (12)
-  console.log("\n📝 Seeding Verifications...");
-  for (let i = 0; i < 12; i++) {
-    const verificationId = `verify_${i}_seed`;
-    try {
-      await prisma.verification.upsert({
-        where: { id: verificationId },
-        update: {},
-        create: {
-          id: verificationId,
-          identifier: `verify_${i}@example.com`,
-          value: `value_${i}_seed`,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      });
-      console.log(`✅ Created/Updated verification ${i + 1}`);
-    } catch (error: any) {
-      if (error.code === "P2002") {
-        console.log(`⏭️  Verification ${i + 1} already exists, skipping...`);
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  // 4. Seed Categories (12)
+  // 1. Seed Categories
   console.log("\n📝 Seeding Categories...");
   const categories = [];
   const categoryData = [
@@ -204,85 +161,73 @@ async function main() {
       name: "Painting",
       description: "Oil, acrylic, watercolor, and mixed media paintings",
       slug: "painting",
-      image:
-        "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Sculpture",
       description: "Three-dimensional artworks in various materials",
       slug: "sculpture",
-      image:
-        "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Photography",
       description: "Fine art and documentary photography",
       slug: "photography",
-      image:
-        "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Digital Art",
       description: "Digital illustrations, NFTs, and computer-generated art",
       slug: "digital-art",
-      image:
-        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Drawing",
       description: "Pencil, charcoal, ink, and pastel drawings",
       slug: "drawing",
-      image:
-        "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Print",
       description: "Lithographs, screen prints, and etchings",
       slug: "print",
-      image:
-        "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Mixed Media",
       description: "Artworks combining multiple materials and techniques",
       slug: "mixed-media",
-      image:
-        "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Installation",
       description: "Large-scale immersive art installations",
       slug: "installation",
-      image:
-        "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Performance",
       description: "Performance art and live artistic expressions",
       slug: "performance",
-      image:
-        "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Video Art",
       description: "Video installations and digital video artworks",
       slug: "video-art",
-      image:
-        "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Textile",
       description: "Fiber art, tapestries, and textile-based artworks",
       slug: "textile",
-      image:
-        "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
     {
       name: "Ceramics",
       description: "Pottery, ceramic sculptures, and clay artworks",
       slug: "ceramics",
-      image:
-        "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&h=300&fit=crop",
+      image: getRandomImage(),
     },
   ];
 
@@ -304,642 +249,396 @@ async function main() {
     console.log(`✅ Created/Updated category: ${category.name}`);
   }
 
-  // 5. Seed Artworks (12) with Categories
-  console.log("\n📝 Seeding Artworks...");
-  const artworks = [];
-  const statuses: ArtworkStatus[] = ["PENDING", "APPROVED", "REJECTED", "SOLD"];
-  for (let i = 0; i < 12; i++) {
-    let artwork: any = null;
-    try {
-      artwork = await prisma.artwork.create({
-        data: {
-          title: `Artwork ${i + 1}`,
-          artist: `Artist ${i + 1}`,
-          support: "Canvas",
-          state: "Excellent",
-          yearOfArtwork: String(2020 + i),
-          dimensions: { width: 50 + i * 10, height: 50 + i * 10, unit: "cm" },
-          isFramed: i % 2 === 0,
-          weight: `${1 + i}kg`,
-          handDeliveryAccepted: true,
-          origin: "Ethiopia",
-          yearOfAcquisition: String(2023 + i),
-          description: `Beautiful artwork ${i + 1} description`,
-          desiredPrice: 1000 + i * 100,
-          acceptPriceNegotiation: i % 2 === 0,
-          accountHolder: `Account Holder ${i + 1}`,
-          iban: `ET${String(i).padStart(22, "0")}`,
-          bicCode: `ETBIC${i}`,
-          acceptTermsOfSale: true,
-          giveSalesMandate: true,
-          photos: [`https://example.com/photo${i + 1}.jpg`],
-          status: statuses[i % statuses.length],
-          isApproved: statuses[i % statuses.length] === "APPROVED",
-          userId: users[i].id,
-        } as any,
-      });
-      artworks.push(artwork);
-    } catch (error: any) {
-      if (error.code === "P2002") {
-        console.log(`⏭️  Artwork ${i + 1} already exists, skipping...`);
-        // Try to find existing artwork
-        const existing = await prisma.artwork.findFirst({
-          where: {
-            userId: users[i].id,
-            title: `Artwork ${i + 1}`,
-          },
-        });
-        if (existing) {
-          artwork = existing;
-          artworks.push(existing);
-        } else {
-          continue;
-        }
-      } else {
-        throw error;
-      }
-    }
+  // 2. Seed Users (40 artists - enough for all talent types and similar artists)
+  console.log("\n📝 Seeding Users (Artists)...");
+  const users = [];
+  const artistNames = [
+    "Alexandra Monet", "Benjamin Van Gogh", "Charlotte Picasso", "David Da Vinci",
+    "Emma Renoir", "Felix Matisse", "Grace Kahlo", "Henry Dali",
+    "Isabella Klimt", "James Warhol", "Katherine O'Keeffe", "Lucas Pollock",
+    "Maya Basquiat", "Noah Hockney", "Olivia Banksy", "Paul Cézanne",
+    "Quinn Degas", "Rachel Vermeer", "Samuel Turner", "Tara Rembrandt",
+    "Uma Goya", "Victor Velázquez", "Wendy Botticelli", "Xavier Caravaggio",
+    "Yara Michelangelo", "Zoe Raphael", "Aaron Kandinsky", "Bella Mondrian",
+    "Caleb Rothko", "Diana Hopper", "Ethan Wyeth", "Fiona Rockwell",
+    "Gavin Lichtenstein", "Hannah Haring", "Ian Koons", "Jade Murakami",
+    "Kai Kusama", "Luna Yayoi", "Max Richter", "Nina Richter"
+  ];
 
-    // Assign 1-3 random categories to each artwork
-    if (artwork) {
-      const numCategories = Math.floor(Math.random() * 3) + 1;
-      const selectedCategories = [];
-      for (let j = 0; j < numCategories; j++) {
-        const randomCategory =
-          categories[Math.floor(Math.random() * categories.length)];
-        if (!selectedCategories.find((c) => c.id === randomCategory.id)) {
-          selectedCategories.push(randomCategory);
-          try {
-            await prisma.artworkOnCategory.upsert({
-              where: {
-                artworkId_categoryId: {
-                  artworkId: artwork.id,
-                  categoryId: randomCategory.id,
-                },
+  // Bio templates for variety
+  const bioTemplates = [
+    (name: string, years: number) => `${name} is a passionate artist with over ${years} years of experience in creating stunning visual art. Specializing in contemporary and traditional techniques, ${name} brings a unique perspective to every piece.`,
+    (name: string, years: number) => `With ${years} years of artistic practice, ${name} has developed a distinctive style that blends modern innovation with classical foundations. Their work has been featured in numerous exhibitions and private collections.`,
+    (name: string, years: number) => `${name} is an accomplished artist known for their innovative approach to art. Over ${years} years, they have mastered various mediums and continue to push creative boundaries.`,
+    (name: string, years: number) => `A dedicated artist with ${years} years of experience, ${name} creates art that speaks to the soul. Their work reflects deep understanding of color, form, and emotional expression.`,
+    (name: string, years: number) => `${name} combines technical excellence with creative vision. With ${years} years in the art world, they have established themselves as a respected creator in their field.`,
+  ];
+
+  for (let i = 0; i < 40; i++) {
+    const artistName = artistNames[i] || `Artist ${i + 1}`;
+    const years = 10 + i;
+    const bioTemplate = bioTemplates[i % bioTemplates.length];
+    const bio = bioTemplate(artistName, years);
+    const location = ["France", "Italy", "Spain", "USA", "UK", "Germany", "Japan", "Ethiopia"][i % 8];
+    const website = `https://${artistName.toLowerCase().replace(/\s+/g, '') || `artist${i + 1}`}.com`;
+
+    const user = await prisma.user.upsert({
+      where: { email: `artist${i + 1}@example.com` },
+      update: {
+        name: artistName,
+        image: getRandomImage(),
+        location: location,
+        bio: bio,
+        website: website,
+        profileViews: Math.floor(Math.random() * 1000),
+        heatScore: Math.random() * 100,
+      },
+      create: {
+        name: artistName,
+        email: `artist${i + 1}@example.com`,
+        role: i < 2 ? "ADMIN" : "USER",
+        emailVerified: true,
+        image: getRandomImage(),
+        coverImage: getRandomImage(),
+        location: location,
+        bio: bio,
+        website: website,
+        score: Math.random() * 100,
+        profileViews: Math.floor(Math.random() * 1000),
+        heatScore: Math.random() * 100,
+        banned: false,
+        updatedAt: new Date(),
+      },
+    });
+    users.push(user);
+    console.log(`✅ Created/Updated artist ${i + 1}: ${user.name}`);
+  }
+
+  // 3. Assign Talent Types to Users (Create similar artists by assigning same talent types)
+  console.log("\n📝 Assigning Talent Types to Artists...");
+  // Group artists by talent type - some will share talent types for similar artists feature
+  const talentTypeAssignments: { [key: string]: number[] } = {
+    "painter": [0, 1, 2, 3, 4], // 5 painters (similar artists)
+    "photographer": [5, 6, 7, 8, 9], // 5 photographers (similar artists)
+    "digital-artist": [10, 11, 12, 13, 14], // 5 digital artists (similar artists)
+    "sculptor": [15, 16, 17, 18, 19], // 5 sculptors (similar artists)
+    "calligrapher": [20, 21], // 2 calligraphers
+    "tattoo-artist": [22, 23], // 2 tattoo artists
+    "fashion-designer": [24, 25], // 2 fashion designers
+    "mixed-media": [26, 27, 28], // 3 mixed media artists
+    "illustrator": [29, 30, 31], // 3 illustrators
+    "ceramicist": [32, 33], // 2 ceramicists
+    "street-artist": [34, 35], // 2 street artists
+    "other": [36, 37, 38, 39], // 4 other
+  };
+
+  for (const [talentSlug, userIndices] of Object.entries(talentTypeAssignments)) {
+    const talentType = talentTypes.find(tt => tt.slug === talentSlug);
+    if (!talentType) continue;
+
+    for (const userIndex of userIndices) {
+      if (users[userIndex]) {
+        try {
+          await prisma.userOnTalentType.upsert({
+            where: {
+              userId_talentTypeId: {
+                userId: users[userIndex].id,
+                talentTypeId: talentType.id,
               },
-              update: {},
-              create: {
-                artworkId: artwork.id,
-                categoryId: randomCategory.id,
-              },
-            } as any);
-          } catch (error: any) {
-            if (error.code !== "P2002") throw error;
-          }
+            },
+            update: {},
+            create: {
+              userId: users[userIndex].id,
+              talentTypeId: talentType.id,
+            },
+          });
+          console.log(`✅ Assigned ${talentType.name} to ${users[userIndex].name}`);
+        } catch (error: any) {
+          if (error.code !== "P2002") throw error;
         }
       }
-      console.log(
-        `✅ Created artwork ${i + 1}: ${artwork.title} with ${selectedCategories.length} categories`
-      );
     }
   }
 
-  // 7. Seed Collections (12)
+  // 4. Seed Artworks (At least 5 per category = 60+ artworks)
+  console.log("\n📝 Seeding Artworks (5+ per category)...");
+  const artworks = [];
+  const artworkTitles = [
+    "Sunset Over Mountains", "Urban Dreams", "Ocean Waves", "Forest Path", "City Lights",
+    "Abstract Harmony", "Colorful Chaos", "Serene Landscape", "Modern Architecture", "Vintage Portrait",
+    "Nature's Beauty", "Digital Dreams", "Classical Elegance", "Contemporary Vision", "Minimalist Design",
+    "Bold Expression", "Subtle Nuances", "Dynamic Movement", "Still Life", "Portrait Study",
+    "Abstract Forms", "Geometric Patterns", "Organic Shapes", "Textured Surface", "Light and Shadow",
+    "Emotional Journey", "Cultural Heritage", "Future Vision", "Past Memories", "Present Moment",
+    "Inner Peace", "Outer Chaos", "Balance", "Contrast", "Harmony",
+    "Freedom", "Confinement", "Hope", "Despair", "Love",
+    "War", "Peace", "Life", "Death", "Birth",
+    "Growth", "Decay", "Creation", "Destruction", "Transformation",
+    "Journey", "Destination", "Beginning", "End", "Continuation",
+    "Unity", "Division", "Connection", "Isolation", "Community"
+  ];
+
+  let artworkIndex = 0;
+  // Create at least 5 artworks per category
+  for (const category of categories) {
+    for (let i = 0; i < 5; i++) {
+      const userIndex = artworkIndex % users.length;
+      const user = users[userIndex];
+      const title = artworkTitles[artworkIndex % artworkTitles.length] || `Artwork ${artworkIndex + 1}`;
+      
+      try {
+        const artwork = await prisma.artwork.create({
+          data: {
+            title: `${title} - ${category.name}`,
+            artist: user.name,
+            support: ["Canvas", "Paper", "Wood", "Metal", "Fabric"][i % 5],
+            state: ["Excellent", "Good", "Very Good", "Mint", "Fine"][i % 5],
+            yearOfArtwork: String(2015 + (artworkIndex % 10)),
+            dimensions: {
+              width: 30 + (artworkIndex % 50) * 2,
+              height: 40 + (artworkIndex % 50) * 2,
+              depth: artworkIndex % 2 === 0 ? 2 : undefined,
+              unit: "cm"
+            },
+            isFramed: artworkIndex % 2 === 0,
+            weight: `${0.5 + (artworkIndex % 5) * 0.3}kg`,
+            handDeliveryAccepted: true,
+            origin: user.location || "Unknown",
+            yearOfAcquisition: String(2020 + (artworkIndex % 5)),
+            description: `A beautiful ${category.name.toLowerCase()} artwork by ${user.name}. This piece represents the artist's unique style and vision.`,
+            desiredPrice: 500 + (artworkIndex % 20) * 250,
+            acceptPriceNegotiation: artworkIndex % 3 !== 0,
+            accountHolder: user.name,
+            iban: `ET${String(artworkIndex).padStart(22, "0")}`,
+            bicCode: `ETBIC${artworkIndex}`,
+            acceptTermsOfSale: true,
+            giveSalesMandate: true,
+            photos: [getRandomImage(), getRandomImage()], // Multiple photos
+            status: "APPROVED",
+            isApproved: true,
+            userId: user.id,
+          } as any,
+        });
+        artworks.push(artwork);
+        artworkIndex++;
+        console.log(`✅ Created artwork: ${artwork.title} (Category: ${category.name})`);
+      } catch (error: any) {
+        if (error.code === "P2002") {
+          console.log(`⏭️  Artwork ${artworkIndex + 1} already exists, skipping...`);
+          artworkIndex++;
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  // 5. Assign Categories to Artworks (Create similar artworks by assigning same categories)
+  console.log("\n📝 Assigning Categories to Artworks...");
+  // Group artworks by category - some will share categories for similar artworks feature
+  let categoryArtworkIndex = 0;
+  for (const category of categories) {
+    // Assign this category to 5 artworks (the ones we just created for this category)
+    for (let i = 0; i < 5; i++) {
+      const artwork = artworks[categoryArtworkIndex];
+      if (artwork) {
+        try {
+          await prisma.artworkOnCategory.upsert({
+            where: {
+              artworkId_categoryId: {
+                artworkId: artwork.id,
+                categoryId: category.id,
+              },
+            },
+            update: {},
+            create: {
+              artworkId: artwork.id,
+              categoryId: category.id,
+            },
+          });
+          // Also assign 1-2 additional random categories to some artworks for variety
+          if (i < 2 && Math.random() > 0.5) {
+            const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+            if (randomCategory.id !== category.id) {
+              try {
+                await prisma.artworkOnCategory.upsert({
+                  where: {
+                    artworkId_categoryId: {
+                      artworkId: artwork.id,
+                      categoryId: randomCategory.id,
+                    },
+                  },
+                  update: {},
+                  create: {
+                    artworkId: artwork.id,
+                    categoryId: randomCategory.id,
+                  },
+                });
+              } catch (error: any) {
+                if (error.code !== "P2002") throw error;
+              }
+            }
+          }
+        } catch (error: any) {
+          if (error.code !== "P2002") throw error;
+        }
+      }
+      categoryArtworkIndex++;
+    }
+    console.log(`✅ Assigned ${category.name} to 5 artworks`);
+  }
+
+  // 6. Seed Collections (Create collections for some artists)
   console.log("\n📝 Seeding Collections...");
   const collections = [];
-  for (let i = 0; i < 12; i++) {
-    try {
-      const collection = await prisma.collection.create({
-        data: {
-          name: `Collection ${i + 1}`,
-          description: `Description for collection ${i + 1}`,
-          visibility: i % 2 === 0 ? "PUBLIC" : "PRIVATE",
-          createdBy: users[i].id,
-        },
-      });
-      collections.push(collection);
-      console.log(`✅ Created collection ${i + 1}`);
-    } catch (error: any) {
-      if (error.code === "P2002") {
-        console.log(`⏭️  Collection ${i + 1} already exists, skipping...`);
-        // Try to find existing collection
-        const existing = await prisma.collection.findFirst({
-          where: {
+  const collectionNames = [
+    "Nature Collection", "Urban Life", "Abstract Expressions", "Portrait Series",
+    "Landscape Studies", "Modern Art", "Classical Works", "Contemporary Pieces",
+    "Digital Creations", "Mixed Media Works", "Sculpture Collection", "Photography Series"
+  ];
+
+  // Create 2-3 collections per artist for first 15 artists
+  for (let i = 0; i < 15; i++) {
+    const numCollections = 2 + (i % 2); // 2 or 3 collections per artist
+    for (let j = 0; j < numCollections; j++) {
+      const collectionName = collectionNames[(i * 2 + j) % collectionNames.length] || `Collection ${i + 1}-${j + 1}`;
+      try {
+        const collection = await prisma.collection.create({
+          data: {
+            name: `${collectionName} - ${users[i].name}`,
+            description: `A curated collection of artworks by ${users[i].name}`,
+            coverImage: getRandomImage(),
+            visibility: j % 2 === 0 ? "public" : "private",
             createdBy: users[i].id,
-            name: `Collection ${i + 1}`,
           },
         });
-        if (existing) collections.push(existing);
-      } else {
-        throw error;
+        collections.push(collection);
+        console.log(`✅ Created collection: ${collection.name}`);
+      } catch (error: any) {
+        if (error.code === "P2002") {
+          console.log(`⏭️  Collection ${i + 1}-${j + 1} already exists, skipping...`);
+        } else {
+          throw error;
+        }
       }
     }
   }
 
-  // 8. Seed CollectionOnArtwork (12)
-  console.log("\n📝 Seeding CollectionOnArtwork...");
-  for (let i = 0; i < 12; i++) {
-    if (!collections[i] || !artworks[i]) continue;
-    try {
-      await prisma.collectionOnArtwork.upsert({
-        where: {
-          collectionId_artworkId: {
-            collectionId: collections[i].id,
-            artworkId: artworks[i].id,
+  // 7. Add Artworks to Collections
+  console.log("\n📝 Adding Artworks to Collections...");
+  let collectionIndex = 0;
+  for (const collection of collections) {
+    // Add 3-5 artworks to each collection
+    const numArtworks = 3 + Math.floor(Math.random() * 3);
+    const userArtworks = artworks.filter(a => a.userId === collection.createdBy);
+    
+    for (let i = 0; i < numArtworks && i < userArtworks.length; i++) {
+      const artwork = userArtworks[i];
+      if (artwork) {
+        try {
+          await prisma.collectionOnArtwork.upsert({
+            where: {
+              collectionId_artworkId: {
+                collectionId: collection.id,
+                artworkId: artwork.id,
+              },
+            },
+            update: {},
+            create: {
+              collectionId: collection.id,
+              artworkId: artwork.id,
+            },
+          });
+          console.log(`✅ Added artwork "${artwork.title}" to collection "${collection.name}"`);
+        } catch (error: any) {
+          if (error.code !== "P2002") throw error;
+        }
+      }
+    }
+    collectionIndex++;
+  }
+
+  // 8. Seed some interactions (views and likes) for engagement
+  console.log("\n📝 Seeding Interactions (Views & Likes)...");
+  for (let i = 0; i < Math.min(artworks.length, 30); i++) {
+    const artwork = artworks[i];
+    if (!artwork) continue;
+
+    // Add some views
+    for (let j = 0; j < 5 + Math.floor(Math.random() * 10); j++) {
+      const randomUser = users[Math.floor(Math.random() * users.length)];
+      try {
+        await prisma.interaction.create({
+          data: {
+            artworkId: artwork.id,
+            userId: randomUser.id,
+            type: "view",
           },
-        },
-        update: {},
-        create: {
-          collectionId: collections[i].id,
-          artworkId: artworks[i].id,
-        },
-      });
-      console.log(`✅ Created/Updated collection-artwork link ${i + 1}`);
-    } catch (error: any) {
-      if (error.code !== "P2002") throw error;
+        });
+      } catch (error: any) {
+        // Ignore duplicates
+      }
+    }
+
+    // Add some likes
+    for (let j = 0; j < 2 + Math.floor(Math.random() * 5); j++) {
+      const randomUser = users[Math.floor(Math.random() * users.length)];
+      try {
+        await prisma.interaction.create({
+          data: {
+            artworkId: artwork.id,
+            userId: randomUser.id,
+            type: "LIKE",
+          },
+        });
+      } catch (error: any) {
+        // Ignore duplicates
+      }
     }
   }
+  console.log(`✅ Created interactions for artworks`);
 
-  // 9. Seed Comments (12)
-  console.log("\n📝 Seeding Comments...");
-  for (let i = 0; i < 12; i++) {
-    if (!artworks[i]) continue;
-    try {
-      await prisma.comment.create({
-        data: {
-          artworkId: artworks[i].id,
-          authorName: users[i].name,
-          content: `This is a comment ${i + 1} on the artwork`,
-        },
-      });
-      console.log(`✅ Created comment ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Comment ${i + 1} creation skipped (may already exist)`);
-    }
-  }
-
-  // 10. Seed Disputes (12)
-  console.log("\n📝 Seeding Disputes...");
-  const disputeStatuses: DISPUTE_STATUS[] = [
-    "IN_PROGRESS",
-    "RESOLVED",
-    "CLOSED",
-    "REJECTED",
-  ];
-  for (let i = 0; i < 12; i++) {
-    const artwork = artworks[i];
-    const user = users[i];
-    const targetUser = users[(i + 1) % users.length];
-    const disputeId = `dispute_${i}_seed`;
-    await prisma.dispute.upsert({
-      where: { id: disputeId },
-      update: {},
-      create: {
-        id: disputeId,
-        artworkId: artwork.id,
-        raisedById: user.id,
-        targetUserId: targetUser.id,
-        status: disputeStatuses[i % disputeStatuses.length],
-        reason: `Dispute reason ${i + 1}`,
-        description: `Dispute description ${i + 1}`,
-        updatedAt: new Date(),
-      },
-    });
-    console.log(`✅ Created/Updated dispute ${i + 1}`);
-  }
-
-  // 11. Seed FeaturedContent (12)
-  console.log("\n📝 Seeding FeaturedContent...");
-  for (let i = 0; i < 12; i++) {
-    if (!artworks[i]) continue;
-    try {
-      await prisma.featuredContent.create({
-        data: {
-          label: `Featured ${i + 1}`,
-          description: `Featured content description ${i + 1}`,
-          artworkId: artworks[i].id,
-        },
-      });
-      console.log(`✅ Created featured content ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Featured content ${i + 1} creation skipped`);
-    }
-  }
-
-  // 12. Seed Interactions (12)
-  console.log("\n📝 Seeding Interactions...");
-  for (let i = 0; i < 12; i++) {
-    if (!artworks[i]) continue;
-    try {
-      await prisma.interaction.create({
-        data: {
-          artworkId: artworks[i].id,
-          userId: users[i].id,
-          type: i % 2 === 0 ? "VIEW" : "SHARE",
-          metadata: { source: "web" },
-        },
-      });
-      console.log(`✅ Created interaction ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Interaction ${i + 1} creation skipped`);
-    }
-  }
-
-  // 13. Seed Chats (12)
-  console.log("\n📝 Seeding Chats...");
-  const chats = [];
-  const chatStatuses: CHAT_STATUS[] = ["OPEN", "CLOSED", "ARCHIVED"];
-  for (let i = 0; i < 12; i++) {
-    const client = users[i];
-    const tasker = users[(i + 1) % users.length];
-    const chatId = `chat_${i}_seed`;
-    const chat = await prisma.chat.upsert({
-      where: { id: chatId },
-      update: {},
-      create: {
-        id: chatId,
-        clientId: client.id,
-        taskerId: tasker.id,
-        status: chatStatuses[i % chatStatuses.length],
-        updatedAt: new Date(),
-      },
-    });
-    chats.push(chat);
-    console.log(`✅ Created/Updated chat ${i + 1}`);
-  }
-
-  // 14. Seed Messages (12)
-  console.log("\n📝 Seeding Messages...");
-  const messageTypes: MESSAGE_TYPE[] = ["TEXT", "IMAGE", "SYSTEM"];
-  const messageStatuses: MESSAGE_STATUS[] = ["SENT", "DELIVERED", "READ"];
-  for (let i = 0; i < 12; i++) {
-    const messageId = `message_${i}_seed`;
-    await prisma.message.upsert({
-      where: { id: messageId },
-      update: {},
-      create: {
-        id: messageId,
-        chatId: chats[i].id,
-        senderId: users[i].id,
-        receiverId: users[(i + 1) % users.length].id,
-        content: `Message content ${i + 1}`,
-        type: messageTypes[i % messageTypes.length],
-        status: messageStatuses[i % messageStatuses.length],
-      },
-    });
-    console.log(`✅ Created/Updated message ${i + 1}`);
-  }
-
-  // 15. Seed Notifications (12)
-  console.log("\n📝 Seeding Notifications...");
-  const notificationTypes: NOTIFICATION_TYPE[] = [
-    "INFO",
-    "WARNING",
-    "ALERT",
-    "MESSAGE",
-    "SYSTEM",
-  ];
-  for (let i = 0; i < 12; i++) {
-    const notificationId = `notification_${i}_seed`;
-    await prisma.notification.upsert({
-      where: { id: notificationId },
-      update: {},
-      create: {
-        id: notificationId,
-        userId: users[i].id,
-        type: notificationTypes[i % notificationTypes.length],
-        message: `Notification message ${i + 1}`,
-        entityId: artworks[i].id,
-      },
-    });
-    console.log(`✅ Created/Updated notification ${i + 1}`);
-  }
-
-  // 16. Seed PaymentGateways (12)
-  console.log("\n📝 Seeding PaymentGateways...");
-  const gateways = [];
-  const gatewayNames = [
-    "Chapa",
-    "PayPal",
-    "Stripe",
-    "M-Pesa",
-    "Bank Transfer",
-    "Credit Card",
-    "Debit Card",
-    "Mobile Money",
-    "Cryptocurrency",
-    "Apple Pay",
-    "Google Pay",
-    "Venmo",
-  ];
-  for (let i = 0; i < 12; i++) {
-    const gatewayId = gatewayNames[i].toLowerCase().replace(/\s+/g, "_");
-    const gateway = await prisma.paymentGateway.upsert({
-      where: { id: gatewayId },
-      update: {
-        name: gatewayNames[i],
-        enabled: i % 2 === 0,
-        updatedAt: new Date(),
-      },
-      create: {
-        id: gatewayId,
-        name: gatewayNames[i],
-        enabled: i % 2 === 0,
-        updatedAt: new Date(),
-      },
-    });
-    gateways.push(gateway);
-    console.log(`✅ Created/Updated payment gateway ${i + 1}: ${gateway.name}`);
-  }
-
-  // 17. Seed Orders (12)
-  console.log("\n📝 Seeding Orders...");
-  const orders = [];
-  const orderStatuses: OrderStatus[] = [
-    "PENDING",
-    "PAID",
-    "CANCELLED",
-    "REFUNDED",
-  ];
-  for (let i = 0; i < 12; i++) {
-    try {
-      const order = await prisma.order.create({
-        data: {
-          buyerEmail: `buyer${i}@example.com`,
-          totalAmount: new Decimal(500 + i * 50),
-          status: orderStatuses[i % orderStatuses.length],
-          updatedAt: new Date(),
-        },
-      });
-      orders.push(order);
-      console.log(`✅ Created order ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Order ${i + 1} creation skipped`);
-      // Create a placeholder to maintain array length
-      orders.push(null as any);
-    }
-  }
-
-  // 18. Seed OrderItems (12)
-  console.log("\n📝 Seeding OrderItems...");
-  for (let i = 0; i < 12; i++) {
-    if (!orders[i] || !artworks[i]) continue;
-    try {
-      await prisma.orderItem.create({
-        data: {
-          orderId: orders[i].id,
-          artworkId: artworks[i].id,
-          quantity: 1,
-          price: new Decimal(500 + i * 50),
-        },
-      });
-      console.log(`✅ Created order item ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Order item ${i + 1} creation skipped`);
-    }
-  }
-
-  // 19. Seed Transactions (12)
-  console.log("\n📝 Seeding Transactions...");
-  const transactionStatuses: PaymentStatus[] = [
-    "INITIATED",
-    "PROCESSING",
-    "COMPLETED",
-    "FAILED",
-  ];
-  for (let i = 0; i < 12; i++) {
-    if (!orders[i]) continue;
-    try {
-      await prisma.transaction.upsert({
-        where: { orderId: orders[i].id },
-        update: {},
-        create: {
-          orderId: orders[i].id,
-          paymentGatewayId: gateways[i % gateways.length].id,
-          status: transactionStatuses[i % transactionStatuses.length],
-          amount: new Decimal(500 + i * 50),
-          metadata: { source: "web", paymentMethod: "card" },
-        },
-      });
-      console.log(`✅ Created/Updated transaction ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Transaction ${i + 1} creation skipped`);
-    }
-  }
-
-  // 20. Seed Payments (12)
-  console.log("\n📝 Seeding Payments...");
-  const paymentStatuses: PAYMENT_STATUS[] = [
-    "PENDING",
-    "COMPLETED",
-    "FAILED",
-    "REFUNDED",
-  ];
-  for (let i = 0; i < 12; i++) {
-    const paymentId = `payment_${i}_seed`;
-    await prisma.payment.upsert({
-      where: { id: paymentId },
-      update: {},
-      create: {
-        id: paymentId,
-        bookingId: `booking_${i}`,
-        amount: 500 + i * 50,
-        method: gateways[i % gateways.length].name,
-        status: paymentStatuses[i % paymentStatuses.length],
-      },
-    });
-    console.log(`✅ Created/Updated payment ${i + 1}`);
-  }
-
-  // 21. Seed Receipts (12)
-  console.log("\n📝 Seeding Receipts...");
-  for (let i = 0; i < 12; i++) {
-    if (!orders[i]) continue;
-    try {
-      await prisma.receipt.upsert({
-        where: { orderId: orders[i].id },
-        update: {},
-        create: {
-          orderId: orders[i].id,
-          pdfUrl: `https://example.com/receipts/receipt_${i + 1}.pdf`,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        },
-      });
-      console.log(`✅ Created/Updated receipt ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Receipt ${i + 1} creation skipped`);
-    }
-  }
-
-  // 22. Seed Reports (12)
-  console.log("\n📝 Seeding Reports...");
-  const reportReasons: ReportReason[] = [
-    "SPAM",
-    "COPYRIGHT",
-    "ABUSE",
-    "INAPPROPRIATE",
-    "OTHER",
-  ];
-  const reportStatuses: ReportStatus[] = [
-    "OPEN",
-    "UNDER_REVIEW",
-    "ACTIONED",
-    "DISMISSED",
-  ];
-  for (let i = 0; i < 12; i++) {
-    if (!artworks[i]) continue;
-    const artwork = artworks[i];
-    const user = users[i];
-    const reportId = `report_${i}_seed`;
-    try {
-      await prisma.report.upsert({
-        where: { id: reportId },
-        update: {},
-        create: {
-          id: reportId,
-          targetId: artwork.id,
-          targetType: ReportTargetType.ARTWORK,
-          reporterId: user.id,
-          reason: reportReasons[i % reportReasons.length],
-          details: `Report details ${i + 1}`,
-          status: reportStatuses[i % reportStatuses.length],
-          resolved: i > 8,
-          updatedAt: new Date(),
-        },
-      });
-      console.log(`✅ Created/Updated report ${i + 1}`);
-    } catch (error: any) {
-      console.log(`⏭️  Report ${i + 1} creation skipped`);
-    }
-  }
-
-  // 23. Seed Reviews (12)
+  // 9. Seed some reviews
   console.log("\n📝 Seeding Reviews...");
-  for (let i = 0; i < 12; i++) {
+  let reviewCounter = 0;
+  for (let i = 0; i < Math.min(artworks.length, 20); i++) {
     const artwork = artworks[i];
-    const user = users[i];
-    const reviewId = `review_${i}_seed`;
-    await prisma.review.upsert({
-      where: { id: reviewId },
-      update: {},
-      create: {
-        id: reviewId,
-        artworkId: artwork.id,
-        userId: user.id,
-        rating: (i % 5) + 1,
-        comment: `Review comment ${i + 1}`,
-        updatedAt: new Date(),
-      },
-    });
-    console.log(`✅ Created/Updated review ${i + 1}`);
-  }
+    if (!artwork) continue;
 
-  // 24. Seed Withdrawals (12)
-  console.log("\n📝 Seeding Withdrawals...");
-  const withdrawalStatuses: PaymentStatus[] = [
-    "INITIATED",
-    "PROCESSING",
-    "COMPLETED",
-    "FAILED",
-  ];
-  for (let i = 0; i < 12; i++) {
+    const randomUser = users[Math.floor(Math.random() * users.length)];
+    if (randomUser.id === artwork.userId) continue; // Don't review own artwork
+
     try {
-      await prisma.withdrawal.create({
+      await prisma.review.create({
         data: {
-          userId: users[i].id,
-          payoutAccount: `ET${String(i).padStart(22, "0")}`,
-          amount: new Decimal(100 + i * 50),
-          status: withdrawalStatuses[i % withdrawalStatuses.length],
+          id: `review_${reviewCounter}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          artworkId: artwork.id,
+          userId: randomUser.id,
+          rating: 3 + Math.floor(Math.random() * 3), // 3-5 stars
+          comment: `Beautiful artwork! The ${artwork.title} is truly impressive.`,
         },
       });
-      console.log(`✅ Created withdrawal ${i + 1}`);
+      reviewCounter++;
+      console.log(`✅ Created review for artwork: ${artwork.title}`);
     } catch (error: any) {
-      console.log(`⏭️  Withdrawal ${i + 1} creation skipped`);
+      // Ignore duplicates
     }
   }
 
-  // 25. Seed CartItems (12)
-  console.log("\n📝 Seeding CartItems...");
-  for (let i = 0; i < 12; i++) {
-    await prisma.cartItem.upsert({
-      where: {
-        userId_artworkId: {
-          userId: users[i].id,
-          artworkId: artworks[i].id,
-        },
-      },
-      update: {
-        quantity: 1 + (i % 3),
-      },
-      create: {
-        userId: users[i].id,
-        artworkId: artworks[i].id,
-        quantity: 1 + (i % 3),
-      },
-    });
-    console.log(`✅ Created/Updated cart item ${i + 1}`);
-  }
-
-  // 26. Seed Favorites (12)
-  console.log("\n📝 Seeding Favorites...");
-  for (let i = 0; i < 12; i++) {
-    await prisma.favorite.upsert({
-      where: {
-        userId_artworkId: {
-          userId: users[i].id,
-          artworkId: artworks[i].id,
-        },
-      },
-      update: {},
-      create: {
-        userId: users[i].id,
-        artworkId: artworks[i].id,
-      },
-    });
-    console.log(`✅ Created/Updated favorite ${i + 1}`);
-  }
-
-  // 27. Seed Policies (12)
-  console.log("\n📝 Seeding Policies...");
-  const policyTypes = [
-    "TERMS",
-    "PRIVACY",
-    "REFUND",
-    "SHIPPING",
-    "RETURNS",
-    "COPYRIGHT",
-    "COMMUNITY",
-    "SELLER",
-    "BUYER",
-    "PAYMENT",
-    "ACCOUNT",
-    "CONTENT",
-  ];
-  for (let i = 0; i < 12; i++) {
-    // Check if policy exists by type
-    const existing = await prisma.policy.findFirst({
-      where: { type: policyTypes[i] },
-    });
-
-    if (existing) {
-      await prisma.policy.update({
-        where: { id: existing.id },
-        data: {
-          content: `Policy content for ${policyTypes[i]}`,
-          version: `1.${i}`,
-          updatedAt: new Date(),
-        },
-      });
-      console.log(`✅ Updated policy ${i + 1}: ${policyTypes[i]}`);
-    } else {
-      await prisma.policy.create({
-        data: {
-          type: policyTypes[i],
-          content: `Policy content for ${policyTypes[i]}`,
-          version: `1.${i}`,
-          updatedAt: new Date(),
-        },
-      });
-      console.log(`✅ Created policy ${i + 1}: ${policyTypes[i]}`);
-    }
-  }
-
-  console.log("\n✅ Seeding completed! All tables seeded with 12 rows each.");
+  console.log("\n✅ Seeding completed successfully!");
+  console.log(`\n📊 Summary:`);
+  console.log(`   - ${talentTypes.length} Talent Types`);
+  console.log(`   - ${categories.length} Categories`);
+  console.log(`   - ${users.length} Artists`);
+  console.log(`   - ${artworks.length} Artworks (${Math.floor(artworks.length / categories.length)} per category)`);
+  console.log(`   - ${collections.length} Collections`);
+  console.log(`   - Artists with similar talent types for testing similar artists feature`);
+  console.log(`   - Artworks with similar categories for testing similar artworks feature`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error seeding database:", e);
+    console.error("❌ Seeding failed:", e);
     process.exit(1);
   })
   .finally(async () => {

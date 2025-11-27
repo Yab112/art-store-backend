@@ -21,7 +21,7 @@
     }
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "dotenv -e env/local.env -- ts-node prisma/seed.ts"
   },
   "scripts": {
     "build": "nest build && npm run copy:templates",

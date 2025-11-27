@@ -67,3 +67,4 @@ export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
   published?: boolean;
 }
 
+

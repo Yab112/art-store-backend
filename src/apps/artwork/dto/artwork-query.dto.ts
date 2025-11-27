@@ -69,6 +69,14 @@ export class ArtworkQueryDto {
   artist?: string;
 
   @ApiPropertyOptional({
+    description: "Filter by user ID (artist who created the artwork)",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @ApiPropertyOptional({
     description:
       "Filter by category IDs (array) - artworks matching any of these categories. Can be passed as single value: categoryIds=id or multiple: categoryIds=id1&categoryIds=id2 or comma-separated: categoryIds=id1,id2",
     example: [

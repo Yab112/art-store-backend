@@ -89,6 +89,27 @@ export class ArtworkController {
     return this.artworkService.findByUser(userId, page, limit);
   }
 
+  // IMPORTANT: More specific routes must come BEFORE generic :id route
+  @Get(':id/similar-artworks-by-category')
+  async getSimilarArtworksByCategory(
+    @Param('id') id: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 8,
+  ) {
+    try {
+      const similarArtworks = await this.artworkService.getSimilarArtworksByCategory(id, limit);
+      return {
+        success: true,
+        artworks: similarArtworks,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch similar artworks',
+        artworks: [],
+      };
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Request() req: any) {
     const userId = req.user?.id;

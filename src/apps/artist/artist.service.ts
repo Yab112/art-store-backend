@@ -337,6 +337,7 @@ export class ArtistService {
           select: {
             id: true,
             name: true,
+            email: true,
             image: true,
             location: true,
             profileViews: true,
@@ -421,6 +422,7 @@ export class ArtistService {
           return {
             id: artist.id,
             name: artist.name,
+            email: artist.email,
             avatar: artist.image || "",
             artworks: artist._count.artworks,
             sales: sales,
@@ -430,7 +432,13 @@ export class ArtistService {
             profileViews: artist.profileViews || 0,
             heatScore: artist.heatScore || 0,
             lastActiveAt: artist.lastActiveAt,
-            talentTypes: artist.talentTypes?.map((ut) => ut.talentType) || [],
+            // Format talent types consistently (flat array with id, name, slug)
+            talentTypes:
+              artist.talentTypes?.map((ut) => ({
+                id: ut.talentType.id,
+                name: ut.talentType.name,
+                slug: ut.talentType.slug,
+              })) || [],
           };
         })
       );
@@ -469,8 +477,23 @@ export class ArtistService {
         select: {
           id: true,
           name: true,
+          email: true,
           image: true,
           location: true,
+          profileViews: true,
+          heatScore: true,
+          lastActiveAt: true,
+          talentTypes: {
+            select: {
+              talentType: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
           artworks: {
             where: {
               status: "APPROVED",
@@ -523,12 +546,23 @@ export class ArtistService {
           return {
             id: user.id,
             name: user.name,
+            email: user.email,
             avatar: user.image || "",
             artworks: user.artworks.length,
             sales: sales,
             views: views,
             salesCount: salesCount,
             country: user.location || "",
+            profileViews: user.profileViews || 0,
+            heatScore: user.heatScore || 0,
+            lastActiveAt: user.lastActiveAt,
+            // Format talent types consistently (flat array with id, name, slug)
+            talentTypes:
+              user.talentTypes?.map((ut) => ({
+                id: ut.talentType.id,
+                name: ut.talentType.name,
+                slug: ut.talentType.slug,
+              })) || [],
           };
         })
       );
@@ -564,8 +598,23 @@ export class ArtistService {
         select: {
           id: true,
           name: true,
+          email: true,
           image: true,
           location: true,
+          profileViews: true,
+          heatScore: true,
+          lastActiveAt: true,
+          talentTypes: {
+            select: {
+              talentType: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
           artworks: {
             where: {
               status: "APPROVED",
@@ -611,14 +660,30 @@ export class ArtistService {
             0
           );
 
+          const salesCount = user.artworks.filter(
+            (a) => a.orderItems.length > 0
+          ).length;
+
           return {
             id: user.id,
             name: user.name,
+            email: user.email,
             avatar: user.image || "",
             artworks: user.artworks.length,
             sales: sales,
             views: views,
+            salesCount: salesCount,
             country: user.location || "",
+            profileViews: user.profileViews || 0,
+            heatScore: user.heatScore || 0,
+            lastActiveAt: user.lastActiveAt,
+            // Format talent types consistently (flat array with id, name, slug)
+            talentTypes:
+              user.talentTypes?.map((ut) => ({
+                id: ut.talentType.id,
+                name: ut.talentType.name,
+                slug: ut.talentType.slug,
+              })) || [],
           };
         })
       );
@@ -1023,6 +1088,7 @@ export class ArtistService {
           select: {
             id: true,
             name: true,
+            email: true,
             image: true,
             coverImage: true,
             location: true,
@@ -1074,12 +1140,58 @@ export class ArtistService {
         }),
       ]);
 
-      return {
-        success: true,
-        data: {
-          artists: artists.map((artist) => ({
+      // Get sales and views for each artist
+      const artistsWithStats = await Promise.all(
+        artists.map(async (artist) => {
+          const artworks = await this.prisma.artwork.findMany({
+            where: {
+              userId: artist.id,
+              status: "APPROVED",
+            },
+            select: {
+              id: true,
+              orderItems: {
+                where: {
+                  order: {
+                    status: "PAID",
+                  },
+                },
+                select: {
+                  price: true,
+                },
+              },
+            },
+          });
+
+          // Get views from interactions
+          const views = await this.prisma.interaction.count({
+            where: {
+              artwork: {
+                userId: artist.id,
+                status: "APPROVED",
+              },
+              type: "view",
+            },
+          });
+
+          const sales = artworks.reduce(
+            (sum, artwork) =>
+              sum +
+              artwork.orderItems.reduce(
+                (itemSum, item) => itemSum + Number(item.price),
+                0
+              ),
+            0
+          );
+
+          const salesCount = artworks.filter(
+            (a) => a.orderItems.length > 0
+          ).length;
+
+          return {
             id: artist.id,
             name: artist.name,
+            email: artist.email,
             avatar: artist.image || "",
             coverImage: artist.coverImage,
             location: artist.location || "",
@@ -1087,14 +1199,31 @@ export class ArtistService {
             profileViews: artist.profileViews || 0,
             heatScore: artist.heatScore || 0,
             lastActiveAt: artist.lastActiveAt,
-            talentTypes: artist.talentTypes?.map((ut) => ut.talentType) || [],
-            artworkCount: artist._count.artworks,
-          })),
+            // Format talent types consistently (flat array with id, name, slug)
+            talentTypes: artist.talentTypes?.map((ut) => ({
+              id: ut.talentType.id,
+              name: ut.talentType.name,
+              slug: ut.talentType.slug,
+            })) || [],
+            artworks: artist._count.artworks,
+            sales: sales,
+            views: views,
+            salesCount: salesCount,
+            country: artist.location || "",
+          };
+        })
+      );
+
+      return {
+        success: true,
+        data: {
+          artists: artistsWithStats,
           pagination: {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit),
+            pages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit), // Keep for backward compatibility
           },
         },
       };

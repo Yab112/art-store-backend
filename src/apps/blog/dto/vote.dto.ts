@@ -16,3 +16,4 @@ export class VoteDto {
   type: VoteTypeDto;
 }
 
+

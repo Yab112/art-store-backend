@@ -28,7 +28,7 @@ import {
  * Handles all cart-related endpoints
  */
 @ApiTags('Cart')
-@Controller('cart')
+@Controller('cart') 
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
@@ -40,7 +40,7 @@ export class CartController {
   @UseGuards(AuthGuard)
   @ApiOperation({
     summary: 'Add artwork to cart',
-    description:
+    description: 
       "Add an artwork to the authenticated user's cart. If the artwork already exists, the quantity will be increased.",
   })
   @ApiBody({ type: AddToCartDto })

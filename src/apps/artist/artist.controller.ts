@@ -123,7 +123,7 @@ export class ArtistController {
     );
   }
 
-  /**
+  /** 
    * Get all artists (public endpoint)
    * GET /api/artist/all
    */

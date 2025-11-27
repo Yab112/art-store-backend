@@ -219,6 +219,7 @@ export class ArtworkService {
     status?: ArtworkStatus;
     search?: string;
     artist?: string;
+    userId?: string;
     categoryId?: string;
     categoryIds?: string[];
     support?: string;
@@ -237,6 +238,7 @@ export class ArtworkService {
         status,
         search,
         artist,
+        userId,
         categoryId,
         categoryIds,
         support,
@@ -267,6 +269,10 @@ export class ArtworkService {
           contains: artist,
           mode: "insensitive",
         };
+      }
+
+      if (userId) {
+        where.userId = userId;
       }
 
       // Support both single categoryId (for backward compatibility) and categoryIds array
@@ -1245,6 +1251,172 @@ export class ArtworkService {
       this.logger.error(
         `❌ Failed to get likes for artwork ${artworkId}:`,
         error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get similar artworks by category
+   * Finds artworks that share categories with the given artwork
+   */
+  async getSimilarArtworksByCategory(artworkId: string, limit: number = 8) {
+    try {
+      // Get the artwork and its categories
+      const artwork = await this.prisma.artwork.findUnique({
+        where: { id: artworkId },
+        include: {
+          categories: {
+            select: {
+              categoryId: true,
+            },
+          },
+        },
+      });
+
+      if (!artwork) {
+        throw new NotFoundException(`Artwork with ID ${artworkId} not found`);
+      }
+
+      // Extract category IDs
+      const categoryIds = artwork.categories.map((c) => c.categoryId);
+
+      if (categoryIds.length === 0) {
+        // If no categories, return random approved artworks
+        const randomArtworks = await this.prisma.artwork.findMany({
+          where: {
+            id: { not: artworkId },
+            status: 'APPROVED',
+            isApproved: true,
+          },
+          take: limit,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+            interactions: {
+              where: { type: 'LIKE' },
+              select: { id: true },
+            },
+            _count: {
+              select: {
+                comments: true,
+                reviews: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        return randomArtworks.map((artwork) => ({
+          ...artwork,
+          categories: artwork.categories?.map((ac) => ac.category) || [],
+          likeCount: artwork.interactions?.length || 0,
+          commentCount: artwork._count?.comments || 0,
+          reviewCount: artwork._count?.reviews || 0,
+          interactions: undefined,
+          _count: undefined,
+        }));
+      }
+
+      // Find artworks with similar categories
+      const similarArtworks = await this.prisma.artwork.findMany({
+        where: {
+          id: { not: artworkId },
+          status: 'APPROVED',
+          isApproved: true,
+          categories: {
+            some: {
+              categoryId: { in: categoryIds },
+            },
+          },
+        },
+        take: limit * 2, // Get more to sort and filter
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          interactions: {
+            where: { type: 'LIKE' },
+            select: { id: true },
+          },
+          _count: {
+            select: {
+              comments: true,
+              reviews: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Sort by number of matching categories (more matches = more similar)
+      const artworksWithSimilarity = similarArtworks.map((artwork) => {
+        const matchingCategories = artwork.categories.filter((ac) =>
+          categoryIds.includes(ac.categoryId),
+        ).length;
+        return {
+          artwork,
+          matchingCategories,
+        };
+      });
+
+      // Sort by matching categories count (descending) and take limit
+      const sortedArtworks = artworksWithSimilarity
+        .sort((a, b) => b.matchingCategories - a.matchingCategories)
+        .slice(0, limit)
+        .map((item) => item.artwork);
+
+      // Transform artworks to include stats
+      return sortedArtworks.map((artwork) => ({
+        ...artwork,
+        categories: artwork.categories?.map((ac) => ac.category) || [],
+        likeCount: artwork.interactions?.length || 0,
+        commentCount: artwork._count?.comments || 0,
+        reviewCount: artwork._count?.reviews || 0,
+        interactions: undefined,
+        _count: undefined,
+      }));
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to get similar artworks for ${artworkId}:`,
+        error,
       );
       throw error;
     }
