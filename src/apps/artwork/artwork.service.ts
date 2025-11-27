@@ -256,8 +256,15 @@ export class ArtworkService {
       // Build where clause
       const where: any = {};
 
+      // By default, only show APPROVED and SOLD artworks (exclude PENDING and REJECTED)
+      // This ensures only approved artworks are available for purchase
       if (status) {
         where.status = status;
+      } else {
+        // If no status filter is provided, only show APPROVED and SOLD
+        where.status = {
+          in: ['APPROVED', 'SOLD'],
+        };
       }
 
       if (isApproved !== undefined) {
@@ -857,12 +864,14 @@ export class ArtworkService {
         return [];
       }
 
-      // 4. Fetch artworks with their details (only approved ones)
+      // 4. Fetch artworks with their details (only approved and sold ones)
       const artworks = await this.prisma.artwork.findMany({
         where: {
           id: { in: uniqueArtworkIds },
           isApproved: true,
-          status: 'APPROVED',
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
         },
         include: {
           user: {
@@ -989,12 +998,14 @@ export class ArtworkService {
       // Get unique artwork IDs
       const uniqueArtworkIds = [...new Set(artworksWithCategories.map((ac) => ac.artworkId))];
 
-      // 3. Fetch artworks with their details (only approved ones)
+      // 3. Fetch artworks with their details (only approved and sold ones)
       const artworks = await this.prisma.artwork.findMany({
         where: {
           id: { in: uniqueArtworkIds },
           isApproved: true,
-          status: 'APPROVED',
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
         },
         include: {
           user: {
@@ -1697,11 +1708,13 @@ export class ArtworkService {
    */
   async getTrendingArtworks(limit: number = 12) {
     try {
-      // Get all approved artworks with their engagement data
+      // Get all approved and sold artworks with their engagement data
       const artworks = await this.prisma.artwork.findMany({
         where: {
           isApproved: true,
-          status: 'APPROVED',
+          status: {
+            in: ['APPROVED', 'SOLD'],
+          },
         },
         include: {
           user: {

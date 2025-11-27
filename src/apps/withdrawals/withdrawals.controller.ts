@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, Patch, Body } from '@nestjs/common';
+import { Controller, Get, Query, Param, Patch, Body, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { WithdrawalsService } from './withdrawals.service';
 import { WithdrawalsQueryDto, UpdateWithdrawalStatusDto } from './dto';
 import { ApiTags, ApiOperation, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
@@ -7,6 +7,8 @@ import { ApiTags, ApiOperation, ApiParam, ApiBearerAuth } from '@nestjs/swagger'
 @Controller('withdrawals')
 @ApiBearerAuth()
 export class WithdrawalsController {
+  private readonly logger = new Logger(WithdrawalsController.name);
+
   constructor(private readonly withdrawalsService: WithdrawalsService) {}
 
   /**
@@ -41,7 +43,29 @@ export class WithdrawalsController {
     @Param('id') id: string,
     @Body() updateDto: UpdateWithdrawalStatusDto,
   ) {
-    return this.withdrawalsService.updateStatus(id, updateDto);
+    try {
+      return await this.withdrawalsService.updateStatus(id, updateDto);
+    } catch (error: any) {
+      this.logger.error(`Failed to update withdrawal ${id} status:`, error);
+      
+      // If it's already an HttpException, re-throw it
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it in a proper HTTP exception
+      const message = error.message || 'Failed to update withdrawal status';
+      const statusCode = error.status || HttpStatus.INTERNAL_SERVER_ERROR;
+      
+      throw new HttpException(
+        {
+          statusCode,
+          message,
+          error: 'Internal server error',
+        },
+        statusCode,
+      );
+    }
   }
 
   /**
