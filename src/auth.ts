@@ -295,7 +295,8 @@ export const auth = betterAuth({
 
   // Security configuration
   trustedOrigins: [
-    "http://localhost:3000", // Backend
+    "http://localhost:3000", // Backend (legacy)
+    "http://localhost:3099", // Backend (current)
     "http://localhost:3001", // Admin dashboard (Next.js default)
     "http://localhost:3002", // Admin dashboard (alternative port)
     "http://localhost:5173", // Vite dev server (frontend - art-gallery)
@@ -317,14 +318,16 @@ export const auth = betterAuth({
   // Better Auth automatically handles the /api/auth path
   // IMPORTANT: This must match the actual public URL where your server is accessible
   baseURL: (() => {
+    const port = process.env.PORT || "3099";
     const url =
       process.env.BETTER_AUTH_URL ||
       process.env.BACKEND_URL ||
       (process.env.NODE_ENV === "production"
         ? "http://13.48.104.231:3000"
-        : "http://localhost:3000");
+        : `http://localhost:${port}`);
     console.log("🔐 Better Auth baseURL:", url);
     console.log("🔐 Better Auth NODE_ENV:", process.env.NODE_ENV);
+    console.log("🔐 Better Auth PORT:", port);
     console.log("🔐 Better Auth BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
     console.log("🔐 Better Auth BACKEND_URL:", process.env.BACKEND_URL);
     return url;
@@ -425,12 +428,13 @@ export const auth = betterAuth({
     // Dynamically set cookie attributes based on baseURL protocol
     // CRITICAL: secure: true requires HTTPS, sameSite: "none" requires secure: true
     useSecureCookies: (() => {
+      const port = process.env.PORT || "3099";
       const baseURL =
         process.env.BETTER_AUTH_URL ||
         process.env.BACKEND_URL ||
         (process.env.NODE_ENV === "production"
           ? "http://13.48.104.231:3000"
-          : "http://localhost:3000");
+          : `http://localhost:${port}`);
       const isHTTPS = baseURL.startsWith("https://");
       console.log(
         "🔐 Better Auth useSecureCookies:",
@@ -442,12 +446,13 @@ export const auth = betterAuth({
       return isHTTPS;
     })(),
     defaultCookieAttributes: (() => {
+      const port = process.env.PORT || "3099";
       const baseURL =
         process.env.BETTER_AUTH_URL ||
         process.env.BACKEND_URL ||
         (process.env.NODE_ENV === "production"
           ? "http://13.48.104.231:3000"
-          : "http://localhost:3000");
+          : `http://localhost:${port}`);
       const isHTTPS = baseURL.startsWith("https://");
 
       // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)

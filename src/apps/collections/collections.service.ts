@@ -189,8 +189,30 @@ export class CollectionsService {
                     title: true,
                     artist: true,
                     photos: true,
+                    interactions: {
+                      select: {
+                        type: true,
+                      },
+                    },
+                    comments: {
+                      select: {
+                        id: true,
+                      },
+                    },
+                    favorites: {
+                      select: {
+                        id: true,
+                      },
+                    },
                   },
                 },
+              },
+            },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
               },
             },
           },
@@ -201,11 +223,47 @@ export class CollectionsService {
         this.prisma.collection.count({ where }),
       ]);
 
-      // Transform to include artwork count
-      const collectionsWithCount = collections.map((collection) => ({
-        ...collection,
-        artworkCount: collection.artworks.length,
-      }));
+      // Transform to include artwork count and engagement metrics
+      const collectionsWithCount = collections.map((collection) => {
+        // Calculate engagement metrics from all artworks in the collection
+        let totalViews = 0;
+        let totalLikes = 0;
+        let totalComments = 0;
+        let totalFavorites = 0;
+
+        collection.artworks.forEach((ca) => {
+          const artwork = ca.artwork;
+          // Count interactions by type (case-insensitive)
+          const views = artwork.interactions.filter(
+            (i) => i.type?.toUpperCase() === 'VIEW'
+          ).length;
+          const likes = artwork.interactions.filter(
+            (i) => i.type?.toUpperCase() === 'LIKE'
+          ).length;
+          const comments = artwork.comments.length;
+          const favorites = artwork.favorites.length;
+
+          totalViews += views;
+          totalLikes += likes;
+          totalComments += comments;
+          totalFavorites += favorites;
+        });
+
+        // Calculate engagement score (weighted formula similar to trending artworks)
+        // views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
+        const engagementScore =
+          totalViews * 1 + totalLikes * 3 + totalComments * 2 + totalFavorites * 2.5;
+
+        return {
+          ...collection,
+          artworkCount: collection.artworks.length,
+          totalViews,
+          totalLikes,
+          totalComments,
+          totalFavorites,
+          engagementScore,
+        };
+      });
 
       return {
         collections: collectionsWithCount,
@@ -218,6 +276,109 @@ export class CollectionsService {
       };
     } catch (error) {
       this.logger.error('Failed to fetch collections:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get hot collections sorted by engagement score
+   * Returns public collections with highest engagement metrics
+   */
+  async getHotCollections(limit: number = 10) {
+    try {
+      const where: any = {
+        visibility: COLLECTION_CONSTANTS.VISIBILITY.PUBLIC,
+      };
+
+      // Get all public collections with their engagement data
+      const collections = await this.prisma.collection.findMany({
+        where,
+        include: {
+          artworks: {
+            select: {
+              artwork: {
+                select: {
+                  id: true,
+                  title: true,
+                  artist: true,
+                  photos: true,
+                  interactions: {
+                    select: {
+                      type: true,
+                    },
+                  },
+                  comments: {
+                    select: {
+                      id: true,
+                    },
+                  },
+                  favorites: {
+                    select: {
+                      id: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      // Calculate engagement metrics and score for each collection
+      const collectionsWithEngagement = collections.map((collection) => {
+        let totalViews = 0;
+        let totalLikes = 0;
+        let totalComments = 0;
+        let totalFavorites = 0;
+
+        collection.artworks.forEach((ca) => {
+          const artwork = ca.artwork;
+          const views = artwork.interactions.filter(
+            (i) => i.type?.toUpperCase() === 'VIEW'
+          ).length;
+          const likes = artwork.interactions.filter(
+            (i) => i.type?.toUpperCase() === 'LIKE'
+          ).length;
+          const comments = artwork.comments.length;
+          const favorites = artwork.favorites.length;
+
+          totalViews += views;
+          totalLikes += likes;
+          totalComments += comments;
+          totalFavorites += favorites;
+        });
+
+        // Calculate engagement score (weighted formula)
+        const engagementScore =
+          totalViews * 1 + totalLikes * 3 + totalComments * 2 + totalFavorites * 2.5;
+
+        return {
+          ...collection,
+          artworkCount: collection.artworks.length,
+          totalViews,
+          totalLikes,
+          totalComments,
+          totalFavorites,
+          engagementScore,
+        };
+      });
+
+      // Sort by engagement score (descending) and limit
+      const hotCollections = collectionsWithEngagement
+        .sort((a, b) => b.engagementScore - a.engagementScore)
+        .slice(0, limit)
+        .map(({ engagementScore, ...collection }) => collection); // Remove score from response
+
+      return hotCollections;
+    } catch (error) {
+      this.logger.error('Failed to fetch hot collections:', error);
       throw error;
     }
   }
