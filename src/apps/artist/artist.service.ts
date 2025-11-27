@@ -1200,11 +1200,12 @@ export class ArtistService {
             heatScore: artist.heatScore || 0,
             lastActiveAt: artist.lastActiveAt,
             // Format talent types consistently (flat array with id, name, slug)
-            talentTypes: artist.talentTypes?.map((ut) => ({
-              id: ut.talentType.id,
-              name: ut.talentType.name,
-              slug: ut.talentType.slug,
-            })) || [],
+            talentTypes:
+              artist.talentTypes?.map((ut) => ({
+                id: ut.talentType.id,
+                name: ut.talentType.name,
+                slug: ut.talentType.slug,
+              })) || [],
             artworks: artist._count.artworks,
             sales: sales,
             views: views,

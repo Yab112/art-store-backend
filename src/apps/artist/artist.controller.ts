@@ -10,7 +10,9 @@ import {
   Request,
   Query,
   Param,
+  ParseIntPipe,
 } from "@nestjs/common";
+import { ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { ArtistService } from "./artist.service";
 import { RequestWithdrawalDto } from "./dto/request-withdrawal.dto";
 import { UpdatePaymentMethodDto } from "./dto/update-payment-method.dto";
@@ -20,36 +22,7 @@ import { Public } from "@/core/decorators/public.decorator";
 export class ArtistController {
   private readonly logger = new Logger(ArtistController.name);
 
-  constructor(
-    private readonly artistService: ArtistService,
-    private readonly artworkService: ArtworkService,
-  ) {}
-
-  /**
-   * Get trending artists based on engagement metrics
-   * GET /api/artist/trending
-   */
-  @Get('trending')
-  @ApiOperation({ 
-    summary: 'Get trending artists',
-    description: 'Returns artists sorted by engagement metrics (views, likes, comments, favorites, artwork count)'
-  })
-  @ApiQuery({ 
-    name: 'limit', 
-    required: false, 
-    type: Number, 
-    description: 'Number of trending artists to return (default: 10)',
-    example: 10
-  })
-  async getTrendingArtists(
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
-  ) {
-    const artists = await this.artworkService.getTrendingArtists(limit);
-    return {
-      success: true,
-      artists,
-    };
-  }
+  constructor(private readonly artistService: ArtistService) {}
 
   /**
    * Get artist earnings statistics
@@ -152,7 +125,7 @@ export class ArtistController {
     );
   }
 
-  /** 
+  /**
    * Get all artists (public endpoint)
    * GET /api/artist/all
    */
