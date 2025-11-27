@@ -336,31 +336,6 @@ export class ArtistService {
       // 5. Check balance is sufficient
       const stats = await this.getEarningsStats(userId);
       const availableBalance = stats.data.availableBalance;
-      // Get user earning to check available balance
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { earning: true },
-      });
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // Get total withdrawn amount (completed withdrawals)
-      const completedWithdrawals = await this.prisma.withdrawal.findMany({
-        where: {
-          userId: userId,
-          status: "COMPLETED",
-        },
-      });
-
-      const totalWithdrawn = completedWithdrawals.reduce(
-        (sum, w) => sum + Number(w.amount),
-        0
-      );
-
-      const earning = Number(user.earning || 0);
-      const availableBalance = earning - totalWithdrawn;
 
       if (amount > availableBalance) {
         throw new Error(

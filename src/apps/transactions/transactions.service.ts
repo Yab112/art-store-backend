@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PaymentStatus } from '@prisma/client';
+// If PaymentStatus is not available, use: type PaymentStatus = 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'REFUNDED';
 
 @Injectable()
 export class TransactionsService {
@@ -370,19 +371,22 @@ export class TransactionsService {
       const transactions = filteredTransactions.slice(skip, skip + limit);
 
       // Format transactions for response
-      const formattedTransactions = transactions.map((tx) => ({
-        id: tx.id,
-        orderId: tx.orderId,
-        amount: Number(tx.amount),
-        status: tx.status,
-        createdAt: tx.createdAt,
-        updatedAt: tx.updatedAt,
-        metadata: tx.metadata,
-        order: tx.order,
-        paymentGateway: tx.paymentGateway,
-        // Extract payment provider from metadata
-        provider: (tx.metadata as any)?.paymentProvider || (tx.metadata as any)?.provider || null,
-      }));
+      const formattedTransactions = transactions.map((tx) => {
+        const txWithDates = tx as any;
+        return {
+          id: tx.id,
+          orderId: tx.orderId,
+          amount: Number(tx.amount),
+          status: tx.status,
+          createdAt: tx.createdAt,
+          updatedAt: txWithDates.updatedAt || tx.createdAt, // Fallback to createdAt if updatedAt not available
+          metadata: tx.metadata,
+          order: tx.order,
+          paymentGateway: tx.paymentGateway,
+          // Extract payment provider from metadata
+          provider: (tx.metadata as any)?.paymentProvider || (tx.metadata as any)?.provider || null,
+        };
+      });
 
       return {
         transactions: formattedTransactions,

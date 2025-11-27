@@ -94,7 +94,7 @@ export class ChapaService {
         phone_number: paymentData.phoneNumber || '',
         tx_ref: txRef,
         callback_url: paymentData.callbackUrl || `${this.configService.get('SERVER_BASE_URL')}/api/payment/chapa/callback`,
-        return_url: returnUrl, // Include original txRef in return URL
+        return_url: paymentData.returnUrl || `${this.configService.get('CLIENT_BASE_URL')}/payment/success?txRef=${txRef}`,
         customization: {
           title: title,
           description: description,
@@ -118,7 +118,7 @@ export class ChapaService {
         const checkoutUrl = response.data.data.checkout_url;
         this.logger.log(`Chapa payment initialized successfully. Checkout URL: ${checkoutUrl}`);
         
-        return {
+        const responseData = {
           success: true,
           message: 'Payment initialized successfully',
           data: {
@@ -127,6 +127,7 @@ export class ChapaService {
             provider: 'chapa',
           },
         };
+        
         // Store shortened txRef in a way that can be accessed later
         if (txRef !== paymentData.txRef) {
           (responseData.data as any).chapaTxRef = txRef;

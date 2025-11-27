@@ -495,26 +495,6 @@ model PlatformEarning {
   @@map("platform_earnings")
 }
 
-model PlatformEarning {
-  id              String      @id @default(uuid())
-  orderId         String      @unique
-  transactionId   String?
-  amount          Decimal     @db.Decimal(10,2)
-  commissionRate  Decimal     @db.Decimal(5,4)
-  orderData       Json
-  metadata        Json?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  transaction     Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-
-  @@index([orderId])
-  @@index([transactionId])
-  @@index([createdAt])
-  @@map("platform_earnings")
-}
-
 // Blog Models
 enum BlogPostStatus {
   PENDING

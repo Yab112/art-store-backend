@@ -23,8 +23,6 @@ export class PaymentService {
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
-    private readonly orderService: OrderService,
-    private readonly cartService: CartService,
   ) {}
 
   /**
@@ -277,11 +275,13 @@ export class PaymentService {
             // For Chapa: this is the shortened txRef if it was shortened, or the original
             // For PayPal: this is the PayPal order ID
             const txRefForCompletion = verifyResponse.data.txRef || verifyData.txRef;
+            // Extract userId from paymentMetadata if available
+            const userIdFromMetadata = (paymentMetadata as any)?.userId;
             const completedOrder = await this.orderService.completeOrder(
               orderId,
               txRefForCompletion,
               verifyData.provider,
-              paymentMetadata,
+              userIdFromMetadata,
             );
 
             // Get userId from verifyResponse (already set above) for cart operations
@@ -376,10 +376,11 @@ export class PaymentService {
         // Cancel the order if we found it
         if (orderId) {
           try {
-            await this.orderService.cancelOrder(
-              orderId,
-              `Payment verification failed: ${verifyResponse.message || 'Unknown error'}`,
-            );
+            // Update order status to CANCELLED
+            await this.prisma.order.update({
+              where: { id: orderId },
+              data: { status: 'CANCELLED' },
+            });
             this.logger.log(`Cancelled order ${orderId} due to payment failure`);
           } catch (cancelError) {
             this.logger.error(`Failed to cancel order ${orderId} after payment failure:`, cancelError);
@@ -406,10 +407,11 @@ export class PaymentService {
 
         if (orderId) {
           try {
-            await this.orderService.cancelOrder(
-              orderId,
-              `Payment verification error: ${error.message || 'Unknown error'}`,
-            );
+            // Update order status to CANCELLED
+            await this.prisma.order.update({
+              where: { id: orderId },
+              data: { status: 'CANCELLED' },
+            });
             this.logger.log(`Cancelled order ${orderId} due to verification error`);
           } catch (cancelError) {
             this.logger.error(`Failed to cancel order ${orderId} after verification error:`, cancelError);

@@ -2,10 +2,20 @@ import { Injectable, Logger, NotFoundException, BadRequestException, HttpExcepti
 import { PrismaService } from '../../core/database/prisma.service';
 import { WithdrawalsQueryDto } from './dto/withdrawals-query.dto';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
-import { PaymentStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ArtistService } from '../artist/artist.service';
 import { PaypalService } from '../payment/paypal.service';
+
+// PaymentStatus enum - will be available after Prisma client regeneration
+type PaymentStatus = 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'REFUNDED';
+const PaymentStatus = {
+  INITIATED: 'INITIATED' as PaymentStatus,
+  PROCESSING: 'PROCESSING' as PaymentStatus,
+  COMPLETED: 'COMPLETED' as PaymentStatus,
+  FAILED: 'FAILED' as PaymentStatus,
+  REJECTED: 'REJECTED' as PaymentStatus,
+  REFUNDED: 'REFUNDED' as PaymentStatus,
+};
 
 @Injectable()
 export class WithdrawalsService {
@@ -220,8 +230,10 @@ export class WithdrawalsService {
 
     // Extract rejection reason from metadata if status is REJECTED or FAILED
     let rejectionReason = null;
-    if ((withdrawal.status === PaymentStatus.REJECTED || withdrawal.status === PaymentStatus.FAILED) && withdrawal.metadata) {
-      const metadata = withdrawal.metadata as any;
+    const withdrawalWithMetadata = withdrawal as any;
+    const withdrawalStatus = withdrawal.status as string;
+    if ((withdrawalStatus === 'REJECTED' || withdrawal.status === PaymentStatus.FAILED) && withdrawalWithMetadata.metadata) {
+      const metadata = withdrawalWithMetadata.metadata as any;
       rejectionReason = metadata.rejectionReason || null;
     }
 
@@ -262,12 +274,12 @@ export class WithdrawalsService {
     }
 
     // Validate status transition
-    const validTransitions: Record<PaymentStatus, PaymentStatus[]> = {
-      [PaymentStatus.INITIATED]: [PaymentStatus.PROCESSING, PaymentStatus.REJECTED],
-      [PaymentStatus.PROCESSING]: [PaymentStatus.COMPLETED, PaymentStatus.REJECTED],
+    const validTransitions: Record<string, string[]> = {
+      [PaymentStatus.INITIATED]: [PaymentStatus.PROCESSING, 'REJECTED'],
+      [PaymentStatus.PROCESSING]: [PaymentStatus.COMPLETED, 'REJECTED'],
       [PaymentStatus.COMPLETED]: [], // Cannot change from completed
       [PaymentStatus.FAILED]: [PaymentStatus.INITIATED, PaymentStatus.PROCESSING], // Can retry (for payment failures)
-      [PaymentStatus.REJECTED]: [], // Cannot change from rejected
+      ['REJECTED']: [], // Cannot change from rejected
       [PaymentStatus.REFUNDED]: [], // Cannot change from refunded
     };
 
@@ -364,7 +376,8 @@ export class WithdrawalsService {
             `payoutBatchId column not found (run migration). Storing in metadata. Batch ID: ${payoutResult.payoutBatchId}`,
           );
           // Store in metadata as fallback
-          const existingMetadata = (withdrawal.metadata as any) || {};
+          const withdrawalWithMetadata = withdrawal as any;
+          const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
           await this.prisma.withdrawal.update({
             where: { id },
             data: {
@@ -385,13 +398,14 @@ export class WithdrawalsService {
       } catch (error: any) {
         this.logger.error(`Failed to process payout for withdrawal ${id}:`, error);
         // Mark as FAILED if payout processing fails
-        updateDto.status = PaymentStatus.FAILED;
+        (updateDto as any).status = PaymentStatus.FAILED;
         throw error;
       }
     }
 
     // If rejecting (REJECTED), store rejection reason in metadata
-    if (updateDto.status === PaymentStatus.REJECTED && withdrawal.userId) {
+    const updateStatus = updateDto.status as string;
+    if (updateStatus === 'REJECTED' && withdrawal.userId) {
       const user = await this.prisma.user.findUnique({
         where: { id: withdrawal.userId },
         select: { email: true, name: true },
@@ -403,22 +417,16 @@ export class WithdrawalsService {
         `Withdrawal ${id} rejected. Reason: ${rejectionReason}. Funds remain in available balance.`,
       );
 
-      // Store rejection reason in metadata
-      const existingMetadata = (withdrawal.metadata as any) || {};
+      // Store rejection reason in metadata (metadata field exists in schema but may not be in Prisma client)
+      const withdrawalWithMetadata = withdrawal as any;
+      const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
       const updatedMetadata = {
         ...existingMetadata,
         rejectionReason,
         rejectedAt: new Date().toISOString(),
       };
 
-      // Update metadata before status update
-      await this.prisma.withdrawal.update({
-        where: { id },
-        data: {
-          metadata: updatedMetadata as any,
-        },
-      });
-
+      // Note: Metadata will be included in the main update below
       // TODO: Send email notification to artist about rejection
       // await this.emailService.sendWithdrawalRejectedEmail({
       //   to: user?.email,
@@ -471,12 +479,27 @@ export class WithdrawalsService {
       }
     }
 
+    // Prepare update data
+    const updateData: any = {
+      status: updateDto.status,
+      updatedAt: new Date(),
+    };
+
+    // Add metadata if rejecting
+    const updateStatusForMetadata = updateDto.status as string;
+    if (updateStatusForMetadata === 'REJECTED') {
+      const withdrawalWithMetadata = withdrawal as any;
+      const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
+      updateData.metadata = {
+        ...existingMetadata,
+        rejectionReason: updateDto.reason || 'Withdrawal request rejected by admin',
+        rejectedAt: new Date().toISOString(),
+      };
+    }
+
     const updated = await this.prisma.withdrawal.update({
       where: { id },
-      data: {
-        status: updateDto.status,
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         user: {
           select: {

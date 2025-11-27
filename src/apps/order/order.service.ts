@@ -264,6 +264,16 @@ export class OrderService {
 
       // Update order and transaction
       this.logger.log(`[ORDER-COMPLETE] Updating order status to PAID...`);
+      
+      // Build enhanced metadata with payment completion details
+      const enhancedMetadata = {
+        ...(order.transaction?.metadata as any || {}),
+        txRef,
+        paymentProvider,
+        completedAt: new Date().toISOString(),
+        ...(userId ? { buyerUserId: userId } : {}),
+      };
+      
       const updatedOrder = await this.prisma.order.update({
         where: { id: orderId },
         data: {

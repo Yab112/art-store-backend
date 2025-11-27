@@ -10,6 +10,9 @@ export class PrismaService
 
   constructor() {
     super({
+      // In Prisma 7, connection URL is passed via adapter or accelerateUrl
+      // For now, we'll use the DATABASE_URL from environment
+      // The prisma.config.ts file handles the connection for migrations
       log: ['error', 'warn'],
     });
   }
