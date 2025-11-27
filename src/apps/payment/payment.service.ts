@@ -12,8 +12,7 @@ import { OrderService } from '../order/order.service';
 import { CartService } from '../cart/cart.service';
 import { PaymentStatus } from '@prisma/client';
 
-@Injectable() 
-@Injectable() 
+@Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
@@ -185,6 +184,18 @@ export class PaymentService {
 
         if (orderId) {
           try {
+            // Early check: if order is already PAID, skip processing to prevent duplicate work
+            const existingOrder = await this.prisma.order.findUnique({
+              where: { id: orderId },
+              select: { status: true },
+            });
+
+            if (existingOrder?.status === 'PAID') {
+              this.logger.log(`Order ${orderId} already PAID - skipping duplicate verification processing`);
+              // Return success response without processing
+              return verifyResponse;
+            }
+
             // Get order from database to extract customer information from checkout form
             const order = await this.prisma.order.findUnique({
               where: { id: orderId },

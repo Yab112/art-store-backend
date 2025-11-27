@@ -59,7 +59,8 @@ export class TransactionsController {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    return this.transactionsService.getUserTransactions(userId, page, limit, status, provider);
+    // Use the new method that returns all transactions (buyer, seller, withdrawals)
+    return this.transactionsService.getAllUserTransactions(userId, page, limit, status);
   }
 
   /**
