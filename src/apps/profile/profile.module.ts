@@ -5,9 +5,10 @@ import { ProfileEventSubscriber } from './profile-event.subscriber';
 import { PrismaModule } from '../../core/database';
 import { EmailModule } from '../../libraries/email';
 import { UploadModule } from '../../libraries/upload';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 @Module({
-  imports: [PrismaModule, EmailModule, UploadModule],
+  imports: [PrismaModule, EmailModule, UploadModule, AnalyticsModule],
   controllers: [ProfileController],
   providers: [ProfileService, ProfileEventSubscriber],
   exports: [ProfileService],

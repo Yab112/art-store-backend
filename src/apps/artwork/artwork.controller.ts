@@ -92,92 +92,23 @@ export class ArtworkController {
     return this.artworkService.findByUser(userId, page, limit);
   }
 
-  @Get('trending')
-  @ApiOperation({
-    summary: 'Get trending artworks',
-    description: 'Returns artworks sorted by engagement metrics (views, likes, comments, favorites) with recency bonus'
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of trending artworks to return (default: 12)',
-    example: 12
-  })
-  async getTrendingArtworks(
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 12,
-  ) {
-    const artworks = await this.artworkService.getTrendingArtworks(limit);
-    return {
-      success: true,
-      artworks,
-    };
-  }
-
-  @Get(':id/similar-artworks')
-  @ApiOperation({
-    summary: 'Get artworks similar to a specific artwork',
-    description: 'Returns artworks that share collections with the given artwork, ranked by number of shared collections. Excludes the current artwork.'
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of similar artworks to return (default: 12)',
-    example: 12
-  })
-  async getSimilarArtworks(
-    @Param('id') artworkId: string,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  // IMPORTANT: More specific routes must come BEFORE generic :id route
+  @Get(':id/similar-artworks-by-category')
+  async getSimilarArtworksByCategory(
+    @Param('id') id: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 8,
   ) {
     try {
-      const artworks = await this.artworkService.getSimilarArtworks(
-        artworkId,
-        limit || 12,
-      );
-
+      const similarArtworks = await this.artworkService.getSimilarArtworksByCategory(id, limit);
       return {
         success: true,
-        artworks,
+        artworks: similarArtworks,
       };
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: error.message || 'Failed to fetch similar artworks',
-      };
-    }
-  }
-
-  @Get(':id/similar-artworks-by-category')
-  @ApiOperation({
-    summary: 'Get artworks similar to a specific artwork by category',
-    description: 'Returns artworks that share at least one category with the given artwork, ranked by number of shared categories. Excludes the current artwork.'
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of similar artworks to return (default: 12)',
-    example: 12
-  })
-  async getSimilarArtworksByCategory(
-    @Param('id') artworkId: string,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-  ) {
-    try {
-      const artworks = await this.artworkService.getSimilarArtworksByCategory(
-        artworkId,
-        limit || 12,
-      );
-
-      return {
-        success: true,
-        artworks,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Failed to fetch similar artworks by category',
+        artworks: [],
       };
     }
   }

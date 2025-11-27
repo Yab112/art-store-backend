@@ -221,6 +221,7 @@ export class ArtworkService {
     status?: ArtworkStatus;
     search?: string;
     artist?: string;
+    userId?: string;
     categoryId?: string;
     categoryIds?: string[];
     support?: string;
@@ -239,6 +240,7 @@ export class ArtworkService {
         status,
         search,
         artist,
+        userId,
         categoryId,
         categoryIds,
         support,
@@ -269,6 +271,10 @@ export class ArtworkService {
           contains: artist,
           mode: "insensitive",
         };
+      }
+
+      if (userId) {
+        where.userId = userId;
       }
 
       // Support both single categoryId (for backward compatibility) and categoryIds array
@@ -1507,225 +1513,127 @@ export class ArtworkService {
   }
 
   /**
-   * Get trending artists based on comprehensive metrics
-   * Calculates trending score from: engagement (views, likes, comments, favorites), 
-   * sales (totalSales, salesCount, earnings), and artwork count
+   * Get similar artworks by category
+   * Finds artworks that share categories with the given artwork
    */
-  async getTrendingArtists(limit: number = 10) {
+  async getSimilarArtworksByCategory(artworkId: string, limit: number = 8) {
     try {
-      // Get platform commission rate for earnings calculation
-      const platformCommissionRate =
-        await this.settingsService.getPlatformCommissionRate();
-
-      // Get all approved artworks with their engagement data and user info
-      const artworks = await this.prisma.artwork.findMany({
-        where: {
-          isApproved: true,
-          status: 'APPROVED',
+      // Get the artwork and its categories
+      const artwork = await this.prisma.artwork.findUnique({
+        where: { id: artworkId },
+        include: {
+          categories: {
+            select: {
+              categoryId: true,
+            },
+          },
         },
+      });
+
+      if (!artwork) {
+        throw new NotFoundException(`Artwork with ID ${artworkId} not found`);
+      }
+
+      // Extract category IDs
+      const categoryIds = artwork.categories.map((c) => c.categoryId);
+
+      if (categoryIds.length === 0) {
+        // If no categories, return random approved artworks
+        const randomArtworks = await this.prisma.artwork.findMany({
+          where: {
+            id: { not: artworkId },
+            status: 'APPROVED',
+            isApproved: true,
+          },
+          take: limit,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+            interactions: {
+              where: { type: 'LIKE' },
+              select: { id: true },
+            },
+            _count: {
+              select: {
+                comments: true,
+                reviews: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        return randomArtworks.map((artwork) => ({
+          ...artwork,
+          categories: artwork.categories?.map((ac) => ac.category) || [],
+          likeCount: artwork.interactions?.length || 0,
+          commentCount: artwork._count?.comments || 0,
+          reviewCount: artwork._count?.reviews || 0,
+          interactions: undefined,
+          _count: undefined,
+        }));
+      }
+
+      // Find artworks with similar categories
+      const similarArtworks = await this.prisma.artwork.findMany({
+        where: {
+          id: { not: artworkId },
+          status: 'APPROVED',
+          isApproved: true,
+          categories: {
+            some: {
+              categoryId: { in: categoryIds },
+            },
+          },
+        },
+        take: limit * 2, // Get more to sort and filter
         include: {
           user: {
             select: {
               id: true,
               name: true,
+              email: true,
               image: true,
             },
           },
-          interactions: {
-            select: {
-              type: true,
-            },
-          },
-          comments: {
-            select: {
-              id: true,
-            },
-          },
-          favorites: {
-            select: {
-              id: true,
-            },
-          },
-          orderItems: {
-            where: {
-              order: {
-                status: 'PAID',
-              },
-            },
-            select: {
-              price: true,
-              order: {
+          categories: {
+            include: {
+              category: {
                 select: {
-                  status: true,
-                  createdAt: true,
+                  id: true,
+                  name: true,
+                  slug: true,
                 },
               },
             },
           },
-        },
-      });
-
-      // Group artworks by userId (actual artist) and calculate metrics
-      const artistMap = new Map<
-        string,
-        {
-          userId: string;
-          name: string;
-          avatar: string;
-          artworkCount: number;
-          totalViews: number;
-          totalLikes: number;
-          totalComments: number;
-          totalFavorites: number;
-          totalSales: number;
-          salesCount: number;
-          totalEarnings: number;
-          engagementScore: number;
-        }
-      >();
-
-      artworks.forEach((artwork) => {
-        if (!artwork.userId || !artwork.user) return;
-
-        const userId = artwork.userId;
-        const existing = artistMap.get(userId);
-
-        // Count interactions by type (case-insensitive)
-        const views = artwork.interactions.filter((i) => 
-          i.type?.toUpperCase() === 'VIEW'
-        ).length;
-        const likes = artwork.interactions.filter((i) => 
-          i.type?.toUpperCase() === 'LIKE'
-        ).length;
-
-        const comments = artwork.comments.length;
-        const favorites = artwork.favorites.length;
-
-        // Calculate sales metrics for this artwork
-        const artworkSales = artwork.orderItems
-          .filter((item) => item.order.status === 'PAID')
-          .reduce(
-            (acc, item) => {
-              const salePrice = Number(item.price);
-              const commission = salePrice * platformCommissionRate;
-              const earnings = salePrice - commission;
-              return {
-                totalSales: acc.totalSales + salePrice,
-                salesCount: acc.salesCount + 1,
-                totalEarnings: acc.totalEarnings + earnings,
-              };
-            },
-            { totalSales: 0, salesCount: 0, totalEarnings: 0 }
-          );
-
-        // Get user profile avatar (prefer user image, fallback to placeholder)
-        const artistAvatar = artwork.user.image || '/placeholder.svg';
-
-        if (existing) {
-          existing.artworkCount += 1;
-          existing.totalViews += views;
-          existing.totalLikes += likes;
-          existing.totalComments += comments;
-          existing.totalFavorites += favorites;
-          existing.totalSales += artworkSales.totalSales;
-          existing.salesCount += artworkSales.salesCount;
-          existing.totalEarnings += artworkSales.totalEarnings;
-          // Update avatar if user has a profile image
-          if (artwork.user.image) {
-            existing.avatar = artwork.user.image;
-          }
-        } else {
-          artistMap.set(userId, {
-            userId,
-            name: artwork.user.name || artwork.artist || 'Unknown Artist',
-            avatar: artistAvatar,
-            artworkCount: 1,
-            totalViews: views,
-            totalLikes: likes,
-            totalComments: comments,
-            totalFavorites: favorites,
-            totalSales: artworkSales.totalSales,
-            salesCount: artworkSales.salesCount,
-            totalEarnings: artworkSales.totalEarnings,
-            engagementScore: 0, // Will calculate below
-          });
-        }
-      });
-
-      // Calculate comprehensive trending score for each artist
-      // Weighted formula: 
-      // - Engagement: views (1x) + likes (3x) + comments (2x) + favorites (2x) + artwork count (1x)
-      // - Sales: totalSales (0.01x per euro) + salesCount (10x) + totalEarnings (0.01x per euro)
-      const artistsWithScores = Array.from(artistMap.values()).map((artist) => {
-        const engagementScore =
-          artist.totalViews * 1 +
-          artist.totalLikes * 3 +
-          artist.totalComments * 2 +
-          artist.totalFavorites * 2 +
-          artist.artworkCount * 1;
-
-        const salesScore =
-          artist.totalSales * 0.01 + // 1 point per 100 euros in sales
-          artist.salesCount * 10 + // 10 points per sale
-          artist.totalEarnings * 0.01; // 1 point per 100 euros in earnings
-
-        const trendingScore = engagementScore + salesScore;
-
-        return {
-          ...artist,
-          engagementScore,
-          trendingScore,
-        };
-      });
-
-      // Sort by trending score (descending) and limit
-      const trendingArtists = artistsWithScores
-        .sort((a, b) => b.trendingScore - a.trendingScore)
-        .slice(0, limit)
-        .map(({ engagementScore, trendingScore, ...artist }) => artist); // Remove scores from response
-
-      return trendingArtists;
-    } catch (error) {
-      this.logger.error('❌ Failed to get trending artists:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get trending artworks based on engagement metrics
-   * Calculates trending score from: views, likes, comments, favorites, and recency
-   */
-  async getTrendingArtworks(limit: number = 12) {
-    try {
-      // Get all approved artworks with their engagement data
-      const artworks = await this.prisma.artwork.findMany({
-        where: {
-          isApproved: true,
-          status: 'APPROVED',
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
           interactions: {
-            select: {
-              type: true,
-              createdAt: true,
-            },
+            where: { type: 'LIKE' },
+            select: { id: true },
           },
-          comments: {
+          _count: {
             select: {
-              id: true,
-              createdAt: true,
-            },
-          },
-          favorites: {
-            select: {
-              id: true,
-              createdAt: true,
+              comments: true,
+              reviews: true,
             },
           },
         },
@@ -1734,44 +1642,38 @@ export class ArtworkService {
         },
       });
 
-      // Calculate trending score for each artwork
-      const now = new Date();
-      const artworksWithScores = artworks.map((artwork) => {
-        // Count interactions by type (case-insensitive)
-        const views = artwork.interactions.filter(
-          (i) => i.type?.toUpperCase() === 'VIEW'
+      // Sort by number of matching categories (more matches = more similar)
+      const artworksWithSimilarity = similarArtworks.map((artwork) => {
+        const matchingCategories = artwork.categories.filter((ac) =>
+          categoryIds.includes(ac.categoryId),
         ).length;
-        const likes = artwork.interactions.filter(
-          (i) => i.type?.toUpperCase() === 'LIKE'
-        ).length;
-        const comments = artwork.comments.length;
-        const favorites = artwork.favorites.length;
-
-        // Calculate time decay factor (artworks created in last 7 days get bonus)
-        const daysSinceCreation =
-          (now.getTime() - artwork.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-        const recencyBonus = daysSinceCreation <= 7 ? 1.5 : daysSinceCreation <= 30 ? 1.2 : 1.0;
-
-        // Calculate engagement score with time decay
-        // Weighted formula: views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
-        const engagementScore =
-          (views * 1 + likes * 3 + comments * 2 + favorites * 2.5) * recencyBonus;
-
         return {
           artwork,
-          engagementScore,
+          matchingCategories,
         };
       });
 
-      // Sort by engagement score (descending) and limit
-      const trendingArtworks = artworksWithScores
-        .sort((a, b) => b.engagementScore - a.engagementScore)
+      // Sort by matching categories count (descending) and take limit
+      const sortedArtworks = artworksWithSimilarity
+        .sort((a, b) => b.matchingCategories - a.matchingCategories)
         .slice(0, limit)
-        .map(({ artwork }) => artwork);
+        .map((item) => item.artwork);
 
-      return trendingArtworks;
+      // Transform artworks to include stats
+      return sortedArtworks.map((artwork) => ({
+        ...artwork,
+        categories: artwork.categories?.map((ac) => ac.category) || [],
+        likeCount: artwork.interactions?.length || 0,
+        commentCount: artwork._count?.comments || 0,
+        reviewCount: artwork._count?.reviews || 0,
+        interactions: undefined,
+        _count: undefined,
+      }));
     } catch (error) {
-      this.logger.error('❌ Failed to get trending artworks:', error);
+      this.logger.error(
+        `❌ Failed to get similar artworks for ${artworkId}:`,
+        error,
+      );
       throw error;
     }
   }
