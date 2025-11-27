@@ -10,10 +10,12 @@ import {
   Logger,
   UseGuards,
   Request,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto, OrdersQueryDto } from './dto';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { AuthGuard } from '@/core/guards/auth.guard';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -38,7 +40,26 @@ export class OrderController {
   }
 
   /**
-   * Get user's orders
+   * Get authenticated user's orders
+   * GET /api/orders/my-orders
+   * Only uses userId - not email - because users may use different emails for checkout
+   */
+  @Get('my-orders')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Get authenticated user's orders" })
+  async getMyOrders(@Request() req: any) {
+    const userId = req.user?.id;
+    console.log('userId', userId);
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    this.logger.log(`Get orders for authenticated user: ${userId}`);
+    // Only use userId - orders are tied to the authenticated user, not checkout email
+    return this.orderService.getUserOrdersByUserId(userId);
+  }
+
+  /**
+   * Get user's orders by email (legacy endpoint - kept for backward compatibility)
    * GET /api/orders/user/:email
    */
   @Get('user/:email')
@@ -51,28 +72,44 @@ export class OrderController {
   /**
    * Create a new order
    * POST /api/orders/create
+   * Requires authentication - userId will be attached from authenticated session
    */
   @Post('create')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a new order' })
   async createOrder(
     @Body() createOrderDto: CreateOrderDto,
     @Request() req: any,
   ) {
-    this.logger.log(`Create order request from: ${createOrderDto.buyerEmail}`);
+    try {
+      // Get userId from authenticated session
+      const userId = req.user?.id;
 
-    // Get userId from authenticated session or by email
-    let userId = req.user?.id;
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
 
-    // If no user in session, try to get user by email
-    if (!userId) {
-      const user = await this.orderService.getUserByEmail(
-        createOrderDto.buyerEmail,
-      );
-      userId = user?.id || 'guest';
+      this.logger.log(`Create order request from authenticated user: ${userId} (${createOrderDto.buyerEmail})`);
+      this.logger.debug('Order data:', JSON.stringify(createOrderDto, null, 2));
+
+      // Create order with authenticated userId
+      const result = await this.orderService.createOrder(userId, createOrderDto);
+      
+      return {
+        success: true,
+        message: 'Order created successfully',
+        data: result,
+      };
+    } catch (error: any) {
+      this.logger.error('Order creation failed:', error);
+      
+      return {
+        success: false,
+        message: error.message || 'Failed to create order',
+        error: error.response?.message || error.message,
+      };
     }
-
-    return this.orderService.createOrder(userId, createOrderDto);
   }
 
   /**
