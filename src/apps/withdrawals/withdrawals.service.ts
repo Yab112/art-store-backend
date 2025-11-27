@@ -1,9 +1,21 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { WithdrawalsQueryDto } from './dto/withdrawals-query.dto';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
-import { PaymentStatus } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { ArtistService } from '../artist/artist.service';
+import { PaypalService } from '../payment/paypal.service';
+
+// PaymentStatus enum - will be available after Prisma client regeneration
+type PaymentStatus = 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'REFUNDED';
+const PaymentStatus = {
+  INITIATED: 'INITIATED' as PaymentStatus,
+  PROCESSING: 'PROCESSING' as PaymentStatus,
+  COMPLETED: 'COMPLETED' as PaymentStatus,
+  FAILED: 'FAILED' as PaymentStatus,
+  REJECTED: 'REJECTED' as PaymentStatus,
+  REFUNDED: 'REFUNDED' as PaymentStatus,
+};
 
 @Injectable()
 export class WithdrawalsService {
@@ -12,6 +24,7 @@ export class WithdrawalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly artistService: ArtistService,
+    private readonly paypalService: PaypalService,
   ) {}
 
   /**
@@ -56,7 +69,9 @@ export class WithdrawalsService {
         })
       : [];
 
-    const userMap = new Map(users.map((u) => [u.id, u]));
+    const userMap = new Map<string, { id: string; name: string | null; email: string }>(
+      users.map((u) => [u.id, u])
+    );
 
     return {
       withdrawals: withdrawals.map((w: any) => ({
@@ -120,7 +135,7 @@ export class WithdrawalsService {
   }
 
   /**
-   * Get withdrawal by ID with full details including artist earnings
+   * Get withdrawal by ID with full details including artist earnings and validation status
    */
   async findOne(id: string) {
     const withdrawal = await this.prisma.withdrawal.findUnique({
@@ -132,6 +147,8 @@ export class WithdrawalsService {
             name: true,
             email: true,
             image: true,
+            emailVerified: true,
+            banned: true,
           },
         },
       },
@@ -152,6 +169,74 @@ export class WithdrawalsService {
       }
     }
 
+    // Check current validation status (may have changed since request was created)
+    let validationStatus = {
+      canApprove: true,
+      issues: [] as string[],
+    };
+
+    if (withdrawal.userId && withdrawal.user) {
+      const user = withdrawal.user;
+      const requestedAmount = Number(withdrawal.amount);
+
+      // Check email verification
+      if (!user.emailVerified) {
+        validationStatus.canApprove = false;
+        validationStatus.issues.push('Email not verified');
+      }
+
+      // Check if user is banned
+      if (user.banned) {
+        validationStatus.canApprove = false;
+        validationStatus.issues.push('User account is banned');
+      }
+
+      // Check for active disputes
+      const activeDisputes = await this.prisma.dispute.findMany({
+        where: {
+          targetUserId: withdrawal.userId,
+          status: 'IN_PROGRESS',
+        },
+      });
+
+      if (activeDisputes.length > 0) {
+        validationStatus.canApprove = false;
+        validationStatus.issues.push(`${activeDisputes.length} active dispute(s)`);
+      }
+
+      // Check balance
+      if (earningsStats) {
+        if (requestedAmount > earningsStats.availableBalance) {
+          validationStatus.canApprove = false;
+          validationStatus.issues.push(
+            `Insufficient balance (Available: $${earningsStats.availableBalance.toFixed(2)}, Requested: $${requestedAmount.toFixed(2)})`,
+          );
+        }
+      }
+
+      // Check IBAN ownership
+      const artwork = await this.prisma.artwork.findFirst({
+        where: {
+          userId: withdrawal.userId,
+          iban: withdrawal.payoutAccount,
+        },
+      });
+
+      if (!artwork) {
+        validationStatus.canApprove = false;
+        validationStatus.issues.push('IBAN does not belong to this artist');
+      }
+    }
+
+    // Extract rejection reason from metadata if status is REJECTED or FAILED
+    let rejectionReason = null;
+    const withdrawalWithMetadata = withdrawal as any;
+    const withdrawalStatus = withdrawal.status as string;
+    if ((withdrawalStatus === 'REJECTED' || withdrawal.status === PaymentStatus.FAILED) && withdrawalWithMetadata.metadata) {
+      const metadata = withdrawalWithMetadata.metadata as any;
+      rejectionReason = metadata.rejectionReason || null;
+    }
+
     return {
       id: withdrawal.id,
       userId: withdrawal.userId,
@@ -161,6 +246,8 @@ export class WithdrawalsService {
             name: withdrawal.user.name,
             email: withdrawal.user.email,
             image: withdrawal.user.image,
+            emailVerified: withdrawal.user.emailVerified,
+            banned: withdrawal.user.banned,
           }
         : null,
       payoutAccount: withdrawal.payoutAccount,
@@ -169,6 +256,8 @@ export class WithdrawalsService {
       createdAt: withdrawal.createdAt,
       updatedAt: withdrawal.updatedAt,
       earningsStats,
+      validationStatus,
+      rejectionReason,
     };
   }
 
@@ -185,30 +274,202 @@ export class WithdrawalsService {
     }
 
     // Validate status transition
-    const validTransitions: Record<PaymentStatus, PaymentStatus[]> = {
-      [PaymentStatus.INITIATED]: [PaymentStatus.PROCESSING, PaymentStatus.COMPLETED, PaymentStatus.FAILED],
-      [PaymentStatus.PROCESSING]: [PaymentStatus.COMPLETED, PaymentStatus.FAILED],
+    const validTransitions: Record<string, string[]> = {
+      [PaymentStatus.INITIATED]: [PaymentStatus.PROCESSING, 'REJECTED'],
+      [PaymentStatus.PROCESSING]: [PaymentStatus.COMPLETED, 'REJECTED'],
       [PaymentStatus.COMPLETED]: [], // Cannot change from completed
-      [PaymentStatus.FAILED]: [PaymentStatus.INITIATED, PaymentStatus.PROCESSING], // Can retry
+      [PaymentStatus.FAILED]: [PaymentStatus.INITIATED, PaymentStatus.PROCESSING], // Can retry (for payment failures)
+      ['REJECTED']: [], // Cannot change from rejected
       [PaymentStatus.REFUNDED]: [], // Cannot change from refunded
     };
 
     const allowedStatuses = validTransitions[withdrawal.status];
     if (!allowedStatuses.includes(updateDto.status)) {
-      throw new Error(
+      throw new BadRequestException(
         `Invalid status transition from ${withdrawal.status} to ${updateDto.status}`,
       );
     }
 
-    // If approving (COMPLETED), verify balance is sufficient
-    if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
+    // If approving (PROCESSING = admin approval), verify balance and process payout
+    if (updateDto.status === PaymentStatus.PROCESSING && withdrawal.userId) {
       try {
+        // Verify balance is sufficient before processing
         const stats = await this.artistService.getEarningsStats(withdrawal.userId);
         const availableBalance = stats.data.availableBalance;
         const requestedAmount = Number(withdrawal.amount);
 
         if (requestedAmount > availableBalance) {
-          throw new Error(
+          throw new BadRequestException(
+            `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${requestedAmount.toFixed(2)}`,
+          );
+        }
+
+        // Get user email for PayPal payout
+        const user = await this.prisma.user.findUnique({
+          where: { id: withdrawal.userId },
+          select: { email: true, name: true },
+        });
+
+        if (!user || !user.email) {
+          throw new BadRequestException('User email not found. Cannot process PayPal payout.');
+        }
+
+        // Process PayPal Payout
+        this.logger.log(
+          `Processing PayPal payout for withdrawal ${id}: $${requestedAmount.toFixed(2)} to ${user.email}`,
+        );
+
+        let payoutResult;
+        try {
+          payoutResult = await this.paypalService.processPayout(
+            user.email,
+            requestedAmount,
+            'USD',
+            `Withdrawal payout for withdrawal request ${id}`,
+          );
+
+          if (!payoutResult || !payoutResult.success) {
+            const errorMessage = payoutResult?.message || 'PayPal payout failed';
+            this.logger.error(`PayPal payout error: ${errorMessage}`);
+            
+            // Check if it's a configuration issue
+            if (errorMessage.includes('credentials') || errorMessage.includes('not configured')) {
+              throw new BadRequestException(
+                `PayPal is not properly configured. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables. Error: ${errorMessage}`,
+              );
+            }
+            
+            throw new BadRequestException(`PayPal payout failed: ${errorMessage}`);
+          }
+        } catch (error: any) {
+          this.logger.error(`PayPal payout processing error: ${error.message || error}`);
+          
+          // Re-throw with more context
+          if (error instanceof HttpException) {
+            throw error; // Re-throw HttpExceptions as-is
+          }
+          
+          throw new BadRequestException(
+            `Failed to process PayPal payout: ${error.message || 'Unknown error'}`,
+          );
+        }
+
+        // Log transaction
+        this.logger.log(
+          `PayPal payout initiated - Batch ID: ${payoutResult.payoutBatchId}, Initial Status: ${payoutResult.status}`,
+        );
+        
+        // Store payout batch ID in metadata for webhook matching
+        // Using raw query to avoid Prisma type errors if migration not run
+        try {
+          const result = await this.prisma.$executeRawUnsafe(
+            `UPDATE "Withdrawal" SET "payoutBatchId" = $1 WHERE id = $2`,
+            payoutResult.payoutBatchId,
+            id,
+          );
+          if (result > 0) {
+            this.logger.log(`Stored payout batch ID in withdrawal ${id}`);
+          }
+        } catch (error: any) {
+          // Column doesn't exist yet - that's okay, store in metadata as fallback
+          this.logger.warn(
+            `payoutBatchId column not found (run migration). Storing in metadata. Batch ID: ${payoutResult.payoutBatchId}`,
+          );
+          // Store in metadata as fallback
+          const withdrawalWithMetadata = withdrawal as any;
+          const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
+          await this.prisma.withdrawal.update({
+            where: { id },
+            data: {
+              metadata: {
+                ...existingMetadata,
+                payoutBatchId: payoutResult.payoutBatchId,
+                payoutInitiatedAt: new Date().toISOString(),
+              } as any,
+            } as any,
+          });
+        }
+
+        // Keep status as PROCESSING - webhook will update to final status (COMPLETED, FAILED, REFUNDED)
+        // PayPal payouts are asynchronous, so we wait for webhook confirmation
+        this.logger.log(
+          `Withdrawal ${id} remains in PROCESSING status. Final status will be updated via PayPal webhook.`,
+        );
+      } catch (error: any) {
+        this.logger.error(`Failed to process payout for withdrawal ${id}:`, error);
+        // Mark as FAILED if payout processing fails
+        (updateDto as any).status = PaymentStatus.FAILED;
+        throw error;
+      }
+    }
+
+    // If rejecting (REJECTED), store rejection reason in metadata
+    const updateStatus = updateDto.status as string;
+    if (updateStatus === 'REJECTED' && withdrawal.userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: withdrawal.userId },
+        select: { email: true, name: true },
+      });
+
+      const rejectionReason = updateDto.reason || 'Withdrawal request rejected by admin';
+      
+      this.logger.log(
+        `Withdrawal ${id} rejected. Reason: ${rejectionReason}. Funds remain in available balance.`,
+      );
+
+      // Store rejection reason in metadata (metadata field exists in schema but may not be in Prisma client)
+      const withdrawalWithMetadata = withdrawal as any;
+      const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
+      const updatedMetadata = {
+        ...existingMetadata,
+        rejectionReason,
+        rejectedAt: new Date().toISOString(),
+      };
+
+      // Note: Metadata will be included in the main update below
+      // TODO: Send email notification to artist about rejection
+      // await this.emailService.sendWithdrawalRejectedEmail({
+      //   to: user?.email,
+      //   amount: Number(withdrawal.amount),
+      //   withdrawalId: id,
+      //   reason: rejectionReason,
+      // });
+    }
+
+    // If directly setting to COMPLETED (for manual completion or retry), verify balance
+    if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
+      try {
+        // Get user earning
+        const user = await this.prisma.user.findUnique({
+          where: { id: withdrawal.userId },
+          select: { earning: true },
+        });
+
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        // Get total withdrawn amount (completed withdrawals)
+        const completedWithdrawals = await this.prisma.withdrawal.findMany({
+          where: {
+            userId: withdrawal.userId,
+            status: PaymentStatus.COMPLETED,
+            // Exclude current withdrawal if it's already marked as completed
+            NOT: { id: withdrawal.id },
+          },
+        });
+
+        const totalWithdrawn = completedWithdrawals.reduce(
+          (sum, w) => sum + Number(w.amount),
+          0
+        );
+
+        const earning = Number(user.earning || 0);
+        const availableBalance = earning - totalWithdrawn;
+        const requestedAmount = Number(withdrawal.amount);
+
+        if (requestedAmount > availableBalance) {
+          throw new BadRequestException(
             `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${requestedAmount.toFixed(2)}`,
           );
         }
@@ -218,12 +479,27 @@ export class WithdrawalsService {
       }
     }
 
+    // Prepare update data
+    const updateData: any = {
+      status: updateDto.status,
+      updatedAt: new Date(),
+    };
+
+    // Add metadata if rejecting
+    const updateStatusForMetadata = updateDto.status as string;
+    if (updateStatusForMetadata === 'REJECTED') {
+      const withdrawalWithMetadata = withdrawal as any;
+      const existingMetadata = (withdrawalWithMetadata.metadata || {}) as any;
+      updateData.metadata = {
+        ...existingMetadata,
+        rejectionReason: updateDto.reason || 'Withdrawal request rejected by admin',
+        rejectedAt: new Date().toISOString(),
+      };
+    }
+
     const updated = await this.prisma.withdrawal.update({
       where: { id },
-      data: {
-        status: updateDto.status,
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         user: {
           select: {
@@ -237,8 +513,59 @@ export class WithdrawalsService {
     }) as any;
 
     this.logger.log(
-      `Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,
+      `[WITHDRAWAL-UPDATE] Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,
     );
+
+    // Create transaction record when withdrawal is completed
+    // This represents money being withdrawn from the seller's account
+    if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
+      try {
+        // Check if transaction already exists for this withdrawal (idempotency)
+        const existingTransaction = await this.prisma.transaction.findFirst({
+          where: {
+            sellerId: withdrawal.userId,
+            metadata: {
+              path: ['withdrawalId'],
+              equals: id,
+            },
+          },
+        });
+
+        if (!existingTransaction) {
+          const withdrawalTransaction = await this.prisma.transaction.create({
+            data: {
+              sellerId: withdrawal.userId,
+              orderId: null, // Withdrawal transactions don't have orderId
+              amount: new Decimal(withdrawal.amount),
+              status: PaymentStatus.COMPLETED, // Money was successfully withdrawn
+              metadata: {
+                type: "WITHDRAWAL",
+                withdrawalId: id,
+                payoutAccount: withdrawal.payoutAccount,
+                completedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          this.logger.log(
+            `[WITHDRAWAL-TX] ✅ Created withdrawal transaction for user ${withdrawal.userId}: ${Number(withdrawal.amount)} (Transaction ID: ${withdrawalTransaction.id})`
+          );
+        } else {
+          this.logger.log(
+            `[WITHDRAWAL-TX] ⚠️ Transaction already exists for withdrawal ${id} - skipping creation`
+          );
+        }
+      } catch (txError: any) {
+        // Log error but don't fail withdrawal update
+        this.logger.error(
+          `[WITHDRAWAL-TX] ❌ Failed to create transaction for withdrawal ${id}:`,
+          txError
+        );
+        this.logger.error(
+          `[WITHDRAWAL-TX] Error: ${txError?.message || 'Unknown error'}`
+        );
+      }
+    }
 
     return {
       id: updated.id,

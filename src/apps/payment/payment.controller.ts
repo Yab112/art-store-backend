@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   HttpCode,
   HttpStatus,
   Logger,
@@ -27,9 +28,14 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   async initializePayment(@Body() initializePaymentDto: InitializePaymentDto) {
     this.logger.log(
-      `Initialize payment request: ${initializePaymentDto.provider}`,
+      `Initialize payment request: ${JSON.stringify(initializePaymentDto)}`,
     );
-    return this.paymentService.initializePayment(initializePaymentDto);
+    try {
+      return await this.paymentService.initializePayment(initializePaymentDto);
+    } catch (error: any) {
+      this.logger.error(`Payment initialization error: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   /**
@@ -88,12 +94,59 @@ export class PaymentController {
   /**
    * PayPal webhook endpoint
    * POST /api/payment/paypal/webhook
+   * 
+   * PayPal will send webhook events for:
+   * - Payment events (PAYMENT.CAPTURE.COMPLETED, etc.)
+   * - Payout batch events (PAYMENT.PAYOUTSBATCH.SUCCESS, etc.)
+   * - Payout item events (PAYMENT.PAYOUTSITEM.SUCCESS, etc.)
+   * 
+   * For sandbox testing:
+   * 1. Go to PayPal Developer Dashboard
+   * 2. Navigate to your app > Webhooks
+   * 3. Add webhook URL: https://your-ngrok-url.ngrok-free.dev/api/payment/paypal/webhook
+   * 4. Select events: PAYMENT.PAYOUTSBATCH.* and PAYMENT.PAYOUTSITEM.*
+   * 5. Use ngrok or similar for local testing: ngrok http 3000
+   * 
+   * IMPORTANT: For ngrok free tier, you may need to bypass the browser warning.
+   * Add this header in PayPal webhook configuration if available, or use:
+   * ngrok http 3000 --request-header-add "ngrok-skip-browser-warning: true"
    */
   @Post('paypal/webhook')
   @HttpCode(HttpStatus.OK)
-  async paypalWebhook(@Body() payload: any) {
-    this.logger.log('PayPal webhook received');
-    return this.paymentService.handlePaypalWebhook(payload);
+  async paypalWebhook(
+    @Body() payload: any,
+    @Headers() headers: any,
+  ) {
+    try {
+      const eventType = payload.event_type || 'unknown';
+      
+      this.logger.log(`PayPal webhook received: ${eventType}`);
+      
+      // Check if this is ngrok's browser warning page (common issue)
+      if (payload && typeof payload === 'string' && payload.includes('ngrok')) {
+        this.logger.error(`Received ngrok browser warning page instead of webhook payload`);
+        return { success: false, message: 'Ngrok browser warning detected' };
+      }
+      
+      // Validate payload structure
+      if (!payload || typeof payload !== 'object' || !payload.event_type) {
+        this.logger.error(`Invalid webhook payload structure`);
+        return { success: false, message: 'Invalid webhook payload' };
+      }
+      
+      const result = await this.paymentService.handlePaypalWebhook(payload, headers);
+      
+      this.logger.log(`Webhook processed successfully: ${eventType}`);
+      return result;
+    } catch (error: any) {
+      // Always return 200 OK to PayPal even if processing fails
+      this.logger.error(`PayPal webhook processing error: ${error.message || error}`);
+      return {
+        success: false,
+        message: 'Webhook received but processing failed',
+        error: error.message || 'Unknown error',
+      };
+    }
   }
 
   /**

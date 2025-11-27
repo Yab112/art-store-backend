@@ -14,104 +14,177 @@ export class ArtistService {
 
   /**
    * Get artist earnings statistics
+   * Returns comprehensive earnings data including sales, commissions, and withdrawals
    */
   async getEarningsStats(userId: string) {
     try {
-      // Get all sold artworks by this artist
-      const soldArtworks = await this.prisma.artwork.findMany({
+      this.logger.log(`[EARNINGS] Getting earnings for user: ${userId}`);
+      
+      // Get the user and their earning field
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          earning: true,
+        },
+      });
+
+      if (!user) {
+        this.logger.error(`[EARNINGS] User not found: ${userId}`);
+        throw new Error("User not found");
+      }
+
+      const totalEarnings = Number(user.earning || 0);
+      
+      // Get total withdrawn amount (completed withdrawals)
+      const completedWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
-          userId,
-          status: "SOLD",
+          userId: userId,
+          status: "COMPLETED",
+        },
+      });
+
+      const totalWithdrawn = completedWithdrawals.reduce(
+        (sum, w) => sum + Number(w.amount),
+        0
+      );
+
+      const availableBalance = totalEarnings - totalWithdrawn;
+
+      // Get all order items for artworks sold by this artist (orders with status PAID)
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: {
+          artwork: {
+            userId: userId,
+          },
+          order: {
+            status: "PAID",
+          },
         },
         include: {
-          orderItems: {
-            include: {
-              order: {
-                include: {
-                  transaction: true,
+          artwork: {
+            select: {
+              id: true,
+              title: true,
+              photos: true,
+            },
+          },
+          order: {
+            select: {
+              id: true,
+              buyerEmail: true,
+              createdAt: true,
+              totalAmount: true,
+              platformEarning: {
+                select: {
+                  amount: true,
+                  commissionRate: true,
+                },
+              },
+              items: {
+                select: {
+                  price: true,
+                  quantity: true,
                 },
               },
             },
           },
         },
-      });
-
-      // Calculate total sales, earnings, and commission
-      const platformCommissionRate =
-        await this.settingsService.getPlatformCommissionRate();
-      let totalSales = 0;
-      let totalCommission = 0;
-      let totalEarnings = 0;
-      let salesCount = 0;
-
-      const sales = [];
-
-      for (const artwork of soldArtworks) {
-        for (const orderItem of artwork.orderItems) {
-          if (orderItem.order.status === "PAID") {
-            const salePrice = Number(orderItem.price);
-            const commission = salePrice * platformCommissionRate;
-            const earnings = salePrice - commission;
-
-            totalSales += salePrice;
-            totalCommission += commission;
-            totalEarnings += earnings;
-            salesCount++;
-
-            sales.push({
-              artworkId: artwork.id,
-              artworkTitle: artwork.title,
-              artworkImage: artwork.photos[0],
-              salePrice,
-              commission,
-              earnings,
-              soldAt: orderItem.order.createdAt,
-              buyerEmail: orderItem.order.buyerEmail,
-            });
-          }
-        }
-      }
-
-      // Get total withdrawn amount
-      const withdrawals = await this.prisma.withdrawal.findMany({
-        where: {
-          payoutAccount: {
-            in: soldArtworks.map((a) => a.iban),
+        orderBy: {
+          order: {
+            createdAt: 'desc',
           },
-          status: "COMPLETED",
         },
       });
 
-      const totalWithdrawn = withdrawals.reduce(
-        (sum, w) => sum + Number(w.amount),
-        0
-      );
+      // Calculate total sales and commission
+      let totalSales = 0;
+      let totalCommission = 0;
+      const sales: Array<{
+        artworkId: string;
+        artworkTitle: string;
+        artworkImage: string;
+        salePrice: number;
+        commission: number;
+        earnings: number;
+        soldAt: string;
+        buyerEmail: string;
+      }> = [];
 
-      // Calculate available balance
-      const availableBalance = totalEarnings - totalWithdrawn;
+      // Get platform commission rate (default fallback)
+      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
+
+      for (const item of orderItems) {
+        const salePrice = Number(item.price) * item.quantity;
+        totalSales += salePrice;
+
+        // Calculate commission - prefer from PlatformEarning if available, otherwise calculate
+        let commission = 0;
+        if (item.order.platformEarning) {
+          // Calculate total order value from all items
+          const totalOrderValue = item.order.items.reduce(
+            (sum, orderItem) => sum + (Number(orderItem.price) * orderItem.quantity),
+            0
+          );
+          
+          // Calculate this item's proportion of the order
+          const itemProportion = totalOrderValue > 0 ? salePrice / totalOrderValue : 0;
+          
+          // Apply proportion to platform earning
+          commission = Number(item.order.platformEarning.amount) * itemProportion;
+        } else {
+          // Fallback: calculate commission using default rate
+          commission = salePrice * platformCommissionRate;
+        }
+        totalCommission += commission;
+
+        const earnings = salePrice - commission;
+
+        // Get artwork image (first photo or placeholder)
+        const artworkImage = item.artwork.photos && item.artwork.photos.length > 0
+          ? item.artwork.photos[0]
+          : '';
+
+        sales.push({
+          artworkId: item.artwork.id,
+          artworkTitle: item.artwork.title || 'Untitled',
+          artworkImage: artworkImage,
+          salePrice: salePrice,
+          commission: commission,
+          earnings: earnings,
+          soldAt: item.order.createdAt.toISOString(),
+          buyerEmail: item.order.buyerEmail,
+        });
+      }
+
+      // Get unique order count (sales count)
+      const uniqueOrderIds = new Set(orderItems.map(item => item.order.id));
+      const salesCount = uniqueOrderIds.size;
+      
+      this.logger.log(`[EARNINGS] User ${userId} - Total Earnings: ${totalEarnings}, Total Sales: ${totalSales}, Total Commission: ${totalCommission}, Withdrawn: ${totalWithdrawn}, Available: ${availableBalance}, Sales Count: ${salesCount}`);
 
       return {
         success: true,
         data: {
-          totalSales,
-          totalCommission,
-          totalEarnings,
-          totalWithdrawn,
-          availableBalance,
-          salesCount,
-          sales: sales.sort((a, b) => b.soldAt.getTime() - a.soldAt.getTime()),
+          totalEarnings: totalEarnings,
+          totalSales: totalSales,
+          totalCommission: totalCommission,
+          totalWithdrawn: totalWithdrawn,
+          availableBalance: availableBalance,
+          salesCount: salesCount,
+          sales: sales,
         },
       };
     } catch (error) {
-      this.logger.error("Failed to get earnings stats:", error);
+      this.logger.error("[EARNINGS] Failed to get earnings:", error);
       throw error;
     }
   }
 
   /**
-   * Get withdrawal history for artist
+   * Get withdrawal history for artist with pagination
    */
-  async getWithdrawalHistory(userId: string) {
+  async getWithdrawalHistory(userId: string, page: number = 1, limit: number = 20) {
     try {
       // Get all artworks by this artist to find their IBANs
       const artworks = await this.prisma.artwork.findMany({
@@ -119,10 +192,27 @@ export class ArtistService {
         select: { iban: true },
       });
 
-      const ibans = [...new Set(artworks.map((a) => a.iban))];
+      const ibans = [...new Set(artworks.map((a) => a.iban).filter(Boolean))];
 
-      // Get withdrawals for those IBANs
-      const withdrawals = await this.prisma.withdrawal.findMany({
+      // If no IBANs, return empty result
+      if (ibans.length === 0) {
+        return {
+          success: true,
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0,
+          },
+        };
+      }
+
+      const skip = (page - 1) * limit;
+
+      // Get withdrawals for those IBANs with pagination
+      const [withdrawals, total] = await Promise.all([
+        this.prisma.withdrawal.findMany({
         where: {
           payoutAccount: {
             in: ibans,
@@ -131,17 +221,50 @@ export class ArtistService {
         orderBy: {
           createdAt: "desc",
         },
-      });
+          skip,
+          take: limit,
+        }),
+        this.prisma.withdrawal.count({
+          where: {
+            payoutAccount: {
+              in: ibans,
+            },
+          },
+        }),
+      ]);
 
       return {
         success: true,
-        data: withdrawals.map((w) => ({
-          id: w.id,
-          amount: Number(w.amount),
-          status: w.status,
-          payoutAccount: w.payoutAccount,
-          createdAt: w.createdAt,
-        })),
+        data: withdrawals.map((w: any) => {
+          // Extract rejection reason from metadata if status is REJECTED or FAILED
+          let rejectionReason = null;
+          let paypalStatus = null;
+          
+          if (w.metadata) {
+            const metadata = w.metadata as any;
+            if ((w.status === 'REJECTED' || w.status === 'FAILED')) {
+              rejectionReason = metadata.rejectionReason || null;
+            }
+            // Get PayPal transaction status from webhook (actual status from PayPal)
+            paypalStatus = metadata.webhookTransactionStatus || metadata.paypalItemStatus || null;
+          }
+
+          return {
+            id: w.id,
+            amount: Number(w.amount),
+            status: w.status, // System status (PROCESSING, INITIATED, etc.)
+            paypalStatus, // Actual PayPal transaction status (SUCCESS, UNCLAIMED, etc.)
+            payoutAccount: w.payoutAccount,
+            createdAt: w.createdAt,
+            rejectionReason,
+          };
+        }),
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
       this.logger.error("Failed to get withdrawal history:", error);
@@ -150,11 +273,16 @@ export class ArtistService {
   }
 
   /**
-   * Request withdrawal
+   * Request withdrawal with comprehensive backend validations
+   * All validations must pass before request enters admin review
    */
   async requestWithdrawal(userId: string, amount: number, iban: string) {
     try {
-      // Verify the IBAN belongs to this artist
+      // ============================================
+      // BACKEND VALIDATIONS (AUTOMATIC) - FIRST
+      // ============================================
+      
+      // 1. Verify the IBAN belongs to this artist
       const artwork = await this.prisma.artwork.findFirst({
         where: {
           userId,
@@ -168,26 +296,64 @@ export class ArtistService {
         );
       }
 
-      // Get earnings stats to check available balance
+      // 2. Check if artist is verified (email verified)
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { emailVerified: true, email: true, banned: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException("User not found");
+      }
+
+      if (!user.emailVerified) {
+        throw new Error(
+          "Your email must be verified before requesting withdrawals. Please verify your email address."
+        );
+      }
+
+      // 3. Check if user is banned
+      if (user.banned) {
+        throw new Error(
+          "Your account has been banned. Withdrawal requests are not allowed."
+        );
+      }
+
+      // 4. Check for active disputes
+      const activeDisputes = await this.prisma.dispute.findMany({
+        where: {
+          targetUserId: userId,
+          status: "IN_PROGRESS",
+        },
+      });
+
+      if (activeDisputes.length > 0) {
+        throw new Error(
+          `You have ${activeDisputes.length} active dispute(s). Please resolve all disputes before requesting withdrawals.`
+        );
+      }
+
+      // 5. Check balance is sufficient
       const stats = await this.getEarningsStats(userId);
       const availableBalance = stats.data.availableBalance;
 
       if (amount > availableBalance) {
         throw new Error(
-          `Insufficient balance. Available: $${availableBalance.toFixed(2)}`
+          `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${amount.toFixed(2)}`
         );
       }
 
-      // Get payment settings from settings
+      // 6. Check minimum withdrawal amount
       const paymentSettings =
         await this.settingsService.getPaymentSettingsValues();
+      
       if (amount < paymentSettings.minWithdrawalAmount) {
         throw new Error(
           `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`
         );
       }
 
-      // Check maximum withdrawal amount (0 = unlimited)
+      // 7. Check maximum withdrawal amount (0 = unlimited)
       if (
         paymentSettings.maxWithdrawalAmount > 0 &&
         amount > paymentSettings.maxWithdrawalAmount
@@ -197,23 +363,55 @@ export class ArtistService {
         );
       }
 
-      // Create withdrawal request
+      // 8. Check for duplicate withdrawal request (same amount, same IBAN, within last 24 hours)
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const duplicateRequest = await this.prisma.withdrawal.findFirst({
+        where: {
+          userId,
+          payoutAccount: iban,
+          amount: new Decimal(amount),
+          status: {
+            in: ["INITIATED", "PROCESSING"],
+          },
+          createdAt: {
+            gte: oneDayAgo,
+          },
+        },
+      });
+
+      if (duplicateRequest) {
+        throw new Error(
+          "A similar withdrawal request was submitted recently. Please wait 24 hours before submitting another request with the same amount."
+        );
+      }
+
+      // 10. PayPal email validation (if using PayPal for payouts)
+      // For now, we'll validate that the email format is valid
+      // In production, you might want to check if the email is a valid PayPal account
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (user.email && !emailRegex.test(user.email)) {
+        throw new Error("Invalid email format. Please update your email address.");
+      }
+
+      // All validations passed - create withdrawal request
+      // Status: INITIATED (enters admin review queue)
       const withdrawal = await this.prisma.withdrawal.create({
         data: {
           userId,
           payoutAccount: iban,
           amount: new Decimal(amount),
-          status: "INITIATED",
+          status: "INITIATED", // Admin will review and approve/reject
         } as any,
       });
 
       this.logger.log(
-        `Withdrawal request created: ${withdrawal.id} for user ${userId}`
+        `✅ Withdrawal request created (passed all validations): ${withdrawal.id} for user ${userId}, amount: $${amount}`
       );
 
       return {
         success: true,
-        message: "Withdrawal request submitted successfully",
+        message: "Withdrawal request submitted successfully and is pending admin approval",
         data: {
           id: withdrawal.id,
           amount: Number(withdrawal.amount),
@@ -222,7 +420,7 @@ export class ArtistService {
         },
       };
     } catch (error) {
-      this.logger.error("Failed to request withdrawal:", error);
+      this.logger.error("❌ Withdrawal request validation failed:", error);
       throw error;
     }
   }

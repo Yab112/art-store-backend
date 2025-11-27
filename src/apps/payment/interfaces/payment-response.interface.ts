@@ -17,6 +17,7 @@ export interface PaymentVerifyResponse {
     currency: string;
     txRef: string;
     provider: string;
+    userId?: string; // User ID of the authenticated user who made the order
     chargeResponseMessage?: string;
     customerEmail?: string;
     customerName?: string;
