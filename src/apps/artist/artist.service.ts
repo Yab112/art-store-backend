@@ -14,96 +14,169 @@ export class ArtistService {
 
   /**
    * Get artist earnings statistics
+   * Returns comprehensive earnings data including sales, commissions, and withdrawals
    */
   async getEarningsStats(userId: string) {
     try {
-      // Get all sold artworks by this artist
-      const soldArtworks = await this.prisma.artwork.findMany({
+      this.logger.log(`[EARNINGS] Getting earnings for user: ${userId}`);
+      
+      // Get the user and their earning field
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          earning: true,
+        },
+      });
+
+      if (!user) {
+        this.logger.error(`[EARNINGS] User not found: ${userId}`);
+        throw new Error("User not found");
+      }
+
+      const totalEarnings = Number(user.earning || 0);
+      
+      // Get total withdrawn amount (completed withdrawals)
+      const completedWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
-          userId,
-          status: "SOLD",
+          userId: userId,
+          status: "COMPLETED",
+        },
+      });
+
+      const totalWithdrawn = completedWithdrawals.reduce(
+        (sum, w) => sum + Number(w.amount),
+        0
+      );
+
+      const availableBalance = totalEarnings - totalWithdrawn;
+
+      // Get all order items for artworks sold by this artist (orders with status PAID)
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: {
+          artwork: {
+            userId: userId,
+          },
+          order: {
+            status: "PAID",
+          },
         },
         include: {
-          orderItems: {
-            include: {
-              order: {
-                include: {
-                  transaction: true,
+          artwork: {
+            select: {
+              id: true,
+              title: true,
+              photos: true,
+            },
+          },
+          order: {
+            select: {
+              id: true,
+              buyerEmail: true,
+              createdAt: true,
+              totalAmount: true,
+              platformEarning: {
+                select: {
+                  amount: true,
+                  commissionRate: true,
+                },
+              },
+              items: {
+                select: {
+                  price: true,
+                  quantity: true,
                 },
               },
             },
           },
         },
-      });
-
-      // Calculate total sales, earnings, and commission
-      const platformCommissionRate =
-        await this.settingsService.getPlatformCommissionRate();
-      let totalSales = 0;
-      let totalCommission = 0;
-      let totalEarnings = 0;
-      let salesCount = 0;
-
-      const sales = [];
-
-      for (const artwork of soldArtworks) {
-        for (const orderItem of artwork.orderItems) {
-          if (orderItem.order.status === "PAID") {
-            const salePrice = Number(orderItem.price);
-            const commission = salePrice * platformCommissionRate;
-            const earnings = salePrice - commission;
-
-            totalSales += salePrice;
-            totalCommission += commission;
-            totalEarnings += earnings;
-            salesCount++;
-
-            sales.push({
-              artworkId: artwork.id,
-              artworkTitle: artwork.title,
-              artworkImage: artwork.photos[0],
-              salePrice,
-              commission,
-              earnings,
-              soldAt: orderItem.order.createdAt,
-              buyerEmail: orderItem.order.buyerEmail,
-            });
-          }
-        }
-      }
-
-      // Get total withdrawn amount
-      const withdrawals = await this.prisma.withdrawal.findMany({
-        where: {
-          payoutAccount: {
-            in: soldArtworks.map((a) => a.iban),
+        orderBy: {
+          order: {
+            createdAt: 'desc',
           },
-          status: "COMPLETED",
         },
       });
 
-      const totalWithdrawn = withdrawals.reduce(
-        (sum, w) => sum + Number(w.amount),
-        0
-      );
+      // Calculate total sales and commission
+      let totalSales = 0;
+      let totalCommission = 0;
+      const sales: Array<{
+        artworkId: string;
+        artworkTitle: string;
+        artworkImage: string;
+        salePrice: number;
+        commission: number;
+        earnings: number;
+        soldAt: string;
+        buyerEmail: string;
+      }> = [];
 
-      // Calculate available balance
-      const availableBalance = totalEarnings - totalWithdrawn;
+      // Get platform commission rate (default fallback)
+      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
+
+      for (const item of orderItems) {
+        const salePrice = Number(item.price) * item.quantity;
+        totalSales += salePrice;
+
+        // Calculate commission - prefer from PlatformEarning if available, otherwise calculate
+        let commission = 0;
+        if (item.order.platformEarning) {
+          // Calculate total order value from all items
+          const totalOrderValue = item.order.items.reduce(
+            (sum, orderItem) => sum + (Number(orderItem.price) * orderItem.quantity),
+            0
+          );
+          
+          // Calculate this item's proportion of the order
+          const itemProportion = totalOrderValue > 0 ? salePrice / totalOrderValue : 0;
+          
+          // Apply proportion to platform earning
+          commission = Number(item.order.platformEarning.amount) * itemProportion;
+        } else {
+          // Fallback: calculate commission using default rate
+          commission = salePrice * platformCommissionRate;
+        }
+        totalCommission += commission;
+
+        const earnings = salePrice - commission;
+
+        // Get artwork image (first photo or placeholder)
+        const artworkImage = item.artwork.photos && item.artwork.photos.length > 0
+          ? item.artwork.photos[0]
+          : '';
+
+        sales.push({
+          artworkId: item.artwork.id,
+          artworkTitle: item.artwork.title || 'Untitled',
+          artworkImage: artworkImage,
+          salePrice: salePrice,
+          commission: commission,
+          earnings: earnings,
+          soldAt: item.order.createdAt.toISOString(),
+          buyerEmail: item.order.buyerEmail,
+        });
+      }
+
+      // Get unique order count (sales count)
+      const uniqueOrderIds = new Set(orderItems.map(item => item.order.id));
+      const salesCount = uniqueOrderIds.size;
+      
+      this.logger.log(`[EARNINGS] User ${userId} - Total Earnings: ${totalEarnings}, Total Sales: ${totalSales}, Total Commission: ${totalCommission}, Withdrawn: ${totalWithdrawn}, Available: ${availableBalance}, Sales Count: ${salesCount}`);
 
       return {
         success: true,
         data: {
-          totalSales,
-          totalCommission,
-          totalEarnings,
-          totalWithdrawn,
-          availableBalance,
-          salesCount,
-          sales: sales.sort((a, b) => b.soldAt.getTime() - a.soldAt.getTime()),
+          totalEarnings: totalEarnings,
+          totalSales: totalSales,
+          totalCommission: totalCommission,
+          totalWithdrawn: totalWithdrawn,
+          availableBalance: availableBalance,
+          salesCount: salesCount,
+          sales: sales,
         },
       };
     } catch (error) {
-      this.logger.error("Failed to get earnings stats:", error);
+      this.logger.error("[EARNINGS] Failed to get earnings:", error);
       throw error;
     }
   }
@@ -263,6 +336,31 @@ export class ArtistService {
       // 5. Check balance is sufficient
       const stats = await this.getEarningsStats(userId);
       const availableBalance = stats.data.availableBalance;
+      // Get user earning to check available balance
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { earning: true },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Get total withdrawn amount (completed withdrawals)
+      const completedWithdrawals = await this.prisma.withdrawal.findMany({
+        where: {
+          userId: userId,
+          status: "COMPLETED",
+        },
+      });
+
+      const totalWithdrawn = completedWithdrawals.reduce(
+        (sum, w) => sum + Number(w.amount),
+        0
+      );
+
+      const earning = Number(user.earning || 0);
+      const availableBalance = earning - totalWithdrawn;
 
       if (amount > availableBalance) {
         throw new Error(

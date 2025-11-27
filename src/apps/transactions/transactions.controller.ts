@@ -20,6 +20,30 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   /**
+   * Get authenticated user's transactions (buyer transactions)
+   * GET /api/transactions/my-transactions
+   */
+  @Get('my-transactions')
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Get transactions for the authenticated user (buyer transactions)' })
+  async getMyTransactions(
+    @CurrentUser() user: any,
+    @Query() query: TransactionsQueryDto,
+  ) {
+    if (!user || !user.id) {
+      throw new UnauthorizedException('User ID not found in session');
+    }
+    return this.transactionsService.findByUserId(
+      user.id,
+      query.page || 1,
+      query.limit || 20,
+      query.search,
+      query.status,
+      query.provider,
+    );
+  }
+
+  /**
    * Get all transactions with pagination and filters
    * GET /api/transactions
    */

@@ -43,8 +43,8 @@ export class ArtistController {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    this.logger.log(`Get earnings for user: ${userId}`);
-    return this.artistService.getEarningsStats(userId);
+    this.logger.log(`Get earnings for user: ${user.id}`);
+    return this.artistService.getEarningsStats(user.id);
   }
 
   /**
@@ -78,9 +78,10 @@ export class ArtistController {
   @Post('withdrawal/request')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Request withdrawal for authenticated artist" })
   async requestWithdrawal(
     @Body() requestWithdrawalDto: RequestWithdrawalDto,
-    @Request() req: any
+    @CurrentUser() user: any
   ) {
     const userId = req.user?.id || req.headers["x-user-id"];
 
@@ -89,10 +90,10 @@ export class ArtistController {
     }
 
     this.logger.log(
-      `Withdrawal request from user ${userId}: $${requestWithdrawalDto.amount}`
+      `Withdrawal request from user ${user.id}: $${requestWithdrawalDto.amount}`
     );
     return this.artistService.requestWithdrawal(
-      userId,
+      user.id,
       requestWithdrawalDto.amount,
       requestWithdrawalDto.iban
     );
@@ -103,15 +104,15 @@ export class ArtistController {
    * GET /api/artist/payment-methods
    */
   @Get("payment-methods")
-  async getPaymentMethods(@Request() req: any) {
-    const userId = req.user?.id || req.headers["x-user-id"];
-
-    if (!userId) {
-      throw new Error("User not authenticated");
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Get payment methods for authenticated artist" })
+  async getPaymentMethods(@CurrentUser() user: any) {
+    if (!user || !user.id) {
+      throw new UnauthorizedException("User not authenticated");
     }
 
-    this.logger.log(`Get payment methods for user: ${userId}`);
-    return this.artistService.getPaymentMethods(userId);
+    this.logger.log(`Get payment methods for user: ${user.id}`);
+    return this.artistService.getPaymentMethods(user.id);
   }
 
   /**
@@ -119,20 +120,20 @@ export class ArtistController {
    * PUT /api/artist/payment-method
    */
   @Put("payment-method")
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Update payment method for authenticated artist" })
   async updatePaymentMethod(
     @Body() updatePaymentMethodDto: UpdatePaymentMethodDto,
-    @Request() req: any
+    @CurrentUser() user: any
   ) {
-    const userId = req.user?.id || req.headers["x-user-id"];
-
-    if (!userId) {
-      throw new Error("User not authenticated");
+    if (!user || !user.id) {
+      throw new UnauthorizedException("User not authenticated");
     }
 
-    this.logger.log(`Update payment method for user: ${userId}`);
+    this.logger.log(`Update payment method for user: ${user.id}`);
     return this.artistService.updatePaymentMethod(
-      userId,
+      user.id,
       updatePaymentMethodDto.accountHolder,
       updatePaymentMethodDto.iban,
       updatePaymentMethodDto.bicCode

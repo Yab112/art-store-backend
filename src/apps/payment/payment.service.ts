@@ -13,6 +13,7 @@ import { CartService } from '../cart/cart.service';
 import { PaymentStatus } from '@prisma/client';
 
 @Injectable() 
+@Injectable() 
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
@@ -20,6 +21,8 @@ export class PaymentService {
     private readonly chapaService: ChapaService,
     private readonly paypalService: PaypalService,
     private readonly prisma: PrismaService,
+    private readonly orderService: OrderService,
+    private readonly cartService: CartService,
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
   ) {}
@@ -156,6 +159,7 @@ export class PaymentService {
 
               if (transactions.length > 0 && transactions[0]?.orderId) {
                 orderId = transactions[0].orderId;
+                this.logger.log(`Found order ${orderId} for PayPal order ID via metadata: ${verifyData.txRef}`);
               } else {
                 this.logger.warn(`Could not find order for PayPal order ID: ${verifyData.txRef}. Original txRef not available.`);
               }

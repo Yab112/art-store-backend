@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { WithdrawalsQueryDto } from './dto/withdrawals-query.dto';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 import { PaymentStatus } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { ArtistService } from '../artist/artist.service';
 import { PaypalService } from '../payment/paypal.service';
 
@@ -58,7 +59,9 @@ export class WithdrawalsService {
         })
       : [];
 
-    const userMap = new Map(users.map((u) => [u.id, u]));
+    const userMap = new Map<string, { id: string; name: string | null; email: string }>(
+      users.map((u) => [u.id, u])
+    );
 
     return {
       withdrawals: withdrawals.map((w: any) => ({
@@ -428,8 +431,33 @@ export class WithdrawalsService {
     // If directly setting to COMPLETED (for manual completion or retry), verify balance
     if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
       try {
-        const stats = await this.artistService.getEarningsStats(withdrawal.userId);
-        const availableBalance = stats.data.availableBalance;
+        // Get user earning
+        const user = await this.prisma.user.findUnique({
+          where: { id: withdrawal.userId },
+          select: { earning: true },
+        });
+
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        // Get total withdrawn amount (completed withdrawals)
+        const completedWithdrawals = await this.prisma.withdrawal.findMany({
+          where: {
+            userId: withdrawal.userId,
+            status: PaymentStatus.COMPLETED,
+            // Exclude current withdrawal if it's already marked as completed
+            NOT: { id: withdrawal.id },
+          },
+        });
+
+        const totalWithdrawn = completedWithdrawals.reduce(
+          (sum, w) => sum + Number(w.amount),
+          0
+        );
+
+        const earning = Number(user.earning || 0);
+        const availableBalance = earning - totalWithdrawn;
         const requestedAmount = Number(withdrawal.amount);
 
         if (requestedAmount > availableBalance) {
@@ -462,8 +490,59 @@ export class WithdrawalsService {
     }) as any;
 
     this.logger.log(
-      `Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,
+      `[WITHDRAWAL-UPDATE] Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,
     );
+
+    // Create transaction record when withdrawal is completed
+    // This represents money being withdrawn from the seller's account
+    if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
+      try {
+        // Check if transaction already exists for this withdrawal (idempotency)
+        const existingTransaction = await this.prisma.transaction.findFirst({
+          where: {
+            sellerId: withdrawal.userId,
+            metadata: {
+              path: ['withdrawalId'],
+              equals: id,
+            },
+          },
+        });
+
+        if (!existingTransaction) {
+          const withdrawalTransaction = await this.prisma.transaction.create({
+            data: {
+              sellerId: withdrawal.userId,
+              orderId: null, // Withdrawal transactions don't have orderId
+              amount: new Decimal(withdrawal.amount),
+              status: PaymentStatus.COMPLETED, // Money was successfully withdrawn
+              metadata: {
+                type: "WITHDRAWAL",
+                withdrawalId: id,
+                payoutAccount: withdrawal.payoutAccount,
+                completedAt: new Date().toISOString(),
+              },
+            },
+          });
+
+          this.logger.log(
+            `[WITHDRAWAL-TX] ✅ Created withdrawal transaction for user ${withdrawal.userId}: ${Number(withdrawal.amount)} (Transaction ID: ${withdrawalTransaction.id})`
+          );
+        } else {
+          this.logger.log(
+            `[WITHDRAWAL-TX] ⚠️ Transaction already exists for withdrawal ${id} - skipping creation`
+          );
+        }
+      } catch (txError: any) {
+        // Log error but don't fail withdrawal update
+        this.logger.error(
+          `[WITHDRAWAL-TX] ❌ Failed to create transaction for withdrawal ${id}:`,
+          txError
+        );
+        this.logger.error(
+          `[WITHDRAWAL-TX] Error: ${txError?.message || 'Unknown error'}`
+        );
+      }
+    }
 
     return {
       id: updated.id,

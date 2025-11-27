@@ -99,6 +99,129 @@ export class TransactionsService {
   }
 
   /**
+   * Get transactions by user ID (buyer transactions)
+   * Buyer transactions have orderId set and order.userId matches the authenticated user
+   * This ensures we get transactions for the actual user who made the purchase,
+   * not just based on email (which might be different, e.g., friend's email)
+   */
+  async findByUserId(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    status?: PaymentStatus,
+    provider?: string,
+  ) {
+    try {
+      this.logger.log(`[BUYER-TX] Getting transactions for buyer userId: ${userId}`);
+      const skip = (page - 1) * limit;
+
+      // Get user email for fallback query (for backward compatibility with old orders)
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+
+      // Build where clause - filter by user's ID from order
+      // Buyer transactions have orderId set (not null) and order.userId matches
+      // Also check buyerEmail as fallback for old orders that might not have userId set
+      const where: any = {
+        orderId: { not: null }, // Only buyer transactions have orderId
+        order: {
+          OR: [
+            { userId: userId }, // Primary: match by userId (authenticated user)
+            ...(user?.email ? [{ buyerEmail: user.email }] : []), // Fallback: match by email for old orders
+          ],
+        },
+      };
+
+      if (status) {
+        where.status = status;
+      }
+
+      // Search by transaction ID or order ID
+      if (search) {
+        where.OR = [
+          { id: { contains: search, mode: 'insensitive' } },
+          {
+            order: {
+              id: { contains: search, mode: 'insensitive' },
+            },
+          },
+        ];
+      }
+
+      // Get all transactions for this user
+      const allTransactions = await this.prisma.transaction.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          order: {
+            select: {
+              id: true,
+              buyerEmail: true,
+              totalAmount: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              items: {
+                include: {
+                  artwork: {
+                    select: {
+                      id: true,
+                      title: true,
+                      photos: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          paymentGateway: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      this.logger.log(`[BUYER-TX] Found ${allTransactions.length} transactions for buyer userId: ${userId}`);
+
+      // Filter by provider if provided (from metadata)
+      let filteredTransactions = allTransactions;
+      if (provider) {
+        filteredTransactions = allTransactions.filter((tx) => {
+          const metadata = tx.metadata as any;
+          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          return txProvider.toLowerCase() === provider.toLowerCase();
+        });
+      }
+
+      // Calculate total before pagination
+      const total = filteredTransactions.length;
+
+      // Apply pagination
+      const transactions = filteredTransactions.slice(skip, skip + limit);
+
+      this.logger.log(`[BUYER-TX] Returning ${transactions.length} transactions (page ${page} of ${Math.ceil(total / limit)})`);
+
+      return {
+        transactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error('[BUYER-TX] Failed to fetch user transactions:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get transaction by ID
    */
   async findOne(id: string) {

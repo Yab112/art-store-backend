@@ -33,61 +33,66 @@ export class ChapaService {
     paymentData: InitializePaymentDto,
   ): Promise<PaymentInitializeResponse> {
     try {
+      // Validate secret key
+      if (!this.secretKey) {
+        throw new BadRequestException('Chapa secret key is not configured');
+      }
+
+      // Validate required fields
+      if (!paymentData.email) {
+        throw new BadRequestException('Email is required');
+      }
+
+      if (!paymentData.txRef) {
+        throw new BadRequestException('Transaction reference is required');
+      }
+
+      // Chapa requires amount as a number (not string) and currency must be ETB
+      const currency = paymentData.currency || 'ETB';
+      const amount = typeof paymentData.amount === 'string' 
+        ? parseFloat(paymentData.amount) 
+        : Number(paymentData.amount);
+
+      if (isNaN(amount) || amount <= 0) {
+        throw new BadRequestException('Invalid payment amount');
+      }
+
+      // Ensure amount is rounded to 2 decimal places for Chapa
+      const roundedAmount = Math.round(amount * 100) / 100;
+
       // Chapa has strict length limits:
       // - tx_ref: max 50 characters
       // - customization.title: max 16 characters
       // - customization.description: max 50 characters
       
-      // Shorten tx_ref if needed (Chapa limit: 50 chars)
-      // Format: TX-{orderId}-{timestamp} can be too long
-      // Use a shorter format: {orderId}-{shortTimestamp}
+      // Shorten txRef if it exceeds 50 characters (keep last 47 chars + "..." if needed)
       let txRef = paymentData.txRef;
       if (txRef.length > 50) {
-        // If txRef is too long, use just orderId + short timestamp
-        if (paymentData.orderId) {
-          const shortTimestamp = Date.now().toString().slice(-8); // Last 8 digits
-          txRef = `${paymentData.orderId}-${shortTimestamp}`;
-          // If still too long, truncate orderId
-          if (txRef.length > 50) {
-            const maxOrderIdLength = 50 - shortTimestamp.length - 1; // -1 for dash
-            txRef = `${paymentData.orderId.substring(0, maxOrderIdLength)}-${shortTimestamp}`;
-          }
-        } else {
-          // Fallback: truncate to 50 chars
-          txRef = txRef.substring(0, 50);
-        }
-        this.logger.warn(`txRef truncated from ${paymentData.txRef.length} to ${txRef.length} characters: ${txRef}`);
+        // Use order ID (first 8 chars) + timestamp (last 13 chars) to stay under 50
+        const orderId = paymentData.orderId || '';
+        const shortOrderId = orderId.substring(0, 8);
+        const timestamp = Date.now().toString();
+        txRef = `TX-${shortOrderId}-${timestamp}`.substring(0, 50);
+        this.logger.warn(`TxRef truncated from ${paymentData.txRef.length} to ${txRef.length} characters: ${txRef}`);
       }
 
-      // Shorten title (Chapa limit: 16 chars)
-      const title = 'Artopia Payment'.substring(0, 16);
+      // Shorten title to max 16 characters
+      const title = 'Art Payment'.substring(0, 16);
 
-      // Shorten description (Chapa limit: 50 chars)
-      let description = `Order ${paymentData.orderId || txRef}`;
-      if (description.length > 50) {
-        description = description.substring(0, 47) + '...';
-      }
-
-      // Build return URL with original txRef and orderId as query parameters
-      // This ensures the frontend can verify the payment even if Chapa uses the shortened tx_ref
-      const baseReturnUrl = paymentData.returnUrl || `${this.configService.get('FRONTEND_URL')}/payment/success`;
-      const returnUrlParams = new URLSearchParams({
-        txRef: paymentData.txRef, // Use original txRef for frontend
-        provider: 'chapa',
-      });
-      if (paymentData.orderId) {
-        returnUrlParams.append('orderId', paymentData.orderId);
-      }
-      const returnUrl = `${baseReturnUrl}?${returnUrlParams.toString()}`;
+      // Shorten description to max 50 characters
+      const orderIdShort = paymentData.orderId 
+        ? paymentData.orderId.substring(0, 8) 
+        : txRef.substring(0, 8);
+      const description = `Order ${orderIdShort}`.substring(0, 50);
 
       const payload = {
-        amount: paymentData.amount,
-        currency: paymentData.currency || 'ETB',
+        amount: roundedAmount,
+        currency: currency,
         email: paymentData.email,
         first_name: paymentData.firstName || '',
         last_name: paymentData.lastName || '',
         phone_number: paymentData.phoneNumber || '',
-        tx_ref: txRef, // Use shortened txRef for Chapa API (max 50 chars)
+        tx_ref: txRef,
         callback_url: paymentData.callbackUrl || `${this.configService.get('SERVER_BASE_URL')}/api/payment/chapa/callback`,
         return_url: returnUrl, // Include original txRef in return URL
         customization: {
@@ -96,9 +101,7 @@ export class ChapaService {
         },
       };
 
-      this.logger.log(`Initializing Chapa payment: ${paymentData.txRef}`);
-      this.logger.log(`Chapa payload: ${JSON.stringify(payload, null, 2)}`);
-      this.logger.log(`Chapa API URL: ${this.baseUrl}/transaction/initialize`);
+      this.logger.log(`Initializing Chapa payment: ${paymentData.txRef}`, JSON.stringify(payload, null, 2));
 
       const response = await axios.post<ChapaInitializeResponse>(
         `${this.baseUrl}/transaction/initialize`,
@@ -112,14 +115,15 @@ export class ChapaService {
       );
 
       if (response.data.status === 'success') {
-        // Return both original and shortened txRef for reference
-        // The shortened one is what Chapa knows about
-        const responseData: PaymentInitializeResponse = {
+        const checkoutUrl = response.data.data.checkout_url;
+        this.logger.log(`Chapa payment initialized successfully. Checkout URL: ${checkoutUrl}`);
+        
+        return {
           success: true,
           message: 'Payment initialized successfully',
           data: {
-            checkoutUrl: response.data.data.checkout_url,
-            txRef: paymentData.txRef, // Original txRef for frontend
+            checkoutUrl: checkoutUrl,
+            txRef: paymentData.txRef,
             provider: 'chapa',
           },
         };
@@ -129,56 +133,46 @@ export class ChapaService {
         }
         return responseData;
       } else {
+        this.logger.error('Chapa returned non-success status:', response.data);
         throw new BadRequestException('Failed to initialize payment');
       }
     } catch (error) {
       this.logger.error('Chapa payment initialization failed:', error);
+      
       if (axios.isAxiosError(error)) {
-        // Log the full error response for debugging
-        this.logger.error('Chapa API Error Response:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          headers: error.response?.headers,
-        });
-
-        // Extract error message from different possible formats
+        // Extract error message properly
         let errorMessage = 'Unknown error';
-        const responseData = error.response?.data;
         
-        if (typeof responseData === 'string') {
-          errorMessage = responseData;
-        } else if (responseData?.message) {
-          // Chapa returns message as an object with field-specific errors
-          if (typeof responseData.message === 'object') {
-            // Format validation errors nicely
-            const errors: string[] = [];
-            Object.entries(responseData.message).forEach(([field, messages]) => {
-              if (Array.isArray(messages)) {
-                errors.push(`${field}: ${messages.join(', ')}`);
-              } else {
-                errors.push(`${field}: ${messages}`);
-              }
-            });
-            errorMessage = errors.join('; ');
+        if (error.response?.data) {
+          const errorData = error.response.data;
+          
+          // Try to extract message from different possible structures
+          if (typeof errorData.message === 'string') {
+            errorMessage = errorData.message;
+          } else if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          } else if (errorData.error) {
+            errorMessage = typeof errorData.error === 'string' 
+              ? errorData.error 
+              : JSON.stringify(errorData.error);
+          } else if (errorData.status === 'error' && errorData.message) {
+            errorMessage = typeof errorData.message === 'string'
+              ? errorData.message
+              : JSON.stringify(errorData.message);
           } else {
-            errorMessage = responseData.message;
+            // Fallback: stringify the whole response data
+            errorMessage = JSON.stringify(errorData);
           }
-        } else if (responseData?.error) {
-          errorMessage = typeof responseData.error === 'string' 
-            ? responseData.error 
-            : JSON.stringify(responseData.error);
-        } else if (responseData?.data?.message) {
-          errorMessage = responseData.data.message;
-        } else if (responseData) {
-          errorMessage = JSON.stringify(responseData);
-        } else {
-          errorMessage = error.message || 'Failed to initialize payment with Chapa';
+          
+          // Log full error response for debugging
+          this.logger.error('Chapa API error response:', JSON.stringify(error.response.data, null, 2));
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-
-        this.logger.error(`Chapa error message: ${errorMessage}`);
+        
         throw new BadRequestException(`Chapa payment failed: ${errorMessage}`);
       }
+      
       throw error;
     }
   }
