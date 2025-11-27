@@ -224,6 +224,7 @@ export class ArtworkService {
     userId?: string;
     categoryId?: string;
     categoryIds?: string[];
+    technique?: string;
     support?: string;
     origin?: string;
     yearOfArtwork?: string;
@@ -243,6 +244,7 @@ export class ArtworkService {
         userId,
         categoryId,
         categoryIds,
+        technique,
         support,
         origin,
         yearOfArtwork,
@@ -252,6 +254,9 @@ export class ArtworkService {
         sortBy = "createdAt",
         orderBy = "desc",
       } = query;
+
+      // Map technique to support (schema only has support field)
+      const supportFilter = support || technique;
 
       const skip = (page - 1) * limit;
 
@@ -294,9 +299,9 @@ export class ArtworkService {
         };
       }
 
-      if (support) {
+      if (supportFilter) {
         where.support = {
-          contains: support,
+          contains: supportFilter,
           mode: "insensitive",
         };
       }
@@ -826,10 +831,12 @@ export class ArtworkService {
   async getSimilarArtworks(artworkId: string, limit: number = 12) {
     try {
       // 1. Get all collections that contain this artwork
-      const artworkCollections = await this.prisma.collectionOnArtwork.findMany({
-        where: { artworkId },
-        select: { collectionId: true },
-      });
+      const artworkCollections = await this.prisma.collectionOnArtwork.findMany(
+        {
+          where: { artworkId },
+          select: { collectionId: true },
+        }
+      );
 
       const collectionIds = artworkCollections.map((ac) => ac.collectionId);
 
@@ -840,26 +847,31 @@ export class ArtworkService {
       }
 
       this.logger.log(
-        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(', ')}`
+        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(", ")}`
       );
 
       // 2. Get all CollectionOnArtwork records from those collections (excluding the current artwork)
-      const artworksInCollections = await this.prisma.collectionOnArtwork.findMany({
-        where: {
-          collectionId: { in: collectionIds },
-          artworkId: { not: artworkId }, // Exclude the current artwork
-        },
-        select: {
-          artworkId: true,
-          collectionId: true,
-        },
-      });
+      const artworksInCollections =
+        await this.prisma.collectionOnArtwork.findMany({
+          where: {
+            collectionId: { in: collectionIds },
+            artworkId: { not: artworkId }, // Exclude the current artwork
+          },
+          select: {
+            artworkId: true,
+            collectionId: true,
+          },
+        });
 
       // 3. Get unique artwork IDs and fetch the artworks with their details
-      const uniqueArtworkIds = [...new Set(artworksInCollections.map((ac) => ac.artworkId))];
+      const uniqueArtworkIds = [
+        ...new Set(artworksInCollections.map((ac) => ac.artworkId)),
+      ];
 
       if (uniqueArtworkIds.length === 0) {
-        this.logger.warn(`No other artworks found in collections for artwork ${artworkId}`);
+        this.logger.warn(
+          `No other artworks found in collections for artwork ${artworkId}`
+        );
         return [];
       }
 
@@ -868,7 +880,7 @@ export class ArtworkService {
         where: {
           id: { in: uniqueArtworkIds },
           isApproved: true,
-          status: 'APPROVED',
+          status: "APPROVED",
         },
         include: {
           user: {
@@ -893,7 +905,10 @@ export class ArtworkService {
       });
 
       // 5. Count shared collections for each artwork
-      const artworkCollectionCount = new Map<string, { artwork: any; sharedCollections: number }>();
+      const artworkCollectionCount = new Map<
+        string,
+        { artwork: any; sharedCollections: number }
+      >();
 
       artworks.forEach((artwork) => {
         // Count how many collections this artwork shares with the original artwork
@@ -920,8 +935,9 @@ export class ArtworkService {
         });
 
       // 7. Ensure no duplicates by ID (additional safeguard)
-      const uniqueArtworks = rankedArtworks.filter((artwork, index, self) =>
-        index === self.findIndex((a) => a.id === artwork.id)
+      const uniqueArtworks = rankedArtworks.filter(
+        (artwork, index, self) =>
+          index === self.findIndex((a) => a.id === artwork.id)
       );
 
       this.logger.log(
@@ -929,7 +945,10 @@ export class ArtworkService {
       );
       return uniqueArtworks;
     } catch (error) {
-      this.logger.error(`Failed to fetch similar artworks for artwork ${artworkId}:`, error);
+      this.logger.error(
+        `Failed to fetch similar artworks for artwork ${artworkId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -972,35 +991,40 @@ export class ArtworkService {
       }
 
       this.logger.log(
-        `[Similar Artworks by Category] Artwork ${artworkId} has ${categoryIds.length} categories: ${categoryIds.join(', ')}`
+        `[Similar Artworks by Category] Artwork ${artworkId} has ${categoryIds.length} categories: ${categoryIds.join(", ")}`
       );
 
       // 2. Get all artwork IDs that share at least one category (excluding the current artwork)
-      const artworksWithCategories = await this.prisma.artworkOnCategory.findMany({
-        where: {
-          categoryId: { in: categoryIds },
-          artworkId: { not: artworkId }, // Exclude the current artwork
-        },
-        select: {
-          artworkId: true,
-          categoryId: true,
-        },
-      });
+      const artworksWithCategories =
+        await this.prisma.artworkOnCategory.findMany({
+          where: {
+            categoryId: { in: categoryIds },
+            artworkId: { not: artworkId }, // Exclude the current artwork
+          },
+          select: {
+            artworkId: true,
+            categoryId: true,
+          },
+        });
 
       if (artworksWithCategories.length === 0) {
-        this.logger.warn(`No other artworks found with shared categories for artwork ${artworkId}`);
+        this.logger.warn(
+          `No other artworks found with shared categories for artwork ${artworkId}`
+        );
         return [];
       }
 
       // Get unique artwork IDs
-      const uniqueArtworkIds = [...new Set(artworksWithCategories.map((ac) => ac.artworkId))];
+      const uniqueArtworkIds = [
+        ...new Set(artworksWithCategories.map((ac) => ac.artworkId)),
+      ];
 
       // 3. Fetch artworks with their details (only approved ones)
       const artworks = await this.prisma.artwork.findMany({
         where: {
           id: { in: uniqueArtworkIds },
           isApproved: true,
-          status: 'APPROVED',
+          status: "APPROVED",
         },
         include: {
           user: {
@@ -1025,17 +1049,26 @@ export class ArtworkService {
       });
 
       if (artworks.length === 0) {
-        this.logger.warn(`No approved artworks found with shared categories for artwork ${artworkId}`);
+        this.logger.warn(
+          `No approved artworks found with shared categories for artwork ${artworkId}`
+        );
         return [];
       }
 
       // 4. Count shared categories for each artwork
-      const artworkCategoryCount = new Map<string, { artwork: any; sharedCategories: number }>();
+      const artworkCategoryCount = new Map<
+        string,
+        { artwork: any; sharedCategories: number }
+      >();
 
       artworks.forEach((artwork) => {
         // Count how many categories this artwork shares with the original artwork
-        const artworkCategoryIds = artwork.categories.map((ac: any) => ac.categoryId);
-        const sharedCount = categoryIds.filter((id) => artworkCategoryIds.includes(id)).length;
+        const artworkCategoryIds = artwork.categories.map(
+          (ac: any) => ac.categoryId
+        );
+        const sharedCount = categoryIds.filter((id) =>
+          artworkCategoryIds.includes(id)
+        ).length;
 
         if (sharedCount > 0) {
           artworkCategoryCount.set(artwork.id, {
@@ -1058,8 +1091,9 @@ export class ArtworkService {
         });
 
       // 5. Ensure no duplicates by ID (additional safeguard)
-      const uniqueArtworks = rankedArtworks.filter((artwork, index, self) =>
-        index === self.findIndex((a) => a.id === artwork.id)
+      const uniqueArtworks = rankedArtworks.filter(
+        (artwork, index, self) =>
+          index === self.findIndex((a) => a.id === artwork.id)
       );
 
       this.logger.log(
@@ -1067,7 +1101,10 @@ export class ArtworkService {
       );
       return uniqueArtworks;
     } catch (error) {
-      this.logger.error(`Failed to fetch similar artworks by category for artwork ${artworkId}:`, error);
+      this.logger.error(
+        `Failed to fetch similar artworks by category for artwork ${artworkId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -1507,172 +1544,6 @@ export class ArtworkService {
       this.logger.error(
         `❌ Failed to get likes for artwork ${artworkId}:`,
         error
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Get similar artworks by category
-   * Finds artworks that share categories with the given artwork
-   */
-  async getSimilarArtworksByCategory(artworkId: string, limit: number = 8) {
-    try {
-      // Get the artwork and its categories
-      const artwork = await this.prisma.artwork.findUnique({
-        where: { id: artworkId },
-        include: {
-          categories: {
-            select: {
-              categoryId: true,
-            },
-          },
-        },
-      });
-
-      if (!artwork) {
-        throw new NotFoundException(`Artwork with ID ${artworkId} not found`);
-      }
-
-      // Extract category IDs
-      const categoryIds = artwork.categories.map((c) => c.categoryId);
-
-      if (categoryIds.length === 0) {
-        // If no categories, return random approved artworks
-        const randomArtworks = await this.prisma.artwork.findMany({
-          where: {
-            id: { not: artworkId },
-            status: 'APPROVED',
-            isApproved: true,
-          },
-          take: limit,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            },
-            categories: {
-              include: {
-                category: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                  },
-                },
-              },
-            },
-            interactions: {
-              where: { type: 'LIKE' },
-              select: { id: true },
-            },
-            _count: {
-              select: {
-                comments: true,
-                reviews: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        });
-
-        return randomArtworks.map((artwork) => ({
-          ...artwork,
-          categories: artwork.categories?.map((ac) => ac.category) || [],
-          likeCount: artwork.interactions?.length || 0,
-          commentCount: artwork._count?.comments || 0,
-          reviewCount: artwork._count?.reviews || 0,
-          interactions: undefined,
-          _count: undefined,
-        }));
-      }
-
-      // Find artworks with similar categories
-      const similarArtworks = await this.prisma.artwork.findMany({
-        where: {
-          id: { not: artworkId },
-          status: 'APPROVED',
-          isApproved: true,
-          categories: {
-            some: {
-              categoryId: { in: categoryIds },
-            },
-          },
-        },
-        take: limit * 2, // Get more to sort and filter
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-          categories: {
-            include: {
-              category: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                },
-              },
-            },
-          },
-          interactions: {
-            where: { type: 'LIKE' },
-            select: { id: true },
-          },
-          _count: {
-            select: {
-              comments: true,
-              reviews: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-
-      // Sort by number of matching categories (more matches = more similar)
-      const artworksWithSimilarity = similarArtworks.map((artwork) => {
-        const matchingCategories = artwork.categories.filter((ac) =>
-          categoryIds.includes(ac.categoryId),
-        ).length;
-        return {
-          artwork,
-          matchingCategories,
-        };
-      });
-
-      // Sort by matching categories count (descending) and take limit
-      const sortedArtworks = artworksWithSimilarity
-        .sort((a, b) => b.matchingCategories - a.matchingCategories)
-        .slice(0, limit)
-        .map((item) => item.artwork);
-
-      // Transform artworks to include stats
-      return sortedArtworks.map((artwork) => ({
-        ...artwork,
-        categories: artwork.categories?.map((ac) => ac.category) || [],
-        likeCount: artwork.interactions?.length || 0,
-        commentCount: artwork._count?.comments || 0,
-        reviewCount: artwork._count?.reviews || 0,
-        interactions: undefined,
-        _count: undefined,
-      }));
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to get similar artworks for ${artworkId}:`,
-        error,
       );
       throw error;
     }
