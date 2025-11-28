@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from "@nes
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { AnalyticsService } from "../analytics/analytics.service";
+import { FollowService } from "../follow/follow.service";
 import {
   UpdateProfileDto,
   UpdatePreferencesDto,
@@ -26,7 +27,8 @@ export class ProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
-    private readonly analyticsService: AnalyticsService
+    private readonly analyticsService: AnalyticsService,
+    private readonly followService: FollowService
   ) {}
 
   /**
@@ -74,6 +76,16 @@ export class ProfileService {
 
       if (!user) {
         throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
+      }
+
+      // Get follow counts
+      const followCounts = await this.followService.getFollowCounts(profileId);
+
+      // Check if viewer is following this user
+      let isFollowing = false;
+      if (viewerUserId && viewerUserId !== profileId) {
+        const followStatus = await this.followService.isFollowing(viewerUserId, profileId);
+        isFollowing = followStatus.isFollowing;
       }
 
       // Track profile view (async, don't wait)
@@ -131,6 +143,10 @@ export class ProfileService {
         profileViews: user.profileViews || 0,
         heatScore: user.heatScore || 0,
         lastActiveAt: user.lastActiveAt,
+        // Follow fields
+        followerCount: followCounts.followerCount,
+        followingCount: followCounts.followingCount,
+        isFollowing: isFollowing,
         // Format talent types with nested structure to match frontend expectations
         talentTypes:
           user.talentTypes?.map((ut) => ({
@@ -201,6 +217,9 @@ export class ProfileService {
         throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
       }
 
+      // Get follow counts
+      const followCounts = await this.followService.getFollowCounts(userId);
+
       // Log to debug what we're getting from database
       this.logger.debug(`User data for ${userId}:`, {
         bio: user.bio,
@@ -240,6 +259,9 @@ export class ProfileService {
         profileViews: user.profileViews ?? 0,
         heatScore: user.heatScore ?? 0,
         lastActiveAt: user.lastActiveAt ?? null,
+        // Follow fields
+        followerCount: followCounts.followerCount,
+        followingCount: followCounts.followingCount,
         // Preferences & Settings
         emailSubscription: user.emailSubscription ?? true,
         themePreference: user.themePreference ?? "light",

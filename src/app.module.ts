@@ -18,6 +18,8 @@ import { OrderModule } from './apps/order/order.module';
 import { TransactionsModule } from './apps/transactions/transactions.module';
 import { SettingsModule } from './apps/settings/settings.module';
 import { WithdrawalsModule } from './apps/withdrawals/withdrawals.module';
+import { FollowModule } from './apps/follow/follow.module';
+import { FeedModule } from './apps/feed/feed.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { WithdrawalsModule } from './apps/withdrawals/withdrawals.module';
           TransactionsModule,
           SettingsModule,
           WithdrawalsModule,
+          FollowModule,
+          FeedModule,
         ],
   controllers: [],
   providers: [
