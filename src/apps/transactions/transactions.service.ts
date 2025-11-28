@@ -503,11 +503,12 @@ export class TransactionsService {
         orderBy: { createdAt: 'desc' },
       });
 
-      // Get withdrawal transactions (debits)
+      // Get withdrawal transactions (debits - money going out)
+      // Withdrawals are created when withdrawal status changes to COMPLETED
       const withdrawalTransactions = await this.prisma.transaction.findMany({
         where: {
           sellerId: userId,
-          orderId: null,
+          orderId: null, // Withdrawal transactions don't have orderId
           metadata: {
             path: ['type'],
             equals: 'WITHDRAWAL',
@@ -516,6 +517,10 @@ export class TransactionsService {
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      this.logger.log(
+        `[SELLER-TX] Found ${withdrawalTransactions.length} withdrawal transactions (debits) for user ${userId}`
+      );
 
       // Combine and format all transactions
       const allTransactions = [
