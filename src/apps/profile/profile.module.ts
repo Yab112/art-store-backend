@@ -6,9 +6,10 @@ import { PrismaModule } from '../../core/database';
 import { EmailModule } from '../../libraries/email';
 import { UploadModule } from '../../libraries/upload';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { FollowModule } from '../follow/follow.module';
 
 @Module({
-  imports: [PrismaModule, EmailModule, UploadModule, AnalyticsModule],
+  imports: [PrismaModule, EmailModule, UploadModule, AnalyticsModule, FollowModule],
   controllers: [ProfileController],
   providers: [ProfileService, ProfileEventSubscriber],
   exports: [ProfileService],

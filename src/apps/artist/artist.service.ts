@@ -540,11 +540,11 @@ export class ArtistService {
       // Build where clause
       const where: any = {
         banned: false,
-        artworks: {
-          some: {
-            status: "APPROVED",
-          },
-        },
+        // artworks: {
+        //   some: {
+        //     status: "APPROVED",
+        //   },
+        // },
       };
 
       if (search) {
@@ -552,6 +552,7 @@ export class ArtistService {
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
           { location: { contains: search, mode: "insensitive" } },
+          { bio: { contains: search, mode: "insensitive" } },
         ];
       }
 
