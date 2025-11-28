@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { AnalyticsService } from "../analytics/analytics.service";
@@ -919,5 +919,67 @@ export class ProfileService {
       success: true,
       message: "Cover image deletion not yet implemented",
     };
+  }
+
+  /**
+   * Get user's preferred payment method for purchases
+   */
+  async getPaymentMethodPreference(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { paymentMethodPreference: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      return {
+        paymentMethodPreference: user.paymentMethodPreference || 'paypal', // Default to paypal
+      };
+    } catch (error) {
+      this.logger.error('Failed to get payment method preference:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user's preferred payment method for purchases
+   */
+  async updatePaymentMethodPreference(userId: string, paymentMethodPreference: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Validate payment method
+      if (paymentMethodPreference !== 'paypal' && paymentMethodPreference !== 'chapa') {
+        throw new BadRequestException('Invalid payment method. Must be "paypal" or "chapa"');
+      }
+
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: { paymentMethodPreference },
+        select: { paymentMethodPreference: true },
+      });
+
+      this.logger.log(`Payment method preference updated for user ${userId}: ${paymentMethodPreference}`);
+
+      return {
+        success: true,
+        message: 'Payment method preference updated successfully',
+        data: {
+          paymentMethodPreference: updated.paymentMethodPreference,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to update payment method preference:', error);
+      throw error;
+    }
   }
 }

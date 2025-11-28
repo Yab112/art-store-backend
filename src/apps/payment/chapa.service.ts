@@ -85,6 +85,10 @@ export class ChapaService {
         : txRef.substring(0, 8);
       const description = `Order ${orderIdShort}`.substring(0, 50);
 
+      // Get frontend URL for return URL
+      const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:5173';
+      const serverUrl = this.configService.get('SERVER_BASE_URL') || this.configService.get('API_BASE_URL') || 'http://localhost:3099';
+
       const payload = {
         amount: roundedAmount,
         currency: currency,
@@ -93,8 +97,8 @@ export class ChapaService {
         last_name: paymentData.lastName || '',
         phone_number: paymentData.phoneNumber || '',
         tx_ref: txRef,
-        callback_url: paymentData.callbackUrl || `${this.configService.get('SERVER_BASE_URL')}/api/payment/chapa/callback`,
-        return_url: paymentData.returnUrl || `${this.configService.get('CLIENT_BASE_URL')}/payment/success?txRef=${txRef}`,
+        callback_url: paymentData.callbackUrl || `${serverUrl}/api/payment/chapa/callback`,
+        return_url: paymentData.returnUrl || `${frontendUrl}/payment/success?txRef=${txRef}`,
         customization: {
           title: title,
           description: description,

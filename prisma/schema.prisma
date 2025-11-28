@@ -185,6 +185,7 @@ model User {
   languagePreference                  String         @default("en")
   timezone                           String?        @default("UTC")
   messagingPreferences               Json?
+  paymentMethodPreference             String         @default("paypal")
   // Talent Types (many-to-many)
   talentTypes                        UserOnTalentType[]
   accounts                           Account[]
