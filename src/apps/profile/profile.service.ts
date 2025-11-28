@@ -246,6 +246,8 @@ export class ProfileService {
         languagePreference: user.languagePreference ?? "en",
         timezone: user.timezone ?? "UTC",
         messagingPreferences: user.messagingPreferences ?? {},
+        // Earnings
+        earning: user.earning ? Number(user.earning) : 0,
         // Talent Types
         talentTypes:
           user.talentTypes?.map((ut) => ({

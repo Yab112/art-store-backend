@@ -404,34 +404,189 @@ export class TransactionsService {
   }
 
   /**
+   * Get all user transactions (buyer, seller, and withdrawals)
+   * Returns combined transactions with type indicator
+   */
+  async getAllUserTransactions(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    status?: PaymentStatus,
+  ) {
+    try {
+      const skip = (page - 1) * limit;
+      this.logger.log(`Fetching all transactions for userId: ${userId}, page: ${page}, limit: ${limit}`);
+
+      // Get buyer transactions (purchases - debits)
+      const buyerTransactions = await this.prisma.transaction.findMany({
+        where: {
+          orderId: { not: null },
+          order: {
+            OR: [
+              { userId: userId },
+            ],
+          },
+          ...(status ? { status } : {}),
+        },
+        include: {
+          order: {
+            select: {
+              id: true,
+              buyerEmail: true,
+              totalAmount: true,
+              status: true,
+              createdAt: true,
+              items: {
+                select: {
+                  id: true,
+                  artworkId: true,
+                  quantity: true,
+                  price: true,
+                  artwork: {
+                    select: {
+                      id: true,
+                      title: true,
+                      photos: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          paymentGateway: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Get seller transactions (earnings - credits)
+      const sellerTransactions = await this.prisma.transaction.findMany({
+        where: {
+          sellerId: userId,
+          orderId: null,
+          metadata: {
+            path: ['type'],
+            equals: 'SELLER_PAYMENT',
+          },
+          ...(status ? { status } : {}),
+        },
+        include: {
+          order: {
+            select: {
+              id: true,
+              buyerEmail: true,
+              totalAmount: true,
+              status: true,
+              createdAt: true,
+              items: {
+                select: {
+                  id: true,
+                  artworkId: true,
+                  quantity: true,
+                  price: true,
+                  artwork: {
+                    select: {
+                      id: true,
+                      title: true,
+                      photos: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Get withdrawal transactions (debits - money going out)
+      // Withdrawals are created when withdrawal status changes to COMPLETED
+      const withdrawalTransactions = await this.prisma.transaction.findMany({
+        where: {
+          sellerId: userId,
+          orderId: null, // Withdrawal transactions don't have orderId
+          metadata: {
+            path: ['type'],
+            equals: 'WITHDRAWAL',
+          },
+          ...(status ? { status } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      this.logger.log(
+        `[SELLER-TX] Found ${withdrawalTransactions.length} withdrawal transactions (debits) for user ${userId}`
+      );
+
+      // Combine and format all transactions
+      const allTransactions = [
+        ...buyerTransactions.map(tx => ({
+          ...tx,
+          type: 'DEBIT' as const,
+          typeLabel: 'Purchase',
+        })),
+        ...sellerTransactions.map(tx => ({
+          ...tx,
+          type: 'CREDIT' as const,
+          typeLabel: 'Earning',
+        })),
+        ...withdrawalTransactions.map(tx => ({
+          ...tx,
+          type: 'DEBIT' as const,
+          typeLabel: 'Withdrawal',
+          order: null,
+        })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const total = allTransactions.length;
+      const paginatedTransactions = allTransactions.slice(skip, skip + limit);
+
+      // Format transactions for response
+      const formattedTransactions = paginatedTransactions.map((tx) => {
+        const metadata = tx.metadata as any;
+        return {
+          id: tx.id,
+          orderId: tx.orderId,
+          amount: Number(tx.amount),
+          status: tx.status,
+          provider: metadata?.paymentProvider || metadata?.provider || null,
+          createdAt: tx.createdAt,
+          updatedAt: tx.updatedAt,
+          metadata: tx.metadata,
+          type: tx.type,
+          typeLabel: tx.typeLabel,
+          order: tx.order,
+          paymentGateway: 'paymentGateway' in tx ? tx.paymentGateway || null : null,
+        };
+      });
+
+      return {
+        transactions: formattedTransactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch all transactions for userId ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get user's transaction statistics for charts
    * Returns aggregated data by date, status, and provider
+   * Includes credits (earnings) and debits (purchases, withdrawals)
    */
   async getUserTransactionStats(userId: string, period: 'week' | 'month' | 'year' = 'month') {
     try {
       this.logger.log(`Fetching transaction statistics for userId: ${userId}, period: ${period}`);
-
-      // Get all orders for this user
-      const userOrders = await this.prisma.order.findMany({
-        where: {
-          userId: userId,
-        } as any,
-        select: {
-          id: true,
-        },
-      });
-
-      const orderIds = userOrders.map((order) => order.id);
-
-      if (orderIds.length === 0) {
-        return {
-          byDate: [],
-          byStatus: {},
-          byProvider: {},
-          totalAmount: 0,
-          totalCount: 0,
-        };
-      }
 
       // Calculate date range based on period
       const now = new Date();
@@ -449,11 +604,12 @@ export class TransactionsService {
           break;
       }
 
-      // Get all transactions for user's orders
-      const transactions = await this.prisma.transaction.findMany({
+      // Get buyer transactions (purchases - debits)
+      const buyerTransactions = await this.prisma.transaction.findMany({
         where: {
-          orderId: {
-            in: orderIds,
+          orderId: { not: null },
+          order: {
+            userId: userId,
           },
           createdAt: {
             gte: startDate,
@@ -466,15 +622,77 @@ export class TransactionsService {
           createdAt: true,
           metadata: true,
         },
-        orderBy: {
-          createdAt: 'asc',
+      });
+
+      // Get seller transactions (earnings - credits)
+      const sellerTransactions = await this.prisma.transaction.findMany({
+        where: {
+          sellerId: userId,
+          orderId: null,
+          metadata: {
+            path: ['type'],
+            equals: 'SELLER_PAYMENT',
+          },
+          createdAt: {
+            gte: startDate,
+          },
+        },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+          metadata: true,
         },
       });
 
-      // Group by date with proper sorting
-      const byDateMap = new Map<string, { date: string; dateValue: Date; amount: number; count: number }>();
+      // Get withdrawal transactions (debits)
+      const withdrawalTransactions = await this.prisma.transaction.findMany({
+        where: {
+          sellerId: userId,
+          orderId: null,
+          metadata: {
+            path: ['type'],
+            equals: 'WITHDRAWAL',
+          },
+          createdAt: {
+            gte: startDate,
+          },
+        },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+          metadata: true,
+        },
+      });
+
+      // Combine all transactions with type indicators
+      const allTransactions = [
+        ...buyerTransactions.map(tx => ({ ...tx, type: 'DEBIT' as const })),
+        ...sellerTransactions.map(tx => ({ ...tx, type: 'CREDIT' as const })),
+        ...withdrawalTransactions.map(tx => ({ ...tx, type: 'DEBIT' as const })),
+      ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      if (allTransactions.length === 0) {
+        return {
+          byDate: [],
+          byDateCredits: [],
+          byDateDebits: [],
+          byStatus: {},
+          byProvider: {},
+          totalAmount: 0,
+          totalCredits: 0,
+          totalDebits: 0,
+          totalCount: 0,
+        };
+      }
+
+      // Group by date with proper sorting - separate credits and debits
+      const byDateMap = new Map<string, { date: string; dateValue: Date; amount: number; credits: number; debits: number; count: number }>();
       
-      transactions.forEach((tx) => {
+      allTransactions.forEach((tx) => {
         const date = new Date(tx.createdAt);
         let dateKey: string;
         let dateValue: Date;
@@ -504,24 +722,34 @@ export class TransactionsService {
             dateKey = dateValue.toLocaleDateString('en-US');
         }
 
-        const existing = byDateMap.get(dateKey) || { date: dateKey, dateValue, amount: 0, count: 0 };
-        existing.amount += Number(tx.amount);
+        const existing = byDateMap.get(dateKey) || { date: dateKey, dateValue, amount: 0, credits: 0, debits: 0, count: 0 };
+        const amount = Number(tx.amount);
+        existing.amount += amount;
         existing.count += 1;
+        if (tx.type === 'CREDIT') {
+          existing.credits += amount;
+        } else {
+          existing.debits += amount;
+        }
         byDateMap.set(dateKey, existing);
       });
 
       // Sort by actual date value, not string
       const byDate = Array.from(byDateMap.values())
-        .map(item => ({ date: item.date, amount: item.amount, count: item.count }))
+        .map(item => ({ date: item.date, amount: item.amount, credits: item.credits, debits: item.debits, count: item.count }))
         .sort((a, b) => {
           const dateA = byDateMap.get(a.date)?.dateValue || new Date(0);
           const dateB = byDateMap.get(b.date)?.dateValue || new Date(0);
           return dateA.getTime() - dateB.getTime();
         });
 
+      // Separate by date for credits and debits
+      const byDateCredits = byDate.map(item => ({ date: item.date, amount: item.credits, count: item.count }));
+      const byDateDebits = byDate.map(item => ({ date: item.date, amount: item.debits, count: item.count }));
+
       // Group by status
       const byStatus: Record<string, { count: number; amount: number }> = {};
-      transactions.forEach((tx) => {
+      allTransactions.forEach((tx) => {
         const status = tx.status;
         if (!byStatus[status]) {
           byStatus[status] = { count: 0, amount: 0 };
@@ -532,7 +760,7 @@ export class TransactionsService {
 
       // Group by provider
       const byProvider: Record<string, { count: number; amount: number }> = {};
-      transactions.forEach((tx) => {
+      allTransactions.forEach((tx) => {
         const metadata = tx.metadata as any;
         const provider = metadata?.paymentProvider || metadata?.provider || 'unknown';
         if (!byProvider[provider]) {
@@ -542,14 +770,20 @@ export class TransactionsService {
         byProvider[provider].amount += Number(tx.amount);
       });
 
-      const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
-      const totalCount = transactions.length;
+      const totalAmount = allTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalCredits = allTransactions.filter(tx => tx.type === 'CREDIT').reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalDebits = allTransactions.filter(tx => tx.type === 'DEBIT').reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalCount = allTransactions.length;
 
       return {
         byDate,
+        byDateCredits,
+        byDateDebits,
         byStatus,
         byProvider,
         totalAmount,
+        totalCredits,
+        totalDebits,
         totalCount,
       };
     } catch (error) {

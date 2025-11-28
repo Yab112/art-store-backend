@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -15,12 +15,13 @@ export class ArtistService {
   /**
    * Get artist earnings statistics
    * Returns comprehensive earnings data including sales, commissions, and withdrawals
+   * Uses user.earning as the source of truth for total earnings
    */
   async getEarningsStats(userId: string) {
     try {
       this.logger.log(`[EARNINGS] Getting earnings for user: ${userId}`);
       
-      // Get the user and their earning field
+      // Get the user and their earning field (source of truth)
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -31,25 +32,26 @@ export class ArtistService {
 
       if (!user) {
         this.logger.error(`[EARNINGS] User not found: ${userId}`);
-        throw new Error("User not found");
+        throw new NotFoundException("User not found");
       }
 
+      // Total earnings from user table (source of truth)
       const totalEarnings = Number(user.earning || 0);
       
-      // Get total withdrawn amount (completed withdrawals)
-      const completedWithdrawals = await this.prisma.withdrawal.findMany({
+      // Get all withdrawals for this user
+      const allWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
           userId: userId,
-          status: "COMPLETED",
         },
       });
 
-      const totalWithdrawn = completedWithdrawals.reduce(
-        (sum, w) => sum + Number(w.amount),
-        0
-      );
+      // Calculate total withdrawn (COMPLETED withdrawals)
+      const totalWithdrawn = allWithdrawals
+        .filter(w => w.status === "COMPLETED")
+        .reduce((sum, w) => sum + Number(w.amount), 0);
 
-      const availableBalance = totalEarnings - totalWithdrawn;
+      // Available balance = total earnings - total withdrawn
+      const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
 
       // Get all order items for artworks sold by this artist (orders with status PAID)
       const orderItems = await this.prisma.orderItem.findMany({
@@ -97,7 +99,7 @@ export class ArtistService {
         },
       });
 
-      // Calculate total sales and commission
+      // Calculate total sales and commission from order items
       let totalSales = 0;
       let totalCommission = 0;
       const sales: Array<{
@@ -161,16 +163,32 @@ export class ArtistService {
       const uniqueOrderIds = new Set(orderItems.map(item => item.order.id));
       const salesCount = uniqueOrderIds.size;
       
-      this.logger.log(`[EARNINGS] User ${userId} - Total Earnings: ${totalEarnings}, Total Sales: ${totalSales}, Total Commission: ${totalCommission}, Withdrawn: ${totalWithdrawn}, Available: ${availableBalance}, Sales Count: ${salesCount}`);
+      this.logger.log(
+        `[EARNINGS] User ${userId} - ` +
+        `Total Earnings: ${totalEarnings}, ` +
+        `Total Sales: ${totalSales}, ` +
+        `Total Commission: ${totalCommission}, ` +
+        `Total Withdrawn: ${totalWithdrawn}, ` +
+        `Available Balance: ${availableBalance}, ` +
+        `Sales Count: ${salesCount}`
+      );
 
       return {
         success: true,
         data: {
-          totalEarnings: totalEarnings,
+          // Core earnings metrics (using user.earning as source of truth)
+          earning: totalEarnings, // Total earnings from user table
+          totalEarnings: totalEarnings, // Alias for compatibility
           totalSales: totalSales,
           totalCommission: totalCommission,
+          
+          // Withdrawal metrics
           totalWithdrawn: totalWithdrawn,
+          
+          // Available balance (what can be withdrawn now)
           availableBalance: availableBalance,
+          
+          // Sales data
           salesCount: salesCount,
           sales: sales,
         },
@@ -307,14 +325,14 @@ export class ArtistService {
       }
 
       if (!user.emailVerified) {
-        throw new Error(
+        throw new BadRequestException(
           "Your email must be verified before requesting withdrawals. Please verify your email address."
         );
       }
 
       // 3. Check if user is banned
       if (user.banned) {
-        throw new Error(
+        throw new BadRequestException(
           "Your account has been banned. Withdrawal requests are not allowed."
         );
       }
@@ -328,7 +346,7 @@ export class ArtistService {
       });
 
       if (activeDisputes.length > 0) {
-        throw new Error(
+        throw new BadRequestException(
           `You have ${activeDisputes.length} active dispute(s). Please resolve all disputes before requesting withdrawals.`
         );
       }
@@ -338,7 +356,7 @@ export class ArtistService {
       const availableBalance = stats.data.availableBalance;
 
       if (amount > availableBalance) {
-        throw new Error(
+        throw new BadRequestException(
           `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${amount.toFixed(2)}`
         );
       }
@@ -348,7 +366,7 @@ export class ArtistService {
         await this.settingsService.getPaymentSettingsValues();
       
       if (amount < paymentSettings.minWithdrawalAmount) {
-        throw new Error(
+        throw new BadRequestException(
           `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`
         );
       }
@@ -358,31 +376,42 @@ export class ArtistService {
         paymentSettings.maxWithdrawalAmount > 0 &&
         amount > paymentSettings.maxWithdrawalAmount
       ) {
-        throw new Error(
+        throw new BadRequestException(
           `Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`
         );
       }
 
-      // 8. Check for duplicate withdrawal request (same amount, same IBAN, within last 24 hours)
-      const now = new Date();
-      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const duplicateRequest = await this.prisma.withdrawal.findFirst({
+      // 8. Check for any pending withdrawals (INITIATED or PROCESSING states)
+      // User can only request a new withdrawal if all previous withdrawals are COMPLETED, REJECTED, FAILED, or REFUNDED
+      const pendingWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
           userId,
-          payoutAccount: iban,
-          amount: new Decimal(amount),
           status: {
-            in: ["INITIATED", "PROCESSING"],
+            in: ["INITIATED", "PROCESSING"], // Check for any pending/active withdrawals
           },
-          createdAt: {
-            gte: oneDayAgo,
-          },
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
 
-      if (duplicateRequest) {
-        throw new Error(
-          "A similar withdrawal request was submitted recently. Please wait 24 hours before submitting another request with the same amount."
+      if (pendingWithdrawals.length > 0) {
+        const pendingCount = pendingWithdrawals.length;
+        const totalPendingAmount = pendingWithdrawals.reduce(
+          (sum, w) => sum + Number(w.amount),
+          0
+        );
+        const statuses = [...new Set(pendingWithdrawals.map(w => w.status))].join(" and ");
+        
+        // Create a more informative error message
+        const withdrawalDetails = pendingWithdrawals
+          .map((w, idx) => `$${Number(w.amount).toFixed(2)} (${w.status})`)
+          .join(", ");
+        
+        throw new BadRequestException(
+          `You have ${pendingCount} pending withdrawal request${pendingCount > 1 ? 's' : ''} totaling $${totalPendingAmount.toFixed(2)} with status: ${statuses}. ` +
+          `Please wait until all pending withdrawals are completed or rejected before requesting a new withdrawal. ` +
+          `Pending: ${withdrawalDetails}`
         );
       }
 
@@ -391,7 +420,7 @@ export class ArtistService {
       // In production, you might want to check if the email is a valid PayPal account
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (user.email && !emailRegex.test(user.email)) {
-        throw new Error("Invalid email format. Please update your email address.");
+        throw new BadRequestException("Invalid email format. Please update your email address.");
       }
 
       // All validations passed - create withdrawal request

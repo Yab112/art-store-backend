@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ChapaService } from './chapa.service';
 import { PaypalService } from './paypal.service';
 import { InitializePaymentDto, PaymentProvider } from './dto/initialize-payment.dto';
@@ -10,10 +10,10 @@ import {
 import { PrismaService } from '../../core/database/prisma.service';
 import { OrderService } from '../order/order.service';
 import { CartService } from '../cart/cart.service';
+import { WithdrawalsService } from '../withdrawals/withdrawals.service';
 import { PaymentStatus } from '@prisma/client';
 
-@Injectable() 
-@Injectable() 
+@Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
@@ -23,6 +23,8 @@ export class PaymentService {
     private readonly prisma: PrismaService,
     private readonly orderService: OrderService,
     private readonly cartService: CartService,
+    @Inject(forwardRef(() => WithdrawalsService))
+    private readonly withdrawalsService: WithdrawalsService,
   ) {}
 
   /**
@@ -185,6 +187,18 @@ export class PaymentService {
 
         if (orderId) {
           try {
+            // Early check: if order is already PAID, skip processing to prevent duplicate work
+            const existingOrder = await this.prisma.order.findUnique({
+              where: { id: orderId },
+              select: { status: true },
+            });
+
+            if (existingOrder?.status === 'PAID') {
+              this.logger.log(`Order ${orderId} already PAID - skipping duplicate verification processing`);
+              // Return success response without processing
+              return verifyResponse;
+            }
+
             // Get order from database to extract customer information from checkout form
             const order = await this.prisma.order.findUnique({
               where: { id: orderId },
@@ -630,10 +644,24 @@ export class PaymentService {
         this.logger.log(`Withdrawal ${withdrawal.id} status updated to ${newStatus} via webhook`);
       }
 
-      await this.prisma.withdrawal.update({
+      const updatedWithdrawal = await this.prisma.withdrawal.update({
         where: { id: withdrawal.id },
         data: updateData as any,
       });
+
+      // Create transaction record when withdrawal is completed via webhook
+      // This ensures withdrawal transactions are created even when status changes via webhook
+      if (newStatus === 'COMPLETED' && withdrawal.userId) {
+        this.logger.log(
+          `[WEBHOOK-WITHDRAWAL] Withdrawal ${withdrawal.id} completed via webhook, creating transaction...`
+        );
+        await this.withdrawalsService.createWithdrawalTransaction(
+          withdrawal.id,
+          withdrawal.userId,
+          withdrawal.amount,
+          withdrawal.payoutAccount,
+        );
+      }
       
     } catch (error: any) {
       this.logger.error(`Failed to handle payout item webhook: ${error.message || error}`);

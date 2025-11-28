@@ -262,6 +262,68 @@ export class WithdrawalsService {
   }
 
   /**
+   * Create a transaction record for a completed withdrawal
+   * This is called when withdrawal status changes to COMPLETED
+   * @param withdrawalId - The withdrawal ID
+   * @param userId - The seller's user ID
+   * @param amount - The withdrawal amount
+   * @param payoutAccount - The payout account (e.g., PayPal email)
+   */
+  async createWithdrawalTransaction(
+    withdrawalId: string,
+    userId: string,
+    amount: Decimal | number,
+    payoutAccount: string | null,
+  ): Promise<void> {
+    try {
+      // Check if transaction already exists for this withdrawal (idempotency)
+      const existingTransaction = await this.prisma.transaction.findFirst({
+        where: {
+          sellerId: userId,
+          metadata: {
+            path: ['withdrawalId'],
+            equals: withdrawalId,
+          },
+        },
+      });
+
+      if (!existingTransaction) {
+        const withdrawalTransaction = await this.prisma.transaction.create({
+          data: {
+            sellerId: userId,
+            orderId: null, // Withdrawal transactions don't have orderId
+            amount: new Decimal(amount),
+            status: PaymentStatus.COMPLETED, // Money was successfully withdrawn
+            metadata: {
+              type: "WITHDRAWAL", // CRITICAL: This must be "WITHDRAWAL" for filtering
+              withdrawalId: withdrawalId,
+              payoutAccount: payoutAccount,
+              completedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        this.logger.log(
+          `[WITHDRAWAL-TX] ✅ Created withdrawal transaction for user ${userId}: ${Number(amount)} (Transaction ID: ${withdrawalTransaction.id}, Withdrawal ID: ${withdrawalId})`
+        );
+      } else {
+        this.logger.log(
+          `[WITHDRAWAL-TX] ⚠️ Transaction already exists for withdrawal ${withdrawalId} - skipping creation`
+        );
+      }
+    } catch (txError: any) {
+      // Log error but don't fail withdrawal update
+      this.logger.error(
+        `[WITHDRAWAL-TX] ❌ Failed to create transaction for withdrawal ${withdrawalId}:`,
+        txError
+      );
+      this.logger.error(
+        `[WITHDRAWAL-TX] Error: ${txError?.message || 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
    * Update withdrawal status
    */
   async updateStatus(id: string, updateDto: UpdateWithdrawalStatusDto) {
@@ -519,52 +581,7 @@ export class WithdrawalsService {
     // Create transaction record when withdrawal is completed
     // This represents money being withdrawn from the seller's account
     if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
-      try {
-        // Check if transaction already exists for this withdrawal (idempotency)
-        const existingTransaction = await this.prisma.transaction.findFirst({
-          where: {
-            sellerId: withdrawal.userId,
-            metadata: {
-              path: ['withdrawalId'],
-              equals: id,
-            },
-          },
-        });
-
-        if (!existingTransaction) {
-          const withdrawalTransaction = await this.prisma.transaction.create({
-            data: {
-              sellerId: withdrawal.userId,
-              orderId: null, // Withdrawal transactions don't have orderId
-              amount: new Decimal(withdrawal.amount),
-              status: PaymentStatus.COMPLETED, // Money was successfully withdrawn
-              metadata: {
-                type: "WITHDRAWAL",
-                withdrawalId: id,
-                payoutAccount: withdrawal.payoutAccount,
-                completedAt: new Date().toISOString(),
-              },
-            },
-          });
-
-          this.logger.log(
-            `[WITHDRAWAL-TX] ✅ Created withdrawal transaction for user ${withdrawal.userId}: ${Number(withdrawal.amount)} (Transaction ID: ${withdrawalTransaction.id})`
-          );
-        } else {
-          this.logger.log(
-            `[WITHDRAWAL-TX] ⚠️ Transaction already exists for withdrawal ${id} - skipping creation`
-          );
-        }
-      } catch (txError: any) {
-        // Log error but don't fail withdrawal update
-        this.logger.error(
-          `[WITHDRAWAL-TX] ❌ Failed to create transaction for withdrawal ${id}:`,
-          txError
-        );
-        this.logger.error(
-          `[WITHDRAWAL-TX] Error: ${txError?.message || 'Unknown error'}`
-        );
-      }
+      await this.createWithdrawalTransaction(withdrawal.id, withdrawal.userId, withdrawal.amount, withdrawal.payoutAccount);
     }
 
     return {
