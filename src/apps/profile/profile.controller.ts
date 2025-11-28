@@ -18,6 +18,7 @@ import {
   UpdateSettingsDto,
   DeactivateAccountDto,
 } from "./dto";
+import { UpdatePaymentMethodPreferenceDto } from "./dto/update-payment-method-preference.dto";
 import { AuthGuard } from "@/core/guards/auth.guard";
 import { Public } from "@/core/decorators/public.decorator";
 import { UseGuards } from "@nestjs/common";
@@ -32,6 +33,56 @@ import { ApiTags, ApiOperation, ApiBody, ApiResponse } from "@nestjs/swagger";
 @Controller("profile")
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
+
+  /**
+   * GET /profile/payment-method-preference
+   * Get user's preferred payment method for purchases
+   * MUST come before @Get(":id") to avoid route conflicts
+   */
+  @Get("payment-method-preference")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Get user's preferred payment method" })
+  async getPaymentMethodPreference(@Request() req: any) {
+    try {
+      const userId = req.user.id;
+      const preference = await this.profileService.getPaymentMethodPreference(userId);
+      return {
+        success: true,
+        data: preference,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch payment method preference",
+      };
+    }
+  }
+
+  /**
+   * PUT /profile/payment-method-preference
+   * Update user's preferred payment method for purchases
+   * MUST come before @Get(":id") to avoid route conflicts
+   */
+  @Put("payment-method-preference")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Update user's preferred payment method" })
+  async updatePaymentMethodPreference(
+    @Body() dto: UpdatePaymentMethodPreferenceDto,
+    @Request() req: any
+  ) {
+    try {
+      const userId = req.user.id;
+      return await this.profileService.updatePaymentMethodPreference(
+        userId,
+        dto.paymentMethodPreference
+      );
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to update payment method preference",
+      };
+    }
+  }
 
   /**
    * GET /profile/:id
@@ -193,6 +244,7 @@ export class ProfileController {
       };
     }
   }
+
 
   /**
    * GET /profile/uploads

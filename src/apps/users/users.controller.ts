@@ -7,10 +7,12 @@ import {
   Param,
   Delete,
   Query,
+  ParseIntPipe,
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
-import { CreateUserDto, UpdateUserDto, UsersQueryDto } from "./dto";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { ApiTags, ApiQuery, ApiOperation } from "@nestjs/swagger";
 
 @ApiTags("Users")
 @Controller("users")
@@ -25,8 +27,15 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: "Get all users with pagination and filters" })
-  findAll(@Query() query: UsersQueryDto) {
-    return this.usersService.findAll(query.page || 1, query.limit || 20, query.search);
+  @ApiQuery({ name: "page", required: false, type: Number, example: 1 })
+  @ApiQuery({ name: "limit", required: false, type: Number, example: 20 })
+  @ApiQuery({ name: "search", required: false, type: String })
+  findAll(
+    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
+    @Query("search") search?: string
+  ) {
+    return this.usersService.findAll(page, limit, search);
   }
 
   @Get(":id")

@@ -46,7 +46,6 @@ export interface ArtworkSubmittedEvent {
   userEmail: string;
   artist: string;
   title?: string;
-  technique: string;
   desiredPrice: number;
   photos: string[];
   proofOfOrigin?: string;

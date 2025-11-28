@@ -42,6 +42,11 @@ export class CartService {
         throw new BadRequestException('You cannot add your own artwork to the cart');
       }
 
+      // Prevent adding sold artworks to cart
+      if (artwork.status === 'SOLD') {
+        throw new BadRequestException('This artwork has been sold and is no longer available');
+      }
+
       // Check if user has reached max cart items
       const cartItemsCount = await this.prisma.cartItem.count({
         where: { userId },
@@ -83,6 +88,17 @@ export class CartService {
                     name: true,
                     email: true,
                     image: true,
+                    talentTypes: {
+                      select: {
+                        talentType: {
+                          select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -90,8 +106,24 @@ export class CartService {
           },
         });
 
+        // Format the response nicely
+        const formattedItem = {
+          ...updatedItem,
+          artwork: {
+            ...updatedItem.artwork,
+            user: {
+              ...updatedItem.artwork.user,
+              talentTypes: updatedItem.artwork.user.talentTypes.map((tt) => ({
+                id: tt.talentType.id,
+                name: tt.talentType.name,
+                slug: tt.talentType.slug,
+              })),
+            },
+          },
+        };
+
         this.logger.log(`✅ Cart item updated for user ${userId}`);
-        return updatedItem;
+        return formattedItem;
       }
 
       // Create new cart item
@@ -110,6 +142,17 @@ export class CartService {
                   name: true,
                   email: true,
                   image: true,
+                  talentTypes: {
+                    select: {
+                      talentType: {
+                        select: {
+                          id: true,
+                          name: true,
+                          slug: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -117,8 +160,24 @@ export class CartService {
         },
       });
 
+      // Format the response nicely
+      const formattedItem = {
+        ...cartItem,
+        artwork: {
+          ...cartItem.artwork,
+          user: {
+            ...cartItem.artwork.user,
+            talentTypes: cartItem.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
+        },
+      };
+
       this.logger.log(`✅ Artwork ${artworkId} added to cart for user ${userId}`);
-      return cartItem;
+      return formattedItem;
     } catch (error) {
       this.logger.error(`❌ Failed to add to cart:`, error);
       throw error;
@@ -127,15 +186,28 @@ export class CartService {
 
   /**
    * Get user's cart items with pagination
+   * Excludes sold artworks from the cart
+   * Automatically cleans up sold artworks before fetching
    */
   async getCartItems(userId: string, page: number = 1, limit: number = 10) {
     try {
+      // Clean up sold artworks before fetching
+      await this.cleanupSoldArtworks(userId);
+
       const skip = (page - 1) * limit;
       const take = Math.min(limit, CART_CONSTANTS.MAX_LIMIT);
 
+      // Filter out sold artworks
       const [items, total] = await Promise.all([
         this.prisma.cartItem.findMany({
-          where: { userId },
+          where: {
+            userId,
+            artwork: {
+              status: {
+                not: 'SOLD',
+              },
+            },
+          },
           skip,
           take,
           include: {
@@ -147,6 +219,17 @@ export class CartService {
                     name: true,
                     email: true,
                     image: true,
+                    talentTypes: {
+                      select: {
+                        talentType: {
+                          select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
                 _count: {
@@ -165,13 +248,27 @@ export class CartService {
           },
         }),
         this.prisma.cartItem.count({
-          where: { userId },
+          where: {
+            userId,
+            artwork: {
+              status: {
+                not: 'SOLD',
+              },
+            },
+          },
         }),
       ]);
 
-      // Calculate totals
+      // Calculate totals - only for non-sold artworks
       const allItems = await this.prisma.cartItem.findMany({
-        where: { userId },
+        where: {
+          userId,
+          artwork: {
+            status: {
+              not: 'SOLD',
+            },
+          },
+        },
         include: {
           artwork: {
             select: {
@@ -187,13 +284,21 @@ export class CartService {
         0,
       );
 
-      // Transform items to include artwork stats
+      // Transform items to include artwork stats and format user data nicely
       const itemsWithStats = items.map((item) => ({
         ...item,
         artwork: {
           ...item.artwork,
           likeCount: item.artwork._count.interactions,
           commentCount: item.artwork._count.comments,
+          user: {
+            ...item.artwork.user,
+            talentTypes: item.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
           _count: undefined,
         },
       }));
@@ -253,6 +358,17 @@ export class CartService {
                   name: true,
                   email: true,
                   image: true,
+                  talentTypes: {
+                    select: {
+                      talentType: {
+                        select: {
+                          id: true,
+                          name: true,
+                          slug: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -260,8 +376,24 @@ export class CartService {
         },
       });
 
+      // Format the response nicely
+      const formattedItem = {
+        ...updatedItem,
+        artwork: {
+          ...updatedItem.artwork,
+          user: {
+            ...updatedItem.artwork.user,
+            talentTypes: updatedItem.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
+        },
+      };
+
       this.logger.log(`✅ Cart item updated for user ${userId}`);
-      return updatedItem;
+      return formattedItem;
     } catch (error) {
       this.logger.error(`❌ Failed to update cart item:`, error);
       throw error;
@@ -273,6 +405,8 @@ export class CartService {
    */
   async removeFromCart(userId: string, artworkId: string) {
     try {
+      this.logger.log(`Attempting to remove artwork ${artworkId} from cart for user ${userId}`);
+
       // Check if cart item exists
       const cartItem = await this.prisma.cartItem.findUnique({
         where: {
@@ -284,6 +418,7 @@ export class CartService {
       });
 
       if (!cartItem) {
+        this.logger.warn(`Cart item not found for userId: ${userId}, artworkId: ${artworkId}`);
         throw new NotFoundException(CART_MESSAGES.ERROR.NOT_FOUND);
       }
 
@@ -321,11 +456,24 @@ export class CartService {
 
   /**
    * Get cart summary (total items and total price)
+   * Excludes sold artworks from the cart
+   * Automatically cleans up sold artworks before calculating summary
    */
   async getCartSummary(userId: string) {
     try {
+      // Clean up sold artworks before calculating summary
+      await this.cleanupSoldArtworks(userId);
+
+      // Filter out sold artworks
       const items = await this.prisma.cartItem.findMany({
-        where: { userId },
+        where: {
+          userId,
+          artwork: {
+            status: {
+              not: 'SOLD',
+            },
+          },
+        },
         include: {
           artwork: {
             select: {
@@ -344,10 +492,38 @@ export class CartService {
       return {
         totalItems,
         totalPrice,
-        itemCount: items.length,
+        itemCount: items.length, // Number of unique artworks (not quantities)
       };
     } catch (error) {
       this.logger.error(`❌ Failed to get cart summary:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up sold artworks from user's cart
+   * This removes any cart items where the artwork status is SOLD
+   */
+  async cleanupSoldArtworks(userId: string) {
+    try {
+      const result = await this.prisma.cartItem.deleteMany({
+        where: {
+          userId,
+          artwork: {
+            status: 'SOLD',
+          },
+        },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`✅ Cleaned up ${result.count} sold artwork(s) from cart for user ${userId}`);
+      }
+
+      return {
+        removedCount: result.count,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Failed to cleanup sold artworks from cart:`, error);
       throw error;
     }
   }

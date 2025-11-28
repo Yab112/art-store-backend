@@ -9,12 +9,12 @@ export class ConfigurationService {
     return this.manager.get(key, valueDefault);
   }
 
-  getAccessSignToken() {
+  getAccessSignToken() { 
     return this.manager.get('JWT_ACCESS_SECRET');
   }
 
   getPort(): number {
-    return this.manager.get('PORT', 3099);
+    return this.manager.get('PORT', 3000);
   }
 
   getNumber(key: string, valueDefault?: number): number {
@@ -28,7 +28,7 @@ export class ConfigurationService {
   getEnvironment(): string {
     const value = this.get('NODE_ENV', 'development');
 
-    return value;
+    return value;  
   }
 
   getClientBaseUrl(): string {

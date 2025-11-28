@@ -9,6 +9,7 @@ import {
   Body,
   Request,
   ParseIntPipe,
+  Logger,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AddToCartDto, UpdateCartItemDto } from './dto';
@@ -28,8 +29,10 @@ import {
  * Handles all cart-related endpoints
  */
 @ApiTags('Cart')
-@Controller('cart')
+@Controller('cart') 
 export class CartController {
+  private readonly logger = new Logger(CartController.name);
+
   constructor(private readonly cartService: CartService) {}
 
   /**
@@ -40,7 +43,7 @@ export class CartController {
   @UseGuards(AuthGuard)
   @ApiOperation({
     summary: 'Add artwork to cart',
-    description:
+    description: 
       "Add an artwork to the authenticated user's cart. If the artwork already exists, the quantity will be increased.",
   })
   @ApiBody({ type: AddToCartDto })
@@ -161,6 +164,7 @@ export class CartController {
   /**
    * DELETE /cart/:artworkId
    * Remove artwork from cart
+   * NOTE: This route must come BEFORE @Delete() to avoid route conflicts
    */
   @Delete(':artworkId')
   @UseGuards(AuthGuard)
@@ -183,14 +187,23 @@ export class CartController {
     @Request() req: any,
   ) {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.id;
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User not authenticated',
+        };
+      }
+
+      this.logger.log(`Removing artwork ${artworkId} from cart for user ${userId}`);
       const result = await this.cartService.removeFromCart(userId, artworkId);
 
       return {
         success: true,
         ...result,
       };
-    } catch (error) {
+    } catch (error: any) {
+      this.logger.error(`Failed to remove artwork ${artworkId} from cart:`, error);
       return {
         success: false,
         message: error.message || 'Failed to remove from cart',
@@ -201,6 +214,7 @@ export class CartController {
   /**
    * DELETE /cart
    * Clear entire cart
+   * NOTE: This route must come AFTER @Delete(':artworkId') to avoid route conflicts
    */
   @Delete()
   @UseGuards(AuthGuard)

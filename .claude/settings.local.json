@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(pnpm prisma db seed:*)",
+      "Bash(pnpm prisma migrate dev:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

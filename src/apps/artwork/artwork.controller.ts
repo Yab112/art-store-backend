@@ -10,12 +10,15 @@ import {
   ParseIntPipe,
   Request,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ArtworkService } from './artwork.service';
 import { CreateArtworkDto, UpdateArtworkDto, ArtworkQueryDto } from './dto';
 import { AuthGuard } from '@/core/guards/auth.guard';
 // import { ArtworkStatus } from '@prisma/client';
 
+@ApiTags('Artworks')
 @Controller('artworks')
 export class ArtworkController {
   constructor(private readonly artworkService: ArtworkService) {}
@@ -89,6 +92,27 @@ export class ArtworkController {
     return this.artworkService.findByUser(userId, page, limit);
   }
 
+  // IMPORTANT: More specific routes must come BEFORE generic :id route
+  @Get(':id/similar-artworks-by-category')
+  async getSimilarArtworksByCategory(
+    @Param('id') id: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 8,
+  ) {
+    try {
+      const similarArtworks = await this.artworkService.getSimilarArtworksByCategory(id, limit);
+      return {
+        success: true,
+        artworks: similarArtworks,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Failed to fetch similar artworks',
+        artworks: [],
+      };
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @Request() req: any) {
     const userId = req.user?.id;
@@ -100,21 +124,29 @@ export class ArtworkController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateArtworkDto: UpdateArtworkDto,
-    @Request() req: any, // This will be replaced with proper auth guard
+    @Request() req: any,
   ) {
-    const userId = req.user?.id || 'mock-user-id';
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
     return this.artworkService.update(id, updateArtworkDto, userId);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
   async remove(
     @Param('id') id: string,
-    @Request() req: any, // This will be replaced with proper auth guard
+    @Request() req: any,
   ) {
-    const userId = req.user?.id || 'mock-user-id';
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
     return this.artworkService.remove(id, userId);
   }
 

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artwork Added to Collection</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .artwork-preview {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .artwork-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Artwork Added to Collection</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= userName %></strong>,</p>
+      <p>
+        You've successfully added an artwork to your collection "<strong><%= collectionName %></strong>".
+      </p>
+      <div class="artwork-preview">
+        <% if (artworkPhotoUrl) { %>
+          <img src="<%= artworkPhotoUrl %>" alt="<%= artworkTitle %>" class="artwork-image">
+        <% } %>
+        <h3 style="margin: 10px 0;"><%= artworkTitle %></h3>
+        <p style="margin: 5px 0; color: #666;">by <%= artworkArtist %></p>
+      </div>
+      <p>
+        <small>Added at: <%= addedAt %></small>
+      </p>
+      <p>
+        Continue building your collection to create a unique curated experience!
+      </p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2025 Art Gallery. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
