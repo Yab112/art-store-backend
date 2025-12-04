@@ -41,21 +41,42 @@ export class ArtworkEventSubscriber {
         `Artwork submitted: ${event.artworkId} by ${event.userName}`,
       );
 
+      // Prepare categories string for email template
+      let categoriesString = 'Not specified';
+      if (event.categories && Array.isArray(event.categories) && event.categories.length > 0) {
+        categoriesString = event.categories.map(cat => cat.name).join(', ');
+      }
+      
+      this.logger.log(
+        `📧 Preparing email with categories: ${categoriesString}`
+      );
+
+      // Prepare all template variables
+      const templateVariables: Record<string, string> = {
+        artistName: event.userName || 'Unknown',
+        artworkId: event.artworkId || '',
+        artist: event.artist || 'Unknown',
+        title: event.title || 'Untitled',
+        desiredPrice: event.desiredPrice?.toString() || '0',
+        photoCount: event.photos?.length?.toString() || '0',
+        categories: categoriesString,
+        submittedAt: event.submittedAt?.toISOString() || new Date().toISOString(),
+      };
+      
+      this.logger.log(
+        `📧 Template variables: ${JSON.stringify(Object.keys(templateVariables))}`
+      );
+      this.logger.log(
+        `📧 Categories value: "${templateVariables.categories}"`
+      );
+
       // Send confirmation email to artist
       await this.emailService.send({
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.SUBMITTED,
         template: 'artwork-submitted',
-        variables: {
-          artistName: event.userName,
-          artworkId: event.artworkId,
-          artist: event.artist,
-          title: event.title || 'Untitled',
-          desiredPrice: event.desiredPrice.toString(),
-          photoCount: event.photos.length.toString(),
-          submittedAt: event.submittedAt.toISOString(),
-        },
+        variables: templateVariables,
       });
 
       this.logger.log(`Submission confirmation sent to ${event.userEmail}`);
