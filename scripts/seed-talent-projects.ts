@@ -172,10 +172,10 @@ const artworkTitlesByTalent: Record<string, string[]> = {
     "One of a Kind",
     "Artistic Expression",
   ],
-};
+}; 
 
 // Category mapping for talent types
-const categoryMapping: Record<string, string[]> = {
+const categoryMapping: Record<string, string[]> = { 
   painter: ["painting", "drawing"],
   photographer: ["photography"],
   "digital-artist": ["digital-art", "drawing"],
