@@ -57,6 +57,7 @@
     "db:seed": "dotenv -e env/local.env -- ts-node prisma/seed.ts",
     "db:seed:landing": "dotenv -e env/local.env -- ts-node scripts/seed-landing-page.ts",
     "db:seed:engagement": "dotenv -e env/local.env -- ts-node scripts/seed-engagement-data.ts",
+    "db:seed:talent-projects": "dotenv -e env/local.env -- ts-node scripts/seed-talent-projects.ts",
     "clean": "rimraf dist coverage",
     "prebuild": "npm run clean",
     "postinstall": "npm run prisma:generate",

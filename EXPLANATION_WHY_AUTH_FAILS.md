@@ -226,3 +226,7 @@ Better Auth: WHERE id = 'uQ8hAtVZkdUS8QhQ0PdozX6w2ZabIgxf'  ✅ FOUND!
 **The solution:** Make the session token BE the `id` by removing the `token` field and changing `generateId: "uuid"` to `generateId: true`.
 
 
+
+
+
+
