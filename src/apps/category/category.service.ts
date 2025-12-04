@@ -67,7 +67,7 @@ export class CategoryService {
         },
       },
       orderBy: {
-        name: "asc",
+        createdAt: "desc",
       },
     });
 
@@ -82,14 +82,14 @@ export class CategoryService {
    * Get a single category by ID
    */
   async findOne(id: string) {
-    const category = (await this.prisma.category.findUnique({
+    const category = await this.prisma.category.findUnique({
       where: { id },
       include: {
         _count: {
-          select: { artworkOnCategory: true } as any,
+          select: { artworks: true },
         },
       },
-    })) as any;
+    });
 
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
@@ -97,7 +97,7 @@ export class CategoryService {
 
     return {
       ...category,
-      artworkCount: category._count?.artworks || 0,
+      artworkCount: (category as any)._count?.artworks || 0,
       _count: undefined,
     };
   }

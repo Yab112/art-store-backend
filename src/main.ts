@@ -24,7 +24,8 @@ async function bootstrap() {
     cors({
       origin: [
         "http://localhost:5173", // Vite dev server (frontend)
-        "http://localhost:3000", // Backend (for Swagger, etc.)
+        "http://localhost:3000", // Backend (legacy)
+        "http://localhost:3099", // Backend (current)
         "http://localhost:3001", // Admin dashboard (Next.js default)
         "http://localhost:3002", // Admin dashboard (alternative port)
         "http://13.48.104.231:3000", // EC2 Production
@@ -39,12 +40,54 @@ async function bootstrap() {
         "Authorization",
         "X-Requested-With",
         "Cookie",
+        "x-user-id",
+        "X-User-Id",
       ],
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
     })
   );
+
+  // CRITICAL FIX: Clean duplicate better-auth.session_token cookies BEFORE Better Auth processes them
+  // When browser has multiple session cookies (old + new), Better Auth picks the first (stale) one
+  // This middleware ensures only the LAST (most recent) session token is sent to Better Auth
+  server.use((req, res, next) => {
+    if (req.headers.cookie && typeof req.headers.cookie === "string") {
+      const cookieHeader = req.headers.cookie;
+
+      // Extract all better-auth.session_token cookies
+      const sessionTokenMatches = cookieHeader.match(
+        /better-auth\.session_token=([^;]+)/g
+      );
+
+      if (sessionTokenMatches && sessionTokenMatches.length > 1) {
+        console.log(
+          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`
+        );
+
+        // Remove all better-auth.session_token cookies from the header
+        let cleanedCookies = cookieHeader
+          .replace(/better-auth\.session_token=[^;]+;?/g, "")
+          .trim();
+
+        // Add only the LAST (most recent) session token cookie
+        const lastSessionCookie =
+          sessionTokenMatches[sessionTokenMatches.length - 1];
+        cleanedCookies = cleanedCookies
+          ? `${cleanedCookies}; ${lastSessionCookie}`
+          : lastSessionCookie;
+
+        req.headers.cookie = cleanedCookies;
+
+        console.log(
+          `[Cookie Cleaner] Cleaned cookie header - removed ${sessionTokenMatches.length - 1} duplicate session tokens`
+        );
+      }
+    }
+    next();
+  });
+
   server.all("/api/auth/*", toNodeHandler(auth));
   server.use(express.urlencoded({ extended: true }));
   server.use(express.json());
@@ -183,7 +226,7 @@ async function bootstrap() {
     });
   });
 
-  await app.listen(3000);
+  await app.listen(port);
   logger.success(`🚀 Application started on port ${port}`);
   logger.log(
     `📚 API Documentation available at http://localhost:${port}/swagger`

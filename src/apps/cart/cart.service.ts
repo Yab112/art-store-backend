@@ -83,6 +83,17 @@ export class CartService {
                     name: true,
                     email: true,
                     image: true,
+                    talentTypes: {
+                      select: {
+                        talentType: {
+                          select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -90,8 +101,24 @@ export class CartService {
           },
         });
 
+        // Format the response nicely
+        const formattedItem = {
+          ...updatedItem,
+          artwork: {
+            ...updatedItem.artwork,
+            user: {
+              ...updatedItem.artwork.user,
+              talentTypes: updatedItem.artwork.user.talentTypes.map((tt) => ({
+                id: tt.talentType.id,
+                name: tt.talentType.name,
+                slug: tt.talentType.slug,
+              })),
+            },
+          },
+        };
+
         this.logger.log(`✅ Cart item updated for user ${userId}`);
-        return updatedItem;
+        return formattedItem;
       }
 
       // Create new cart item
@@ -110,6 +137,17 @@ export class CartService {
                   name: true,
                   email: true,
                   image: true,
+                  talentTypes: {
+                    select: {
+                      talentType: {
+                        select: {
+                          id: true,
+                          name: true,
+                          slug: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -117,8 +155,24 @@ export class CartService {
         },
       });
 
+      // Format the response nicely
+      const formattedItem = {
+        ...cartItem,
+        artwork: {
+          ...cartItem.artwork,
+          user: {
+            ...cartItem.artwork.user,
+            talentTypes: cartItem.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
+        },
+      };
+
       this.logger.log(`✅ Artwork ${artworkId} added to cart for user ${userId}`);
-      return cartItem;
+      return formattedItem;
     } catch (error) {
       this.logger.error(`❌ Failed to add to cart:`, error);
       throw error;
@@ -147,6 +201,17 @@ export class CartService {
                     name: true,
                     email: true,
                     image: true,
+                    talentTypes: {
+                      select: {
+                        talentType: {
+                          select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
                 _count: {
@@ -187,13 +252,21 @@ export class CartService {
         0,
       );
 
-      // Transform items to include artwork stats
+      // Transform items to include artwork stats and format user data nicely
       const itemsWithStats = items.map((item) => ({
         ...item,
         artwork: {
           ...item.artwork,
           likeCount: item.artwork._count.interactions,
           commentCount: item.artwork._count.comments,
+          user: {
+            ...item.artwork.user,
+            talentTypes: item.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
           _count: undefined,
         },
       }));
@@ -253,6 +326,17 @@ export class CartService {
                   name: true,
                   email: true,
                   image: true,
+                  talentTypes: {
+                    select: {
+                      talentType: {
+                        select: {
+                          id: true,
+                          name: true,
+                          slug: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -260,8 +344,24 @@ export class CartService {
         },
       });
 
+      // Format the response nicely
+      const formattedItem = {
+        ...updatedItem,
+        artwork: {
+          ...updatedItem.artwork,
+          user: {
+            ...updatedItem.artwork.user,
+            talentTypes: updatedItem.artwork.user.talentTypes.map((tt) => ({
+              id: tt.talentType.id,
+              name: tt.talentType.name,
+              slug: tt.talentType.slug,
+            })),
+          },
+        },
+      };
+
       this.logger.log(`✅ Cart item updated for user ${userId}`);
-      return updatedItem;
+      return formattedItem;
     } catch (error) {
       this.logger.error(`❌ Failed to update cart item:`, error);
       throw error;

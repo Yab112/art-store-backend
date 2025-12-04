@@ -21,7 +21,7 @@
     }
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "dotenv -e env/local.env -- ts-node prisma/seed.ts"
   },
   "scripts": {
     "build": "nest build && npm run copy:templates",
@@ -55,12 +55,17 @@
     "prisma:generate": "npx prisma generate",
     "prisma:generate:watch": "npx prisma generate --watch",
     "db:seed": "dotenv -e env/local.env -- ts-node prisma/seed.ts",
+    "db:seed:landing": "dotenv -e env/local.env -- ts-node scripts/seed-landing-page.ts",
+    "db:seed:engagement": "dotenv -e env/local.env -- ts-node scripts/seed-engagement-data.ts",
+    "db:seed:talent-projects": "dotenv -e env/local.env -- ts-node scripts/seed-talent-projects.ts",
     "clean": "rimraf dist coverage",
     "prebuild": "npm run clean",
     "postinstall": "npm run prisma:generate",
     "swagger:generate": "ts-node scripts/generate-swagger.ts",
     "swagger:export": "ts-node scripts/generate-swagger.ts --export",
-    "swagger:validate": "ts-node scripts/generate-swagger.ts --validate"
+    "swagger:validate": "ts-node scripts/generate-swagger.ts --validate",
+    "insert:test-withdrawals": "dotenv -e env/local.env -- ts-node scripts/insert-test-withdrawals.ts",
+    "insert:test-earnings": "dotenv -e env/local.env -- ts-node scripts/insert-test-earnings.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",

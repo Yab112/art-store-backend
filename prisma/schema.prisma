@@ -168,6 +168,10 @@ model User {
   emailVerified                      Boolean        @default(false)
   image                              String?
   coverImage                         String?
+  bio                                String?        // Artist biography/introduction
+  location                           String?        // Artist location/country
+  website                            String?        // Artist website URL
+  emailSubscription                  Boolean        @default(true) // Subscribe to blog post notifications
   score                              Float          @default(0)
   role                               String
   banned                             Boolean        @default(false)
@@ -177,6 +181,17 @@ model User {
   createdAt                          DateTime       @default(now())
   updatedAt                          DateTime
   firstlogin                         Boolean?
+  // Analytics & Engagement
+  lastActiveAt                       DateTime?
+  profileViews                       Int            @default(0)
+  heatScore                          Float          @default(0)
+  // Preferences & Settings
+  themePreference                    String         @default("light")
+  languagePreference                  String         @default("en")
+  timezone                           String?        @default("UTC")
+  messagingPreferences               Json?
+  // Talent Types (many-to-many)
+  talentTypes                        UserOnTalentType[]
   accounts                           Account[]
   Chat_Chat_clientIdToUser           Chat[]         @relation("Chat_clientIdToUser")
   Chat_Chat_taskerIdToUser           Chat[]         @relation("Chat_taskerIdToUser")
@@ -197,6 +212,10 @@ model User {
   favorites                          Favorite[]
   cartItems                          CartItem[]
   withdrawals                        Withdrawal[]
+  blogPosts                          BlogPost[]     @relation("BlogPost_author")
+  blogComments                       BlogComment[]  @relation("BlogComment_user")
+  blogVotes                          BlogVote[]     @relation("BlogVote_user")
+  blogShares                         BlogShare[]    @relation("BlogShare_user")
 
   @@map("users")
 }
@@ -444,6 +463,102 @@ model Withdrawal {
   user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Blog Models
+enum BlogPostStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VoteType {
+  LIKE
+  DISLIKE
+}
+
+model BlogPost {
+  id            String         @id @default(uuid())
+  title         String
+  slug          String         @unique
+  content       String
+  excerpt       String?
+  featuredImage String?
+  status        BlogPostStatus @default(PENDING)
+  published     Boolean        @default(false)
+  publishedAt   DateTime?
+  authorId      String
+  views         Int            @default(0)
+  likes         Int            @default(0)
+  dislikes      Int            @default(0)
+  shares        Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  editedAt      DateTime?
+
+  author        User           @relation("BlogPost_author", fields: [authorId], references: [id], onDelete: Cascade)
+  comments      BlogComment[]
+  votes         BlogVote[]
+  sharesList    BlogShare[]
+
+  @@index([slug])
+  @@index([status, published, publishedAt])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("blog_posts")
+}
+
+model BlogComment {
+  id          String      @id @default(uuid())
+  blogPostId  String
+  userId      String
+  content     String
+  parentId    String?
+  likes       Int         @default(0)
+  dislikes    Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  blogPost    BlogPost    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  user        User        @relation("BlogComment_user", fields: [userId], references: [id], onDelete: Cascade)
+  parent      BlogComment? @relation("BlogComment_parent", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     BlogComment[] @relation("BlogComment_parent")
+
+  @@index([blogPostId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("blog_comments")
+}
+
+model BlogVote {
+  id          String      @id @default(uuid())
+  blogPostId  String
+  userId      String
+  type        VoteType
+  createdAt   DateTime    @default(now())
+
+  blogPost    BlogPost    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  user        User        @relation("BlogVote_user", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blogPostId, userId])
+  @@index([blogPostId])
+  @@index([userId])
+  @@map("blog_votes")
+}
+
+model BlogShare {
+  id          String      @id @default(uuid())
+  blogPostId  String
+  userId      String?
+  platform    String?
+  createdAt   DateTime    @default(now())
+
+  blogPost    BlogPost    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  user        User?       @relation("BlogShare_user", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([blogPostId])
+  @@index([userId])
+  @@map("blog_shares")
+}
+
 
 
 enum PAYMENT_STATUS {
@@ -532,5 +647,34 @@ enum MESSAGE_STATUS {
   REJECTED
   SOLD
   WITHDRAWN
+}
+
+model TalentType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?  // S3 URL or object key
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserOnTalentType[]
+
+  @@map("talent_types")
+}
+
+model UserOnTalentType {
+  id           String     @id @default(uuid())
+  userId       String
+  talentTypeId String
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  talentType   TalentType @relation(fields: [talentTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, talentTypeId])
+  @@map("user_on_talent_types")
 }
 
