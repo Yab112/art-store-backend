@@ -189,22 +189,56 @@ export class ArtworkService {
       });
       console.log("✅ Artwork created successfully:", artwork.id);
 
+      // Fetch categories for the artwork
+      const artworkWithCategories = await this.prisma.artwork.findUnique({
+        where: { id: artwork.id },
+        include: {
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Extract categories for the event
+      const categories = artworkWithCategories?.categories?.map(
+        (ac) => ac.category
+      ) || [];
+      
+      this.logger.log(
+        `📋 Artwork ${artwork.id} has ${categories.length} categories: ${categories.map(c => c.name).join(', ') || 'none'}`
+      );
+
       // Emit artwork submitted event - use user from query or artwork.user
       const artworkUser = artwork.user || user;
+      const eventPayload: ArtworkSubmittedEvent = {
+        artworkId: artwork.id,
+        userId: artwork.userId,
+        userName: artworkUser?.name || "Unknown",
+        userEmail: artworkUser?.email || "",
+        artist: artwork.artist,
+        title: artwork.title,
+        desiredPrice: artwork.desiredPrice,
+        photos: artwork.photos,
+        proofOfOrigin: artwork.proofOfOrigin,
+        categories: categories,
+        submittedAt: new Date(),
+      };
+      
+      this.logger.log(
+        `📧 Emitting artwork submitted event with ${eventPayload.categories?.length || 0} categories`
+      );
+      
       await this.eventService.emit<ArtworkSubmittedEvent>(
         ARTWORK_EVENTS.SUBMITTED,
-        {
-          artworkId: artwork.id,
-          userId: artwork.userId,
-          userName: artworkUser?.name || "Unknown",
-          userEmail: artworkUser?.email || "",
-          artist: artwork.artist,
-          title: artwork.title,
-          desiredPrice: artwork.desiredPrice,
-          photos: artwork.photos,
-          proofOfOrigin: artwork.proofOfOrigin,
-          submittedAt: new Date(),
-        }
+        eventPayload
       );
 
       this.logger.log(`✅ Artwork created: ${artwork.id}`);
