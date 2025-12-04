@@ -388,7 +388,7 @@ async function main() {
       
       try {
         const artwork = await prisma.artwork.create({
-          data: {
+        data: {
             title: `${title} - ${category.name}`,
             artist: user.name,
             support: ["Canvas", "Paper", "Wood", "Metal", "Fabric"][i % 5],
@@ -402,7 +402,7 @@ async function main() {
             },
             isFramed: artworkIndex % 2 === 0,
             weight: `${0.5 + (artworkIndex % 5) * 0.3}kg`,
-            handDeliveryAccepted: true,
+          handDeliveryAccepted: true,
             origin: user.location || "Unknown",
             yearOfAcquisition: String(2020 + (artworkIndex % 5)),
             description: `A beautiful ${category.name.toLowerCase()} artwork by ${user.name}. This piece represents the artist's unique style and vision.`,
@@ -411,19 +411,19 @@ async function main() {
             accountHolder: user.name,
             iban: `ET${String(artworkIndex).padStart(22, "0")}`,
             bicCode: `ETBIC${artworkIndex}`,
-            acceptTermsOfSale: true,
-            giveSalesMandate: true,
+          acceptTermsOfSale: true,
+          giveSalesMandate: true,
             photos: [getRandomImage(), getRandomImage()], // Multiple photos
             status: "APPROVED",
             isApproved: true,
             userId: user.id,
-          } as any,
-        });
-        artworks.push(artwork);
+        } as any,
+      });
+      artworks.push(artwork);
         artworkIndex++;
         console.log(`✅ Created artwork: ${artwork.title} (Category: ${category.name})`);
-      } catch (error: any) {
-        if (error.code === "P2002") {
+    } catch (error: any) {
+      if (error.code === "P2002") {
           console.log(`⏭️  Artwork ${artworkIndex + 1} already exists, skipping...`);
           artworkIndex++;
         } else {
@@ -441,7 +441,7 @@ async function main() {
     // Assign this category to 5 artworks (the ones we just created for this category)
     for (let i = 0; i < 5; i++) {
       const artwork = artworks[categoryArtworkIndex];
-      if (artwork) {
+    if (artwork) {
         try {
           await prisma.artworkOnCategory.upsert({
             where: {
@@ -460,25 +460,25 @@ async function main() {
           if (i < 2 && Math.random() > 0.5) {
             const randomCategory = categories[Math.floor(Math.random() * categories.length)];
             if (randomCategory.id !== category.id) {
-              try {
-                await prisma.artworkOnCategory.upsert({
-                  where: {
-                    artworkId_categoryId: {
-                      artworkId: artwork.id,
-                      categoryId: randomCategory.id,
-                    },
-                  },
-                  update: {},
-                  create: {
-                    artworkId: artwork.id,
-                    categoryId: randomCategory.id,
-                  },
+          try {
+            await prisma.artworkOnCategory.upsert({
+              where: {
+                artworkId_categoryId: {
+                  artworkId: artwork.id,
+                  categoryId: randomCategory.id,
+                },
+              },
+              update: {},
+              create: {
+                artworkId: artwork.id,
+                categoryId: randomCategory.id,
+              },
                 });
-              } catch (error: any) {
-                if (error.code !== "P2002") throw error;
-              }
-            }
+          } catch (error: any) {
+            if (error.code !== "P2002") throw error;
           }
+        }
+      }
         } catch (error: any) {
           if (error.code !== "P2002") throw error;
         }
@@ -502,26 +502,26 @@ async function main() {
     const numCollections = 2 + (i % 2); // 2 or 3 collections per artist
     for (let j = 0; j < numCollections; j++) {
       const collectionName = collectionNames[(i * 2 + j) % collectionNames.length] || `Collection ${i + 1}-${j + 1}`;
-      try {
-        const collection = await prisma.collection.create({
-          data: {
+    try {
+      const collection = await prisma.collection.create({
+        data: {
             name: `${collectionName} - ${users[i].name}`,
             description: `A curated collection of artworks by ${users[i].name}`,
             coverImage: getRandomImage(),
             visibility: j % 2 === 0 ? "public" : "private",
-            createdBy: users[i].id,
-          },
-        });
-        collections.push(collection);
+          createdBy: users[i].id,
+        },
+      });
+      collections.push(collection);
         console.log(`✅ Created collection: ${collection.name}`);
-      } catch (error: any) {
-        if (error.code === "P2002") {
+    } catch (error: any) {
+      if (error.code === "P2002") {
           console.log(`⏭️  Collection ${i + 1}-${j + 1} already exists, skipping...`);
-        } else {
-          throw error;
-        }
+      } else {
+        throw error;
       }
     }
+  }
   }
 
   // 7. Add Artworks to Collections
@@ -535,25 +535,25 @@ async function main() {
     for (let i = 0; i < numArtworks && i < userArtworks.length; i++) {
       const artwork = userArtworks[i];
       if (artwork) {
-        try {
-          await prisma.collectionOnArtwork.upsert({
-            where: {
-              collectionId_artworkId: {
+    try {
+      await prisma.collectionOnArtwork.upsert({
+        where: {
+          collectionId_artworkId: {
                 collectionId: collection.id,
                 artworkId: artwork.id,
-              },
-            },
-            update: {},
-            create: {
+          },
+        },
+        update: {},
+        create: {
               collectionId: collection.id,
               artworkId: artwork.id,
-            },
-          });
+        },
+      });
           console.log(`✅ Added artwork "${artwork.title}" to collection "${collection.name}"`);
-        } catch (error: any) {
-          if (error.code !== "P2002") throw error;
-        }
-      }
+    } catch (error: any) {
+      if (error.code !== "P2002") throw error;
+    }
+  }
     }
     collectionIndex++;
   }
@@ -567,31 +567,31 @@ async function main() {
     // Add some views
     for (let j = 0; j < 5 + Math.floor(Math.random() * 10); j++) {
       const randomUser = users[Math.floor(Math.random() * users.length)];
-      try {
+    try {
         await prisma.interaction.create({
-          data: {
+        data: {
             artworkId: artwork.id,
             userId: randomUser.id,
             type: "view",
-          },
-        });
-      } catch (error: any) {
+        },
+      });
+    } catch (error: any) {
         // Ignore duplicates
-      }
     }
+  }
 
     // Add some likes
     for (let j = 0; j < 2 + Math.floor(Math.random() * 5); j++) {
       const randomUser = users[Math.floor(Math.random() * users.length)];
-      try {
-        await prisma.interaction.create({
-          data: {
+    try {
+      await prisma.interaction.create({
+        data: {
             artworkId: artwork.id,
             userId: randomUser.id,
             type: "LIKE",
-          },
-        });
-      } catch (error: any) {
+        },
+      });
+    } catch (error: any) {
         // Ignore duplicates
       }
     }
