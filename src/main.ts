@@ -140,6 +140,8 @@ async function bootstrap() {
     .addServer("http://localhost:3000", "Localhost")
     .addServer("http://13.48.104.231:3000/api", "EC2 Production")
     .addServer("http://13.48.104.231:3000", "EC2 Production (Root)")
+    .addServer("http://13.48.147.113:3000/api", "EC2 Production API")
+    .addServer("http://13.48.147.113:3000", "EC2 Production (Root)")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
       "Render Production URL"
@@ -223,7 +225,7 @@ async function bootstrap() {
       logger.warn(`Received ${signal}, starting graceful shutdown`);
       await app.close();
       process.exit(0);
-    }); 
+    });
   });
 
   await app.listen(port);
