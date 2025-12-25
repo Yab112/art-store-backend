@@ -225,7 +225,7 @@ async function bootstrap() {
       logger.warn(`Received ${signal}, starting graceful shutdown`);
       await app.close();
       process.exit(0);
-    }); 
+    });
   });
 
   await app.listen(port);
