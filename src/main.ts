@@ -31,6 +31,8 @@ async function bootstrap() {
         "http://13.48.104.231:3000", // EC2 Production
         "https://art-store-backend-latest.onrender.com",
         "https://art-store-frontend-flame.vercel.app",
+        "http://13.48.147.113:3100",
+        "http://13.48.147.113:3000",
         process.env.FRONTEND_URL || "http://localhost:5173",
         process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
       ].filter(Boolean), // Remove undefined values
@@ -136,10 +138,8 @@ async function bootstrap() {
     .setTitle("Art Store API")
     .setDescription("Comprehensive marketplace API for Art Store application")
     .setVersion("1.0")
-    .addServer("http://localhost:3000/api", "Localhost")
-    .addServer("http://localhost:3000", "Localhost")
-    .addServer("http://13.48.104.231:3000/api", "EC2 Production")
-    .addServer("http://13.48.104.231:3000", "EC2 Production (Root)")
+    .addServer("http://localhost:3099/api", "Localhost")
+    .addServer("http://localhost:3099", "Localhost")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
       "Render Production URL"
@@ -148,6 +148,8 @@ async function bootstrap() {
       "https://art-store-backend-latest.onrender.com/api",
       "Render Production API URL"
     )
+    .addServer("http://13.48.147.113:3100/api", "EC2 Production API")
+    .addServer("http://13.48.147.113:3100", "EC2 Production (Root)")
     .build();
 
   // get Better-Auth OpenAPI schema
