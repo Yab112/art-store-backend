@@ -984,10 +984,17 @@ export class ProfileService {
         throw new BadRequestException('Invalid payment method. Must be "paypal" or "chapa"');
       }
 
-      const updated = await this.prisma.user.update({
-        where: { id: userId },
-        data: { paymentMethodPreference },
-        select: { paymentMethodPreference: true },
+      const updated = await this.prisma.paymentMethodPreference.upsert({
+        where: { userId },
+        update: { 
+          method: paymentMethodPreference,
+        },
+        create: {
+          userId,
+          method: paymentMethodPreference,
+          isDefault: true,
+        },
+        select: { method: true },
       });
 
       this.logger.log(`Payment method preference updated for user ${userId}: ${paymentMethodPreference}`);
@@ -996,7 +1003,7 @@ export class ProfileService {
         success: true,
         message: 'Payment method preference updated successfully',
         data: {
-          paymentMethodPreference: updated.paymentMethodPreference,
+          method: updated.method,
         },
       };
     } catch (error) {
