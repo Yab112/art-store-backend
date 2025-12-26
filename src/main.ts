@@ -148,8 +148,8 @@ async function bootstrap() {
       "https://art-store-backend-latest.onrender.com/api",
       "Render Production API URL"
     )
-    .addServer("http://13.48.147.113:3100/api", "EC2 Production API")
-    .addServer("http://13.48.147.113:3100", "EC2 Production (Root)")
+    .addServer("http://13.48.147.113:3099/api", "EC2 Production API")
+    .addServer("http://13.48.147.113:3099", "EC2 Production (Root)")
     .build();
 
   // get Better-Auth OpenAPI schema
