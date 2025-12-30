@@ -32,8 +32,8 @@ async function bootstrap() {
         "https://art-store-backend-latest.onrender.com",
         "https://art-store-frontend-flame.vercel.app",
         "http://13.48.147.113:3100",
-        "http://13.48.147.113:3000",
-        process.env.FRONTEND_URL || "http://localhost:5173",
+        "http://13.48.147.113:3000", 
+        process.env.FRONTEND_URL || "https://www.arthopia.com.et",
         process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
       ].filter(Boolean), // Remove undefined values
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
