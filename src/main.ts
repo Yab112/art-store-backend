@@ -1,11 +1,11 @@
 import { NestFactory } from "@nestjs/core";
+import { ValidationPipe, Logger, VERSION_NEUTRAL } from "@nestjs/common";
+import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import helmet from "helmet";
 import { AppModule } from "./app.module";
-import { ValidationPipe } from "@nestjs/common";
 import { ConfigurationService } from "./core/configuration";
 const cookieParser = require("cookie-parser");
 import { CorsService } from "./core/cors";
-import helmet from "helmet";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { LoggerService } from "./libraries/logger";
 import { auth } from "./auth";
 import {
@@ -32,7 +32,7 @@ async function bootstrap() {
         "https://art-store-backend-latest.onrender.com",
         "https://art-store-frontend-flame.vercel.app",
         "http://13.48.147.113:3100",
-        "http://13.48.147.113:3000", 
+        "http://13.48.147.113:3000",
         process.env.FRONTEND_URL || "https://www.arthopia.com.et",
         process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
       ].filter(Boolean), // Remove undefined values
@@ -83,7 +83,8 @@ async function bootstrap() {
         req.headers.cookie = cleanedCookies;
 
         console.log(
-          `[Cookie Cleaner] Cleaned cookie header - removed ${sessionTokenMatches.length - 1} duplicate session tokens`
+          `[Cookie Cleaner] Cleaned cookie header - removed ${sessionTokenMatches.length - 1
+          } duplicate session tokens`
         );
       }
     }
@@ -98,9 +99,11 @@ async function bootstrap() {
     AppModule,
     new ExpressAdapter(server),
     {
+      logger: ["error", "warn", "log", "debug", "verbose"],
       bodyParser: false,
     }
   );
+
   app.useStaticAssets(join(__dirname, "..", "public"));
   const configurationService = app.get(ConfigurationService);
   const corsService = app.get(CorsService);
@@ -148,8 +151,8 @@ async function bootstrap() {
       "https://art-store-backend-latest.onrender.com/api",
       "Render Production API URL"
     )
-    .addServer("http://13.48.147.113:3099/api", "EC2 Production API")
-    .addServer("http://13.48.147.113:3099", "EC2 Production (Root)")
+    .addServer("http://13.60.211.105:3099/api", "EC2 Production API")
+    .addServer("http://13.60.211.105:3099", "EC2 Production (Root)")
     .build();
 
   // get Better-Auth OpenAPI schema
@@ -229,7 +232,7 @@ async function bootstrap() {
   });
 
   await app.listen(port);
-  logger.success(`🚀 Application started on port ${port}`);
+  logger.success(`🚀 Application started on port ${port} `);
   logger.log(
     `📚 API Documentation available at http://localhost:${port}/swagger`
   );
