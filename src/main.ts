@@ -31,8 +31,8 @@ async function bootstrap() {
         "http://13.48.104.231:3000", // EC2 Production
         "https://art-store-backend-latest.onrender.com",
         "https://art-store-frontend-flame.vercel.app",
-        "http://13.48.147.113:3100",
-        "http://13.48.147.113:3000",
+        "http://13.60.211.105:3100",
+        "http://13.60.211.105:3000",
         process.env.FRONTEND_URL || "https://www.arthopia.com.et",
         process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
       ].filter(Boolean), // Remove undefined values
