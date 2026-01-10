@@ -246,10 +246,14 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     sendResetPassword: async ({ user, url }) => {
-      await emailBridge.sendPasswordResetEmail({
-        email: user.email,
-        link: url,
-      });
+      try {
+        await emailBridge.sendPasswordResetEmail({
+          email: user.email,
+          link: url,
+        });
+      } catch (error) {
+        throw error;
+      }
     },
   },
   databaseHooks: {
@@ -278,6 +282,25 @@ export const auth = betterAuth({
             console.log(
               `User ${user.id} verified in database: ${dbUser.email}, image: ${dbUser.image || "none"}`
             );
+            
+            // If user.image is provided but database doesn't have it, update it
+            // This ensures Google OAuth images are saved immediately on user creation
+            if (user.image && user.image.trim() !== "") {
+              const imageUrl = user.image.trim();
+              // Validate it's a proper URL
+              const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+              
+              if (isValidUrl && (!dbUser.image || dbUser.image !== imageUrl)) {
+                console.log(`🖼️ Updating newly created user ${user.id} image: ${imageUrl}`);
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: { image: imageUrl },
+                });
+                console.log(`✅ Updated newly created user ${user.id} image in database`);
+              } else if (!isValidUrl) {
+                console.warn(`⚠️ Invalid image URL for newly created user ${user.id}: ${imageUrl}`);
+              }
+            }
           }
         },
       },
@@ -290,6 +313,31 @@ export const auth = betterAuth({
             name: user.name,
             image: user.image,
           });
+          
+          // Check database to see current state
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { id: true, email: true, image: true },
+          });
+          
+          // If user.image is provided but database doesn't have it, update it
+          // This ensures Google OAuth images are saved immediately
+          if (user.image && user.image.trim() !== "") {
+            const imageUrl = user.image.trim();
+            // Validate it's a proper URL
+            const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+            
+            if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
+              console.log(`🖼️ Updating user ${user.id} image from Better Auth: ${imageUrl}`);
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { image: imageUrl },
+              });
+              console.log(`✅ Updated user ${user.id} image in database`);
+            } else if (!isValidUrl) {
+              console.warn(`⚠️ Invalid image URL for user ${user.id}: ${imageUrl}`);
+            }
+          }
           
           // If image is missing, try to fetch from Google account
           if (!user.image && user.email) {
@@ -360,11 +408,12 @@ export const auth = betterAuth({
       if (ctx.path?.startsWith("/callback/google")) {
         console.log("🔍 OAuth callback hook triggered for Google");
         
-        // Get the new session from context (if available)
+        // Get the user ID from the newly created session in the context
         const newSession = ctx.context?.newSession;
-        if (newSession?.user) {
-          const userId = newSession.user.id;
-          console.log(`🔍 Checking user ${userId} for profile image...`);
+        const userId = newSession?.user?.id;
+        
+        if (userId) {
+          console.log(`🔍 Checking user ${userId} for profile image after OAuth callback...`);
           
           // Fetch the user from database to check current image
           const dbUser = await prisma.user.findUnique({
@@ -372,7 +421,24 @@ export const auth = betterAuth({
             select: { id: true, email: true, image: true },
           });
           
-          if (dbUser && !dbUser.image) {
+          // Check if user from Better Auth context has image but database doesn't
+          const userImage = newSession?.user?.image;
+          if (userImage && userImage.trim() !== "") {
+            const imageUrl = userImage.trim();
+            const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+            
+            if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
+              console.log(`🖼️ OAuth Callback: Updating user ${userId} image from Better Auth: ${imageUrl}`);
+              await prisma.user.update({
+                where: { id: userId },
+                data: { image: imageUrl },
+              });
+              console.log(`✅ OAuth Callback: Updated user ${userId} image in database`);
+            }
+          }
+          
+          // If image is still missing, try to fetch from Google account
+          if (!dbUser?.image || (dbUser.image && dbUser.image.trim() === "")) {
             console.log(`⚠️ User ${userId} has no image. Attempting to fetch from Google account...`);
             
             // Try to get the account to see if we have access token
@@ -444,12 +510,14 @@ export const auth = betterAuth({
           name: profile.name,
           email: profile.email,
           picture: profile.picture,
+          picture_large: (profile as any).picture_large,
           given_name: profile.given_name,
           email_verified: profile.email_verified,
           all_keys: Object.keys(profile), // Log all available keys
         });
         
-        const pictureUrl = profile.picture || null;
+        // Try multiple possible fields for the image URL
+        const pictureUrl = profile.picture || (profile as any).picture_large || (profile as any).photo || null;
         
         // Ensure we're getting the picture URL
         if (!pictureUrl) {
@@ -457,16 +525,23 @@ export const auth = betterAuth({
           console.warn("⚠️ Full profile object:", JSON.stringify(profile, null, 2));
         } else {
           console.log(`✅ Found Google picture URL: ${pictureUrl}`);
+          // Ensure the URL is valid and properly formatted
+          if (!pictureUrl.startsWith('http://') && !pictureUrl.startsWith('https://')) {
+            console.warn(`⚠️ Picture URL doesn't start with http:// or https://: ${pictureUrl}`);
+          }
         }
         
         const mappedUser = {
           name: profile.name || profile.given_name || profile.email?.split("@")[0] || "User",
           email: profile.email,
           emailVerified: profile.email_verified || false,
-          image: pictureUrl, // Google returns 'picture', map to 'image'
+          image: pictureUrl, // Google returns 'picture', map to 'image' - CRITICAL for OAuth
         };
         
-        console.log("✅ Mapped user data:", mappedUser);
+        console.log("✅ Mapped user data (including image):", {
+          ...mappedUser,
+          imageLength: mappedUser.image?.length || 0,
+        });
         return mappedUser;
       },
     },
@@ -516,6 +591,14 @@ export const auth = betterAuth({
 
   // Secret for encryption
   secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",
+
+  // Session configuration
+  // When rememberMe is true, session expires in 30 days
+  // When rememberMe is false, session expires when browser closes (session cookie)
+  session: {
+    expiresIn: 60 * 60 * 24 * 30, // 30 days in seconds (2592000)
+    updateAge: 60 * 60 * 24, // 1 day - refresh session expiration every day when used
+  },
 
   // Disable telemetry for cleaner logs
   telemetry: {

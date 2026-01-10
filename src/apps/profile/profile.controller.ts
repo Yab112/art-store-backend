@@ -245,6 +245,24 @@ export class ProfileController {
     }
   }
 
+  /**
+   * POST /profile/subscribe-newsletter
+   * Public endpoint to subscribe to newsletter by email
+   */
+  @Post("subscribe-newsletter")
+  @Public()
+  @ApiOperation({ summary: "Subscribe to newsletter (public endpoint)" })
+  async subscribeNewsletter(@Body() body: { email: string }) {
+    try {
+      return await this.profileService.subscribeNewsletter(body.email);
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to subscribe to newsletter",
+      };
+    }
+  }
+
 
   /**
    * GET /profile/uploads

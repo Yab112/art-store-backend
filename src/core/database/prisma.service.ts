@@ -18,14 +18,16 @@ export class PrismaService
   }
 
   async onModuleInit(): Promise<void> {
-    const maxRetries = 3;
-    const retryDelay = 2000; // 2 seconds
+    const maxRetries = 6; // Increased for Neon auto-pause (can take 10-30s to wake up)
+    const baseDelay = 3000; // 3 seconds base delay
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 1) {
-          this.logger.log(`Retrying database connection (attempt ${attempt}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          // Exponential backoff: 3s, 6s, 9s, 12s, 15s, 18s
+          const delay = baseDelay * attempt;
+          this.logger.log(`Retrying database connection (attempt ${attempt}/${maxRetries}) in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           this.logger.log('Connecting to database...');
         }
@@ -39,7 +41,7 @@ export class PrismaService
         if (error.code === 'P1001') {
           // Neon database might be auto-paused, retry with delay
           if (!isLastAttempt) {
-            this.logger.warn(`Database connection failed (attempt ${attempt}/${maxRetries}). This might be due to Neon auto-pause. Retrying...`);
+            this.logger.warn(`Database connection failed (attempt ${attempt}/${maxRetries}). This might be due to Neon auto-pause. Retrying in ${baseDelay * (attempt + 1)}ms...`);
             continue;
           }
           

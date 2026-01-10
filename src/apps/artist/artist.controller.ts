@@ -155,15 +155,18 @@ export class ArtistController {
   async getAllArtists(
     @Query("page") page?: string,
     @Query("limit") limit?: string,
-    @Query("search") search?: string
+    @Query("search") search?: string,
+    @Query("country") country?: string,
+    @Query("talentTypeId") talentTypeId?: string,
+    @Query("email") email?: string
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 50;
 
     this.logger.log(
-      `Get all artists - page: ${pageNum}, limit: ${limitNum}, search: ${search || "none"}`
+      `Get all artists - page: ${pageNum}, limit: ${limitNum}, search: ${search || "none"}, country: ${country || "none"}, talentTypeId: ${talentTypeId || "none"}, email: ${email || "none"}`
     );
-    return this.artistService.getAllArtists(pageNum, limitNum, search);
+    return this.artistService.getAllArtists(pageNum, limitNum, search, country, talentTypeId, email);
   }
 
   /**

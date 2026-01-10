@@ -666,6 +666,43 @@ export class ProfileService {
   }
 
   /**
+   * Subscribe to newsletter by email
+   * If user exists, update their emailSubscription to true
+   * If user doesn't exist, we can't subscribe them (they need to sign up first)
+   */
+  async subscribeNewsletter(email: string) {
+    try {
+      // Find user by email
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        // User doesn't exist - they need to sign up first
+        return {
+          success: false,
+          message: "Please sign up first to subscribe to our newsletter.",
+        };
+      }
+
+      // Update emailSubscription to true
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailSubscription: true },
+      });
+
+      this.logger.log(`Newsletter subscription enabled for: ${email}`);
+      return {
+        success: true,
+        message: "Successfully subscribed to newsletter!",
+      };
+    } catch (error) {
+      this.logger.error(`Failed to subscribe newsletter for ${email}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * List user's uploaded artworks (including drafts)
    */
   async getUploadedArtworks(

@@ -533,7 +533,14 @@ export class ArtistService {
   /**
    * Get all artists with pagination and search
    */
-  async getAllArtists(page: number = 1, limit: number = 50, search?: string) {
+  async getAllArtists(
+    page: number = 1,
+    limit: number = 50,
+    search?: string,
+    country?: string,
+    talentTypeId?: string,
+    email?: string
+  ) {
     try {
       const skip = (page - 1) * limit;
 
@@ -547,13 +554,48 @@ export class ArtistService {
         // },
       };
 
-      if (search) {
-        where.OR = [
+      // Filter by country (location field)
+      if (country && country.trim() !== "") {
+        where.location = {
+          contains: country,
+          mode: "insensitive",
+        };
+      }
+
+      // Filter by talent type
+      if (talentTypeId && talentTypeId.trim() !== "") {
+        where.talentTypes = {
+          some: {
+            talentType: {
+              id: talentTypeId,
+            },
+          },
+        };
+      }
+
+      // Filter by email (exact or partial match)
+      if (email && email.trim() !== "") {
+        where.email = {
+          contains: email,
+          mode: "insensitive",
+        };
+      }
+
+      // Search across multiple fields (only if no specific email filter is set)
+      if (search && search.trim() !== "") {
+        // If email filter is already set, don't search in email field
+        const searchFields: any[] = [
           { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
           { location: { contains: search, mode: "insensitive" } },
           { bio: { contains: search, mode: "insensitive" } },
         ];
+
+        // Only add email to search if email filter is not already set
+        if (!email || email.trim() === "") {
+          searchFields.push({ email: { contains: search, mode: "insensitive" } });
+        }
+
+        where.OR = searchFields;
       }
 
       // Get artists with their artwork counts
