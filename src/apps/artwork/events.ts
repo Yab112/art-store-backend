@@ -49,6 +49,11 @@ export interface ArtworkSubmittedEvent {
   desiredPrice: number;
   photos: string[];
   proofOfOrigin?: string;
+  categories?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
   submittedAt: Date;
 }
 
