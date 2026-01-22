@@ -23,7 +23,10 @@ COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
 # Copy Prisma schema (needed for postinstall script to generate Prisma Client)
 COPY --from=builder /app/prisma ./prisma
 # Install production dependencies (postinstall will run prisma generate)
-RUN pnpm install --prod --frozen-lockfile
+# Install production dependencies WITHOUT running postinstall scripts (which would trigger latest prisma)
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+# Generate Prisma client with pinned version (avoids Prisma 7 breaking changes)
+RUN npx prisma@6 generate
 # Copy built application
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
