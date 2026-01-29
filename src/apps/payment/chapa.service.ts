@@ -49,8 +49,8 @@ export class ChapaService {
 
       // Chapa requires amount as a number (not string) and currency must be ETB
       const currency = paymentData.currency || 'ETB';
-      const amount = typeof paymentData.amount === 'string' 
-        ? parseFloat(paymentData.amount) 
+      const amount = typeof paymentData.amount === 'string'
+        ? parseFloat(paymentData.amount)
         : Number(paymentData.amount);
 
       if (isNaN(amount) || amount <= 0) {
@@ -64,7 +64,7 @@ export class ChapaService {
       // - tx_ref: max 50 characters
       // - customization.title: max 16 characters
       // - customization.description: max 50 characters
-      
+
       // Shorten txRef if it exceeds 50 characters (keep last 47 chars + "..." if needed)
       let txRef = paymentData.txRef;
       if (txRef.length > 50) {
@@ -80,8 +80,8 @@ export class ChapaService {
       const title = 'Art Payment'.substring(0, 16);
 
       // Shorten description to max 50 characters
-      const orderIdShort = paymentData.orderId 
-        ? paymentData.orderId.substring(0, 8) 
+      const orderIdShort = paymentData.orderId
+        ? paymentData.orderId.substring(0, 8)
         : txRef.substring(0, 8);
       const description = `Order ${orderIdShort}`.substring(0, 50);
 
@@ -121,7 +121,7 @@ export class ChapaService {
       if (response.data.status === 'success') {
         const checkoutUrl = response.data.data.checkout_url;
         this.logger.log(`Chapa payment initialized successfully. Checkout URL: ${checkoutUrl}`);
-        
+
         const responseData = {
           success: true,
           message: 'Payment initialized successfully',
@@ -131,7 +131,7 @@ export class ChapaService {
             provider: 'chapa',
           },
         };
-        
+
         // Store shortened txRef in a way that can be accessed later
         if (txRef !== paymentData.txRef) {
           (responseData.data as any).chapaTxRef = txRef;
@@ -143,22 +143,22 @@ export class ChapaService {
       }
     } catch (error) {
       this.logger.error('Chapa payment initialization failed:', error);
-      
+
       if (axios.isAxiosError(error)) {
         // Extract error message properly
         let errorMessage = 'Unknown error';
-        
+
         if (error.response?.data) {
           const errorData = error.response.data;
-          
+
           // Try to extract message from different possible structures
           if (typeof errorData.message === 'string') {
             errorMessage = errorData.message;
           } else if (typeof errorData === 'string') {
             errorMessage = errorData;
           } else if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string' 
-              ? errorData.error 
+            errorMessage = typeof errorData.error === 'string'
+              ? errorData.error
               : JSON.stringify(errorData.error);
           } else if (errorData.status === 'error' && errorData.message) {
             errorMessage = typeof errorData.message === 'string'
@@ -168,16 +168,16 @@ export class ChapaService {
             // Fallback: stringify the whole response data
             errorMessage = JSON.stringify(errorData);
           }
-          
+
           // Log full error response for debugging
           this.logger.error('Chapa API error response:', JSON.stringify(error.response.data, null, 2));
         } else if (error.message) {
           errorMessage = error.message;
         }
-        
+
         throw new BadRequestException(`Chapa payment failed: ${errorMessage}`);
       }
-      
+
       throw error;
     }
   }
@@ -264,18 +264,20 @@ export class ChapaService {
 
       if (response.data.status === 'success') {
         const data = response.data.data;
+        const isSuccess = data.status === 'success';
+
         return {
-          success: true,
-          message: 'Payment verified successfully',
+          success: isSuccess,
+          message: isSuccess ? 'Payment verified successfully' : `Payment status: ${data.status}`,
           data: {
             status: data.status,
             amount: parseFloat(data.amount),
             currency: data.currency,
             txRef: data.tx_ref,
             provider: 'chapa',
-            chargeResponseMessage: data.method,
+            chargeResponseMessage: data.method || data.status,
             customerEmail: data.email,
-            customerName: `${data.first_name} ${data.last_name}`,
+            customerName: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
           },
         };
       } else {

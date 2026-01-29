@@ -63,7 +63,7 @@ export class PaypalService {
           },
         },
       );
-      
+
       return response.data.access_token;
     } catch (error) {
       this.logger.error('Failed to get PayPal access token');
@@ -86,7 +86,7 @@ export class PaypalService {
 
       const frontendUrl = this.configService.get('FRONTEND_URL');
       const baseReturnUrl = paymentData.returnUrl || `${frontendUrl}/payment/success`;
-      
+
       const payload = {
         intent: 'CAPTURE',
         purchase_units: [
@@ -215,11 +215,11 @@ export class PaypalService {
               },
             },
           );
-          
+
           // Verify capture was successful
           const captureStatus = captureResponse.data.status;
           const captureDetails = captureResponse.data.purchase_units?.[0]?.payments?.captures?.[0];
-          
+
           if (captureStatus === 'COMPLETED' && captureDetails?.status === 'COMPLETED') {
             status = 'COMPLETED';
             this.logger.log(`PayPal order captured successfully: ${orderId}`);
@@ -233,10 +233,18 @@ export class PaypalService {
         } catch (captureError: any) {
           status = 'FAILED';
           this.logger.error(`Failed to capture PayPal order ${orderId}:`, captureError);
-          const errorMessage = captureError?.response?.data?.message || 
-                              captureError?.response?.data?.details?.[0]?.description ||
-                              captureError?.message || 
-                              'Unknown error';
+
+          const paypalError = captureError?.response?.data;
+          const errorName = paypalError?.name;
+          const errorDetail = paypalError?.details?.[0]?.description || paypalError?.message;
+          const errorIssue = paypalError?.details?.[0]?.issue;
+
+          const errorMessage = [
+            errorName ? `${errorName}: ` : "",
+            errorIssue ? `(${errorIssue}) ` : "",
+            errorDetail || captureError?.message || 'Unknown error'
+          ].join("");
+
           throw new BadRequestException(`PayPal payment capture failed: ${errorMessage}`);
         }
       } else if (status === 'COMPLETED') {
@@ -245,7 +253,7 @@ export class PaypalService {
 
       // Only treat COMPLETED as success, not APPROVED
       const isSuccess = status === 'COMPLETED';
-      
+
       // Get the original txRef from reference_id (stored when order was created)
       const originalTxRef = purchaseUnit.reference_id || orderId;
 
@@ -301,7 +309,7 @@ export class PaypalService {
 
       const senderBatchId = `PAYOUT-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const senderItemId = `PAYOUT-ITEM-${Date.now()}`;
-      
+
       const payoutPayload = {
         sender_batch_header: {
           sender_batch_id: senderBatchId,
@@ -346,21 +354,21 @@ export class PaypalService {
       };
     } catch (error: any) {
       this.logger.error(`Failed to process PayPal payout: ${error.message || error}`);
-      
-      if (axios.isAxiosError(error)) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.details?.[0]?.issue ||
-        error?.response?.data?.details?.[0]?.description ||
-        error?.message ||
-        'Failed to process payout';
 
-      return {
-        success: false,
-        message: errorMessage,
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error?.response?.data?.message ||
+          error?.response?.data?.details?.[0]?.issue ||
+          error?.response?.data?.details?.[0]?.description ||
+          error?.message ||
+          'Failed to process payout';
+
+        return {
+          success: false,
+          message: errorMessage,
         };
       }
-      
+
       return {
         success: false,
         message: error?.message || 'Failed to process payout',
@@ -375,7 +383,7 @@ export class PaypalService {
   async getPayoutStatus(payoutBatchId: string): Promise<any> {
     try {
       const accessToken = await this.getAccessToken();
-      
+
       const response = await axios.get(
         `${this.baseUrl}/v1/payments/payouts/${payoutBatchId}`,
         {
@@ -423,7 +431,7 @@ export class PaypalService {
         webhook_id: webhookId,
         webhook_event: body,
       };
-      
+
       const response = await axios.post(verifyUrl, verificationPayload, {
         headers: {
           'Content-Type': 'application/json',
@@ -432,7 +440,7 @@ export class PaypalService {
       });
 
       const isValid = response.data.verification_status === 'SUCCESS';
-      
+
       if (!isValid) {
         this.logger.warn(`Webhook signature verification failed: ${response.data.verification_status}`);
       }
@@ -452,7 +460,7 @@ export class PaypalService {
   async handleWebhook(payload: any, headers?: any): Promise<any> {
     try {
       const eventType = payload.event_type || 'unknown';
-      
+
       this.logger.log(`Processing PayPal webhook: ${eventType}`);
 
       // Verify webhook signature if headers provided
@@ -470,7 +478,7 @@ export class PaypalService {
       if (eventType?.includes('PAYOUTSBATCH')) {
         const batchId = resource?.batch_header?.payout_batch_id;
         const batchStatus = resource?.batch_header?.batch_status;
-        
+
         return {
           success: true,
           eventType: 'PAYOUT_BATCH',
@@ -486,7 +494,7 @@ export class PaypalService {
         const transactionId = resource?.transaction_id;
         const transactionStatus = resource?.transaction_status;
         const payoutBatchId = resource?.payout_batch_id;
-        
+
         return {
           success: true,
           eventType: 'PAYOUT_ITEM',
@@ -508,7 +516,7 @@ export class PaypalService {
       }
 
       this.logger.warn(`Unhandled webhook event type: ${eventType}`);
-      
+
       return {
         success: true,
         eventType: 'UNKNOWN',

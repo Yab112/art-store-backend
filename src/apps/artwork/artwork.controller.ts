@@ -21,7 +21,7 @@ import { AuthGuard } from '@/core/guards/auth.guard';
 @ApiTags('Artworks')
 @Controller('artworks')
 export class ArtworkController {
-  constructor(private readonly artworkService: ArtworkService) {}
+  constructor(private readonly artworkService: ArtworkService) { }
 
   @Post('submit')
   @UseGuards(AuthGuard)
@@ -65,7 +65,7 @@ export class ArtworkController {
     } catch (error) {
       // Log the full error for debugging
       console.error('Error submitting artwork:', error);
-      
+
       return {
         success: false,
         message:
@@ -151,7 +151,28 @@ export class ArtworkController {
   }
 
   @Patch(':id/status')
+  @UseGuards(AuthGuard)
   async updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.artworkService.updateStatus(id, status as any);
+  }
+
+  @Post(':id/like')
+  @UseGuards(AuthGuard)
+  async like(@Param('id') id: string, @Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
+    return this.artworkService.likeArtwork(id, userId);
+  }
+
+  @Delete(':id/like')
+  @UseGuards(AuthGuard)
+  async unlike(@Param('id') id: string, @Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found. Please sign in again.');
+    }
+    return this.artworkService.unlikeArtwork(id, userId);
   }
 }

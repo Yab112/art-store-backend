@@ -31,7 +31,7 @@ export class BlogService {
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
     private readonly configurationService: ConfigurationService
-  ) {}
+  ) { }
 
   /**
    * Create a new blog post
@@ -366,7 +366,7 @@ export class BlogService {
         // Author can only edit within 7 days of creation
         const daysSinceCreation = Math.floor(
           (Date.now() - existingPost.createdAt.getTime()) /
-            (1000 * 60 * 60 * 24)
+          (1000 * 60 * 60 * 24)
         );
 
         if (daysSinceCreation > 7) {

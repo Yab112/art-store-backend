@@ -58,6 +58,15 @@ export class CollectionsService {
         );
       }
 
+      // Collections cannot be created as public; must have min artworks first
+      if (
+        createCollectionDto.visibility === COLLECTION_CONSTANTS.VISIBILITY.PUBLIC
+      ) {
+        throw new BadRequestException(
+          COLLECTION_MESSAGES.ERROR.CANNOT_PUBLISH,
+        );
+      }
+
       // Get user details for event
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -525,6 +534,7 @@ export class CollectionsService {
       // Check ownership
       const existingCollection = await this.prisma.collection.findUnique({
         where: { id },
+        include: { artworks: true },
       });
 
       if (!existingCollection) {
@@ -533,6 +543,22 @@ export class CollectionsService {
 
       if (existingCollection.createdBy !== userId) {
         throw new ForbiddenException(COLLECTION_MESSAGES.ERROR.UNAUTHORIZED);
+      }
+
+      // If setting visibility to public, enforce minimum artworks
+      if (
+        updateCollectionDto.visibility === COLLECTION_CONSTANTS.VISIBILITY.PUBLIC
+      ) {
+        const collectionSettings =
+          await this.settingsService.getCollectionSettingsValues();
+        if (
+          existingCollection.artworks.length <
+          collectionSettings.minArtworksForPublish
+        ) {
+          throw new BadRequestException(
+            COLLECTION_MESSAGES.ERROR.CANNOT_PUBLISH,
+          );
+        }
       }
 
       // Get user for event

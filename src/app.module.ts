@@ -40,17 +40,17 @@ import { FeedModule } from './apps/feed/feed.module';
     ArtworkModule,
     CategoryModule,
     CollectionsModule,
-          OrderModule,
-          TransactionsModule,
-          SettingsModule,
-          WithdrawalsModule,
-          FollowModule,
-          FeedModule,
-        ],
+    OrderModule,
+    TransactionsModule,
+    SettingsModule,
+    WithdrawalsModule,
+    FollowModule,
+    FeedModule,
+  ],
   controllers: [],
   providers: [
     ...ExceptionModule.getFilters(),
     ...LoggingModule.getInterceptors(),
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -28,7 +28,7 @@ import { Public } from '../../core/decorators/public.decorator';
 export class ArtistController {
   private readonly logger = new Logger(ArtistController.name);
 
-  constructor(private readonly artistService: ArtistService) {}
+  constructor(private readonly artistService: ArtistService) { }
 
   /**
    * Get artist earnings statistics
@@ -144,6 +144,21 @@ export class ArtistController {
       updatePaymentMethodDto.iban,
       updatePaymentMethodDto.bicCode
     );
+  }
+
+  /**
+   * Get all unique IBANs collected from the artist's artworks
+   * GET /api/artist/ibans
+   */
+  @Get("ibans")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Get all unique IBANs from the artist's artworks" })
+  async getIbans(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.artistService.getCollectedIbans(userId);
   }
 
   /**
