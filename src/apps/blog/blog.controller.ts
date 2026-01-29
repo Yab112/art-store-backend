@@ -43,7 +43,7 @@ export class BlogController {
     private readonly commentsService: BlogCommentsService,
     private readonly votesService: BlogVotesService,
     private readonly sharesService: BlogSharesService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(AuthGuard)
@@ -64,7 +64,6 @@ export class BlogController {
   }
 
   @Get()
-  @Public()
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Get all blog posts with pagination and filters' })
   @ApiResponse({
@@ -79,14 +78,14 @@ export class BlogController {
     // For public routes, AuthGuard sets req.user if authenticated, but doesn't throw if not
     // Try to get user from request (set by AuthGuard for public routes with session)
     const userId = req.user?.id;
-    
+
     // Explicit logging to see what's happening
     console.log('[BlogController] req.user:', req.user);
     console.log('[BlogController] req.user?.id:', req.user?.id);
     console.log('[BlogController] query.authorId:', query.authorId);
     console.log('[BlogController] query.status:', query.status);
     this.logger.debug(`Blog findAll - authorId: ${query.authorId}, userId: ${userId}, status: ${query.status}`);
-    
+
     // If authorId is provided, this might be "My Blogs" - check if user is authenticated
     // If user is authenticated and authorId matches, allow status filtering
     // Otherwise, only show APPROVED and published posts

@@ -16,7 +16,7 @@ export class OrderService {
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService
-  ) {}
+  ) { }
 
   /**
    * Get user by email (helper for order creation)
@@ -34,7 +34,7 @@ export class OrderService {
   async createOrder(userId: string, createOrderDto: CreateOrderDto) {
     try {
       this.logger.log(`Creating order for authenticated user: ${userId}`);
-      
+
       // Validate userId is provided (should never be 'guest' since we require authentication)
       if (!userId || userId === 'guest') {
         throw new BadRequestException('Valid user ID is required to create an order');
@@ -65,7 +65,7 @@ export class OrderService {
       // Prevent users from purchasing their own artwork
       const ownArtworks = artworks.filter(
         (artwork) => artwork.userId === userId
-      ); 
+      );
       if (ownArtworks.length > 0) {
         const artworkTitles = ownArtworks
           .map((a) => a.title || a.id)
@@ -96,8 +96,11 @@ export class OrderService {
       // Get platform commission rate from settings
       const platformCommissionRate =
         await this.settingsService.getPlatformCommissionRate();
+
+      // Platform fee is now inclusive in the desiredPrice
+      // Total amount the buyer pays is exactly the subtotal of desired prices
       const platformFee = subtotal * platformCommissionRate;
-      const totalAmount = subtotal + platformFee;
+      const totalAmount = subtotal;
 
       // Generate shorter txRef for Chapa (max 50 chars)
       // Format: TX-{first8charsOfOrderId}-{timestamp}
@@ -264,7 +267,7 @@ export class OrderService {
 
       // Update order and transaction
       this.logger.log(`[ORDER-COMPLETE] Updating order status to PAID...`);
-      
+
       // Build enhanced metadata with payment completion details
       const enhancedMetadata = {
         ...(order.transaction?.metadata as any || {}),
@@ -273,27 +276,27 @@ export class OrderService {
         completedAt: new Date().toISOString(),
         ...(userId ? { buyerUserId: userId } : {}),
       };
-      
+
       const updatedOrder = await this.prisma.order.update({
         where: { id: orderId },
         data: {
           status: "PAID",
           transaction: order.transaction
             ? {
-                // Transaction exists - update it to COMPLETED
-                update: {
-                  status: "COMPLETED",
-                  metadata: enhancedMetadata,
-                },
-              }
-            : {
-                // Transaction doesn't exist - create it with COMPLETED status
-                create: {
-                  amount: order.totalAmount,
-                  status: "COMPLETED",
-                  metadata: enhancedMetadata,
-                },
+              // Transaction exists - update it to COMPLETED
+              update: {
+                status: "COMPLETED",
+                metadata: enhancedMetadata,
               },
+            }
+            : {
+              // Transaction doesn't exist - create it with COMPLETED status
+              create: {
+                amount: order.totalAmount,
+                status: "COMPLETED",
+                metadata: enhancedMetadata,
+              },
+            },
         },
         include: {
           items: {
@@ -344,41 +347,6 @@ export class OrderService {
         // Track earnings for this artist
         const currentEarnings = artistEarningsMap.get(item.artwork.userId) || 0;
         artistEarningsMap.set(item.artwork.userId, currentEarnings + artistAmount);
-
-        // Create a withdrawal entry for the artist (pending state)
-        // Note: We don't check for duplicates here because:
-        // 1. Order completion is already idempotent (checks if order is PAID)
-        // 2. Each order completion should create withdrawals for all items
-        // If order is already PAID, this code won't run (early return above)
-        try {
-          const withdrawal = await this.prisma.withdrawal.create({
-            data: {
-              userId: item.artwork.userId,
-              payoutAccount: item.artwork.iban || "NOT_SET",
-              amount: new Decimal(artistAmount),
-              status: "INITIATED", // Artist can request withdrawal later
-            } as any,
-          });
-
-          // Store orderId in withdrawal metadata for tracking
-          // Note: Withdrawal model doesn't have a metadata field in schema,
-          // but we can add it if needed. For now, we'll log the relationship.
-          this.logger.log(
-            `[WITHDRAWAL] ✅ Created withdrawal for artist ${item.artwork.userId}: ${artistAmount} (Commission: ${platformCommission}, Order: ${orderId})`
-          );
-          this.logger.log(
-            `[WITHDRAWAL] Withdrawal ID: ${withdrawal.id}, Order ID: ${orderId}, Artwork ID: ${item.artworkId}`
-          );
-        } catch (withdrawalError: any) {
-          // Log error but don't fail order completion
-          this.logger.error(
-            `[WITHDRAWAL] ❌ Failed to create withdrawal for artist ${item.artwork.userId}:`,
-            withdrawalError
-          );
-          this.logger.error(
-            `[WITHDRAWAL] Error: ${withdrawalError?.message || 'Unknown error'}`
-          );
-        }
       }
 
       // Update user earnings and create seller transactions for each artist
@@ -454,9 +422,9 @@ export class OrderService {
       if (userId && userId !== 'guest') {
         try {
           const artworkIds = updatedOrder.items.map((item: any) => item.artworkId);
-          
+
           this.logger.log(`[ORDER-COMPLETE] 🛒 Clearing cart for user ${userId}: removing ${artworkIds.length} purchased artwork(s)`);
-          
+
           const deleteResult = await this.prisma.cartItem.deleteMany({
             where: {
               userId: userId,
@@ -465,7 +433,7 @@ export class OrderService {
               },
             },
           });
-          
+
           this.logger.log(`[ORDER-COMPLETE] ✅ Successfully removed ${deleteResult.count} purchased artwork(s) from cart for user ${userId}`);
           this.logger.log(`[ORDER-COMPLETE] Removed artwork IDs: ${artworkIds.join(', ')}`);
         } catch (cartError) {
@@ -561,13 +529,13 @@ export class OrderService {
             })),
             transaction: order.transaction
               ? {
-                  id: order.transaction.id,
-                  paymentGatewayId: order.transaction.paymentGatewayId,
-                  status: order.transaction.status,
-                  amount: Number(order.transaction.amount),
-                  metadata: order.transaction.metadata,
-                  createdAt: order.transaction.createdAt.toISOString(),
-                }
+                id: order.transaction.id,
+                paymentGatewayId: order.transaction.paymentGatewayId,
+                status: order.transaction.status,
+                amount: Number(order.transaction.amount),
+                metadata: order.transaction.metadata,
+                createdAt: order.transaction.createdAt.toISOString(),
+              }
               : null,
           },
           metadata: {
@@ -597,10 +565,10 @@ export class OrderService {
       this.logger.error(
         `[PLATFORM-EARNING] Error stack: ${platformEarningError?.stack || 'No stack trace'}`
       );
-      
+
       // Check for specific error types
-      if (platformEarningError?.message?.includes('Unknown model') || 
-          platformEarningError?.message?.includes('platformEarning')) {
+      if (platformEarningError?.message?.includes('Unknown model') ||
+        platformEarningError?.message?.includes('platformEarning')) {
         this.logger.error(
           `[PLATFORM-EARNING] ❌ PlatformEarning model not found. Please ensure:\n` +
           `1. Database migration has been applied: npx prisma migrate deploy\n` +
@@ -608,7 +576,7 @@ export class OrderService {
           `3. Server has been restarted after Prisma client regeneration`
         );
       }
-      
+
       // Re-throw the error so order completion can handle it appropriately
       // This ensures we know when platform earnings fail to create
       throw new Error(`Failed to create platform earning: ${platformEarningError?.message || 'Unknown error'}`);
@@ -724,7 +692,7 @@ export class OrderService {
    */
   async getUserOrders(userId?: string, userEmail?: string) {
     const where: any = {};
-    
+
     // If we have both userId and userEmail, check both to catch all orders
     // This handles cases where orders were created with userId=null but have buyerEmail
     if (userId && userEmail) {
@@ -883,11 +851,11 @@ export class OrderService {
 
       // Group by month
       const monthlyBreakdown: Record<string, { month: string; total: number; count: number }> = {};
-      
+
       monthlyEarnings.forEach((earning) => {
         const date = new Date(earning.createdAt);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-        
+
         if (!monthlyBreakdown[monthKey]) {
           monthlyBreakdown[monthKey] = {
             month: monthKey,
@@ -895,7 +863,7 @@ export class OrderService {
             count: 0,
           };
         }
-        
+
         monthlyBreakdown[monthKey].total += Number(earning.amount);
         monthlyBreakdown[monthKey].count += 1;
       });
@@ -939,7 +907,7 @@ export class OrderService {
       };
     } catch (error: any) {
       this.logger.error("Failed to get platform commission analytics:", error);
-      
+
       // Provide more helpful error messages
       if (error?.message?.includes("Unknown model") || error?.message?.includes("platformEarning")) {
         throw new Error(
@@ -949,7 +917,7 @@ export class OrderService {
           "3. Server has been restarted after Prisma client regeneration"
         );
       }
-      
+
       throw error;
     }
   }

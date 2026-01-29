@@ -10,7 +10,7 @@ export class ArtistService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService
-  ) {}
+  ) { }
 
   /**
    * Get artist earnings statistics
@@ -20,7 +20,7 @@ export class ArtistService {
   async getEarningsStats(userId: string) {
     try {
       this.logger.log(`[EARNINGS] Getting earnings for user: ${userId}`);
-      
+
       // Get the user and their earning field (source of truth)
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -37,7 +37,7 @@ export class ArtistService {
 
       // Total earnings from user table (source of truth)
       const totalEarnings = Number(user.earning || 0);
-      
+
       // Get all withdrawals for this user
       const allWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
@@ -128,10 +128,10 @@ export class ArtistService {
             (sum, orderItem) => sum + (Number(orderItem.price) * orderItem.quantity),
             0
           );
-          
+
           // Calculate this item's proportion of the order
           const itemProportion = totalOrderValue > 0 ? salePrice / totalOrderValue : 0;
-          
+
           // Apply proportion to platform earning
           commission = Number(item.order.platformEarning.amount) * itemProportion;
         } else {
@@ -162,7 +162,7 @@ export class ArtistService {
       // Get unique order count (sales count)
       const uniqueOrderIds = new Set(orderItems.map(item => item.order.id));
       const salesCount = uniqueOrderIds.size;
-      
+
       this.logger.log(
         `[EARNINGS] User ${userId} - ` +
         `Total Earnings: ${totalEarnings}, ` +
@@ -181,13 +181,13 @@ export class ArtistService {
           totalEarnings: totalEarnings, // Alias for compatibility
           totalSales: totalSales,
           totalCommission: totalCommission,
-          
+
           // Withdrawal metrics
           totalWithdrawn: totalWithdrawn,
-          
+
           // Available balance (what can be withdrawn now)
           availableBalance: availableBalance,
-          
+
           // Sales data
           salesCount: salesCount,
           sales: sales,
@@ -231,14 +231,14 @@ export class ArtistService {
       // Get withdrawals for those IBANs with pagination
       const [withdrawals, total] = await Promise.all([
         this.prisma.withdrawal.findMany({
-        where: {
-          payoutAccount: {
-            in: ibans,
+          where: {
+            payoutAccount: {
+              in: ibans,
+            },
           },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+          orderBy: {
+            createdAt: "desc",
+          },
           skip,
           take: limit,
         }),
@@ -257,7 +257,7 @@ export class ArtistService {
           // Extract rejection reason from metadata if status is REJECTED or FAILED
           let rejectionReason = null;
           let paypalStatus = null;
-          
+
           if (w.metadata) {
             const metadata = w.metadata as any;
             if ((w.status === 'REJECTED' || w.status === 'FAILED')) {
@@ -299,7 +299,7 @@ export class ArtistService {
       // ============================================
       // BACKEND VALIDATIONS (AUTOMATIC) - FIRST
       // ============================================
-      
+
       // 1. Verify the IBAN belongs to this artist
       const artwork = await this.prisma.artwork.findFirst({
         where: {
@@ -364,7 +364,7 @@ export class ArtistService {
       // 6. Check minimum withdrawal amount
       const paymentSettings =
         await this.settingsService.getPaymentSettingsValues();
-      
+
       if (amount < paymentSettings.minWithdrawalAmount) {
         throw new BadRequestException(
           `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`
@@ -402,12 +402,12 @@ export class ArtistService {
           0
         );
         const statuses = [...new Set(pendingWithdrawals.map(w => w.status))].join(" and ");
-        
+
         // Create a more informative error message
         const withdrawalDetails = pendingWithdrawals
           .map((w, idx) => `$${Number(w.amount).toFixed(2)} (${w.status})`)
           .join(", ");
-        
+
         throw new BadRequestException(
           `You have ${pendingCount} pending withdrawal request${pendingCount > 1 ? 's' : ''} totaling $${totalPendingAmount.toFixed(2)} with status: ${statuses}. ` +
           `Please wait until all pending withdrawals are completed or rejected before requesting a new withdrawal. ` +
@@ -488,6 +488,34 @@ export class ArtistService {
       };
     } catch (error) {
       this.logger.error("Failed to get payment methods:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all unique IBANs collected from the artist's artworks
+   */
+  async getCollectedIbans(userId: string) {
+    try {
+      const artworks = await this.prisma.artwork.findMany({
+        where: { userId },
+        select: {
+          iban: true,
+        },
+        distinct: ["iban"],
+      });
+
+      // Filter and return only clean, unique strings
+      const ibans = artworks
+        .map((a) => a.iban?.trim())
+        .filter((iban) => !!iban);
+
+      return {
+        success: true,
+        data: ibans,
+      };
+    } catch (error) {
+      this.logger.error(`[ARTIST] Failed to get collected IBANs for ${userId}:`, error);
       throw error;
     }
   }

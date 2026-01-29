@@ -1,158 +1,3 @@
-// import { betterAuth } from 'better-auth';
-// import { prismaAdapter } from 'better-auth/adapters/prisma';
-// import { PrismaClient } from '@prisma/client';
-// import * as zod from 'zod';
-
-// // Import Better Auth plugins
-// import { twoFactor } from 'better-auth/plugins/two-factor';
-// import {
-//   admin as adminPlugin,
-//   customSession,
-//   openAPI,
-// } from 'better-auth/plugins';
-// import { emailBridge } from './libraries/email';
-
-// const prisma = new PrismaClient();
-
-// // Helper function to get user permissions based on role
-
-// export const auth = betterAuth({
-//   database: prismaAdapter(prisma, {
-//     provider: 'postgresql',
-//   }),
-
-//   // Configure table names to match your existing schema
-//   user: {
-//     additionalFields: {
-//       profileType: {
-//         type: 'string',
-//         input: true,
-//       },
-//     },
-//   },
-
-//   emailVerification: {
-//     sendVerificationEmail: async ({ user, url }) => {
-//       await emailBridge.sendVerificationEmail({
-//         email: user.email,
-//         link: url,
-//       });
-//     },
-//   },
-
-//   // Core authentication methods
-//   emailAndPassword: {
-//     enabled: true,
-//     requireEmailVerification: true,
-//     minPasswordLength: 8,
-//     maxPasswordLength: 128,
-//     sendResetPassword: async ({ user, url }) => {
-//       await emailBridge.sendPasswordResetEmail({
-//         email: user.email,
-//         link: url,
-//       });
-//     },
-//   },
-//   // databaseHooks: {
-//   //   user: {
-//   //     create: {
-//   //       after: async (user) => {
-//   //         if (user.profileType === 'CLIENT') {
-//   //           await prisma.clientProfile.create({
-//   //             data: { userId: user.id, preferences: '' },
-//   //           });
-//   //         }
-//   //       },
-//   //     },
-//   //   },
-//   // },
-
-//   // Social OAuth providers
-//   socialProviders: {
-//     google: {
-//       clientId: process.env.SERVER_GOOGLE_CLIENT_ID || 'demo-client-id',
-//       clientSecret:
-//         process.env.SERVER_GOOGLE_CLIENT_SECRET || 'demo-client-secret',
-//     },
-//   },
-
-//   // Security configuration
-//   trustedOrigins: [
-//     process.env.BETTER_AUTH_URL || 'http://localhost:3000',
-//     'http://localhost:3001',
-//     'https://art-store-backend-latest.onrender.com',
-//   ],
-
-//   // Rate limiting
-//   rateLimit: {
-//     window: 60, // 1 minute
-//     max: 10, // 10 requests per window
-//   },
-
-//   // Base URL configuration
-//   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
-
-//   // Secret for encryption
-//   secret: process.env.BETTER_AUTH_SECRET || 'fallback-secret-key',
-
-//   // Disable telemetry for cleaner logs
-//   telemetry: {
-//     enabled: false,
-//   },
-
-//   // Plugins for extended functionality
-//   plugins: [
-//     // Custom session to include role in session response
-//     customSession(async ({ user, session }) => {
-//       // Get the full user data from database to access role
-//       const fullUser = await prisma.user.findUnique({
-//         where: { id: user.id },
-//       });
-
-//       const userRole = (fullUser as any)?.role || 'CLIENT';
-
-//       return {
-//         user: {
-//           ...user,
-//           role: userRole,
-//         },
-//         session,
-//       };
-//     }),
-//     openAPI(),
-
-//     // Two-Factor Authentication
-//     twoFactor({
-//       issuer: 'Finder App',
-//       otpOptions: {
-//         async sendOTP({ user, otp }) {
-//           await emailBridge.send2FACodeEmail({
-//             email: user.email,
-//             code: otp,
-//           });
-//         },
-//       },
-//     }),
-//     adminPlugin({
-//       defaultRole: 'user',
-//     }),
-//   ],
-
-//   // Advanced configuration
-//   advanced: {
-//     database: {
-//       generateId: false, // Prisma will generate UUIDs via @default(uuid())
-//     },
-//     defaultCookieAttributes: {
-//       sameSite: 'none',
-//       secure: true,
-//       partitioned: true,
-//     },
-//   },
-// });
-
-// export type sessionUser = typeof auth.$Infer.Session;
-// export type User = sessionUser['user'];
 
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -203,14 +48,12 @@ export const auth = betterAuth({
         } else {
           // If relative, construct full URL using baseURL
           const baseURL =
-            process.env.BETTER_AUTH_URL ||
-            process.env.BACKEND_URL ||
-            "http://localhost:3000";
+            process.env.BETTER_AUTH_URL;
           urlObj = new URL(url, baseURL);
         }
 
         const token = urlObj.searchParams.get("token");
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const frontendUrl = process.env.FRONTEND_URL;
 
         if (token) {
           // Create frontend verification link with token
@@ -282,14 +125,14 @@ export const auth = betterAuth({
             console.log(
               `User ${user.id} verified in database: ${dbUser.email}, image: ${dbUser.image || "none"}`
             );
-            
+
             // If user.image is provided but database doesn't have it, update it
             // This ensures Google OAuth images are saved immediately on user creation
             if (user.image && user.image.trim() !== "") {
               const imageUrl = user.image.trim();
               // Validate it's a proper URL
               const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
-              
+
               if (isValidUrl && (!dbUser.image || dbUser.image !== imageUrl)) {
                 console.log(`🖼️ Updating newly created user ${user.id} image: ${imageUrl}`);
                 await prisma.user.update({
@@ -313,20 +156,20 @@ export const auth = betterAuth({
             name: user.name,
             image: user.image,
           });
-          
+
           // Check database to see current state
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
             select: { id: true, email: true, image: true },
           });
-          
+
           // If user.image is provided but database doesn't have it, update it
           // This ensures Google OAuth images are saved immediately
           if (user.image && user.image.trim() !== "") {
             const imageUrl = user.image.trim();
             // Validate it's a proper URL
             const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
-            
+
             if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
               console.log(`🖼️ Updating user ${user.id} image from Better Auth: ${imageUrl}`);
               await prisma.user.update({
@@ -338,11 +181,11 @@ export const auth = betterAuth({
               console.warn(`⚠️ Invalid image URL for user ${user.id}: ${imageUrl}`);
             }
           }
-          
+
           // If image is missing, try to fetch from Google account
           if (!user.image && user.email) {
             console.log(`⚠️ User ${user.id} updated but image is missing. Attempting to fetch from Google...`);
-            
+
             try {
               // Get the Google account to access the access token
               const account = await prisma.account.findFirst({
@@ -352,10 +195,10 @@ export const auth = betterAuth({
                 },
                 select: { accessToken: true },
               });
-              
+
               if (account?.accessToken) {
                 console.log(`🔑 Found Google access token for user ${user.id}`);
-                
+
                 // Fetch user profile from Google
                 const googleResponse = await fetch(
                   "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -365,14 +208,14 @@ export const auth = betterAuth({
                     },
                   }
                 );
-                
+
                 if (googleResponse.ok) {
                   const googleProfile = await googleResponse.json();
                   console.log("📸 Google profile fetched:", {
                     email: googleProfile.email,
                     picture: googleProfile.picture,
                   });
-                  
+
                   if (googleProfile.picture) {
                     // Update user with Google profile picture
                     await prisma.user.update({
@@ -407,26 +250,26 @@ export const auth = betterAuth({
       // This hook runs after OAuth callback endpoints
       if (ctx.path?.startsWith("/callback/google")) {
         console.log("🔍 OAuth callback hook triggered for Google");
-        
+
         // Get the user ID from the newly created session in the context
         const newSession = ctx.context?.newSession;
         const userId = newSession?.user?.id;
-        
+
         if (userId) {
           console.log(`🔍 Checking user ${userId} for profile image after OAuth callback...`);
-          
+
           // Fetch the user from database to check current image
           const dbUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, email: true, image: true },
           });
-          
+
           // Check if user from Better Auth context has image but database doesn't
           const userImage = newSession?.user?.image;
           if (userImage && userImage.trim() !== "") {
             const imageUrl = userImage.trim();
             const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
-            
+
             if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
               console.log(`🖼️ OAuth Callback: Updating user ${userId} image from Better Auth: ${imageUrl}`);
               await prisma.user.update({
@@ -436,11 +279,11 @@ export const auth = betterAuth({
               console.log(`✅ OAuth Callback: Updated user ${userId} image in database`);
             }
           }
-          
+
           // If image is still missing, try to fetch from Google account
           if (!dbUser?.image || (dbUser.image && dbUser.image.trim() === "")) {
             console.log(`⚠️ User ${userId} has no image. Attempting to fetch from Google account...`);
-            
+
             // Try to get the account to see if we have access token
             const account = await prisma.account.findFirst({
               where: {
@@ -449,7 +292,7 @@ export const auth = betterAuth({
               },
               select: { accessToken: true },
             });
-            
+
             if (account?.accessToken) {
               try {
                 // Fetch user profile from Google
@@ -461,14 +304,14 @@ export const auth = betterAuth({
                     },
                   }
                 );
-                
+
                 if (googleResponse.ok) {
                   const googleProfile = await googleResponse.json();
                   console.log("📸 Google profile fetched:", {
                     email: googleProfile.email,
                     picture: googleProfile.picture,
                   });
-                  
+
                   if (googleProfile.picture) {
                     // Update user with Google profile picture
                     await prisma.user.update({
@@ -497,9 +340,8 @@ export const auth = betterAuth({
   // Social OAuth providers - Google only
   socialProviders: {
     google: {
-      clientId: process.env.SERVER_GOOGLE_CLIENT_ID || "demo-client-id",
-      clientSecret:
-        process.env.SERVER_GOOGLE_CLIENT_SECRET || "demo-client-secret",
+      clientId: process.env.SERVER_GOOGLE_CLIENT_ID,
+      clientSecret: process.env.SERVER_GOOGLE_CLIENT_SECRET,
       accessType: "offline", // Get refresh token
       prompt: "select_account consent", // Always show account selector
       // Update user info on every sign-in, not just on creation
@@ -515,10 +357,10 @@ export const auth = betterAuth({
           email_verified: profile.email_verified,
           all_keys: Object.keys(profile), // Log all available keys
         });
-        
+
         // Try multiple possible fields for the image URL
         const pictureUrl = profile.picture || (profile as any).picture_large || (profile as any).photo || null;
-        
+
         // Ensure we're getting the picture URL
         if (!pictureUrl) {
           console.warn("⚠️ WARNING: Google profile has no 'picture' field!");
@@ -530,14 +372,14 @@ export const auth = betterAuth({
             console.warn(`⚠️ Picture URL doesn't start with http:// or https://: ${pictureUrl}`);
           }
         }
-        
+
         const mappedUser = {
           name: profile.name || profile.given_name || profile.email?.split("@")[0] || "User",
           email: profile.email,
           emailVerified: profile.email_verified || false,
           image: pictureUrl, // Google returns 'picture', map to 'image' - CRITICAL for OAuth
         };
-        
+
         console.log("✅ Mapped user data (including image):", {
           ...mappedUser,
           imageLength: mappedUser.image?.length || 0,
@@ -549,17 +391,17 @@ export const auth = betterAuth({
 
   // Security configuration
   trustedOrigins: [
+    process.env.FRONTEND_URL, // From environment
+    process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
     "http://localhost:3000", // Backend (legacy)
     "http://localhost:3099", // Backend (current)
     "http://localhost:3001", // Admin dashboard (Next.js default)
     "http://localhost:3002", // Admin dashboard (alternative port)
     "http://localhost:5173", // Vite dev server (frontend - art-gallery)
     "http://localhost:5174", // Vite dev server (alternative)
-    "http://13.48.104.231:3000", // Production backend URL (EC2)
+    "http://51.20.54.47:3099", // Production backend URL (EC2)
     "https://art-store-frontend-flame.vercel.app",
     "https://www.arthopia.com.et", // Production frontend URL
-    process.env.FRONTEND_URL || "http://localhost:5173", // From environment
-    process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
   ].filter(Boolean), // Remove undefined values
 
   // Rate limiting
@@ -573,13 +415,9 @@ export const auth = betterAuth({
   // IMPORTANT: This must match the actual public URL where your server is accessible
   // IMPORTANT: Must match Google OAuth redirect URI exactly
   baseURL: (() => {
-    const port = process.env.PORT || "3099";
+    const port = process.env.PORT;
     const url =
-      process.env.BETTER_AUTH_URL ||
-      process.env.BACKEND_URL ||
-      (process.env.NODE_ENV === "production"
-        ? "http://13.48.104.231:3000"
-        : `http://localhost:${port}`); // Use actual server port (default 3099)
+      process.env.BETTER_AUTH_URL
     console.log("🔐 Better Auth baseURL:", url);
     console.log("🔐 Better Auth NODE_ENV:", process.env.NODE_ENV);
     console.log("🔐 Better Auth PORT:", port);
@@ -590,7 +428,7 @@ export const auth = betterAuth({
   })(),
 
   // Secret for encryption
-  secret: process.env.BETTER_AUTH_SECRET || "fallback-secret-key",
+  secret: process.env.BETTER_AUTH_SECRET,
 
   // Session configuration
   // When rememberMe is true, session expires in 30 days
@@ -602,7 +440,7 @@ export const auth = betterAuth({
 
   // Disable telemetry for cleaner logs
   telemetry: {
-    enabled: false, 
+    enabled: false,
   },
 
   // Logger configuration for debugging session issues
@@ -709,7 +547,7 @@ export const auth = betterAuth({
     // Allow redirects to frontend URLs after OAuth callbacks
     // This is needed for cross-origin redirects (backend -> frontend)
     allowedRedirects: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
+      process.env.FRONTEND_URL,
       process.env.ADMIN_FRONTEND_URL,
       "http://localhost:5173",
       "http://localhost:5174",
@@ -719,13 +557,10 @@ export const auth = betterAuth({
     // Dynamically set cookie attributes based on baseURL protocol
     // CRITICAL: secure: true requires HTTPS, sameSite: "none" requires secure: true
     useSecureCookies: (() => {
-      const port = process.env.PORT || "3099";
+      const port = process.env.PORT;
       const baseURL =
         process.env.BETTER_AUTH_URL ||
-        process.env.BACKEND_URL ||
-        (process.env.NODE_ENV === "production"
-          ? "http://13.48.104.231:3000"
-          : `http://localhost:${port}`); // Use actual server port
+        process.env.BACKEND_URL
       const isHTTPS = baseURL.startsWith("https://");
       console.log(
         "🔐 Better Auth useSecureCookies:",
@@ -737,13 +572,9 @@ export const auth = betterAuth({
       return isHTTPS;
     })(),
     defaultCookieAttributes: (() => {
-      const port = process.env.PORT || "3099";
+      const port = process.env.PORT;
       const baseURL =
-        process.env.BETTER_AUTH_URL ||
-        process.env.BACKEND_URL ||
-        (process.env.NODE_ENV === "production"
-          ? "http://13.48.104.231:3000"
-          : `http://localhost:${port}`); // Use actual server port
+        process.env.BETTER_AUTH_URL
       const isHTTPS = baseURL.startsWith("https://");
 
       // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)
@@ -751,16 +582,16 @@ export const auth = betterAuth({
       // Note: HTTP cross-origin cookies are fundamentally limited by browser security
       const attributes = isHTTPS
         ? {
-            sameSite: "none" as const,
-            secure: true,
-            httpOnly: true,
-            partitioned: true, // Required for cross-site cookies in modern browsers
-          }
+          sameSite: "none" as const,
+          secure: true,
+          httpOnly: true,
+          partitioned: true, // Required for cross-site cookies in modern browsers
+        }
         : {
-            sameSite: "lax" as const,
-            secure: false,
-            httpOnly: true,
-          };
+          sameSite: "lax" as const,
+          secure: false,
+          httpOnly: true,
+        };
 
       console.log("🔐 Better Auth cookie attributes:", attributes);
       return attributes;

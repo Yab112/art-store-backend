@@ -25,7 +25,66 @@ export class WithdrawalsService {
     private readonly prisma: PrismaService,
     private readonly artistService: ArtistService,
     private readonly paypalService: PaypalService,
-  ) {}
+  ) { }
+
+  /**
+   * Create a manual withdrawal request
+   */
+  async create(userId: string, createDto: any) { // Using any for DTO to avoid import issues in this tool call
+    try {
+      this.logger.log(`Creating manual withdrawal request for user: ${userId}`);
+
+      // 1. Get current earnings/balance
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { earning: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // 2. Calculate already withdrawn or pending amounts
+      const activeWithdrawals = await this.prisma.withdrawal.findMany({
+        where: {
+          userId,
+          status: {
+            in: [PaymentStatus.INITIATED, PaymentStatus.PROCESSING, PaymentStatus.COMPLETED],
+          },
+        },
+      });
+
+      const totalDeducted = activeWithdrawals.reduce(
+        (sum, w) => sum + Number(w.amount),
+        0
+      );
+
+      const totalEarnings = Number(user.earning || 0);
+      const availableBalance = totalEarnings - totalDeducted;
+
+      if (createDto.amount > availableBalance) {
+        throw new BadRequestException(
+          `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${createDto.amount.toFixed(2)}`
+        );
+      }
+
+      // 3. Create the withdrawal request
+      const withdrawal = await this.prisma.withdrawal.create({
+        data: {
+          userId,
+          amount: new Decimal(createDto.amount),
+          payoutAccount: createDto.payoutAccount,
+          status: PaymentStatus.INITIATED,
+        } as any,
+      });
+
+      this.logger.log(`✅ Withdrawal request created: ${withdrawal.id} for user ${userId}`);
+      return withdrawal;
+    } catch (error) {
+      this.logger.error(`Failed to create withdrawal request: ${error.message}`);
+      throw error;
+    }
+  }
 
   /**
    * Get all withdrawals with pagination and filters
@@ -61,12 +120,12 @@ export class WithdrawalsService {
     const userIds = withdrawals
       .map((w) => (w as any).userId)
       .filter((id): id is string => id !== null && id !== undefined);
-    
+
     const users = userIds.length > 0
       ? await this.prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, email: true },
-        })
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true },
+      })
       : [];
 
     const userMap = new Map<string, { id: string; name: string | null; email: string }>(
@@ -79,10 +138,10 @@ export class WithdrawalsService {
         userId: w.userId || null,
         user: w.userId && userMap.has(w.userId)
           ? {
-              id: userMap.get(w.userId)!.id,
-              name: userMap.get(w.userId)!.name,
-              email: userMap.get(w.userId)!.email,
-            }
+            id: userMap.get(w.userId)!.id,
+            name: userMap.get(w.userId)!.name,
+            email: userMap.get(w.userId)!.email,
+          }
           : null,
         payoutAccount: w.payoutAccount,
         amount: Number(w.amount),
@@ -242,13 +301,13 @@ export class WithdrawalsService {
       userId: withdrawal.userId,
       user: withdrawal.user
         ? {
-            id: withdrawal.user.id,
-            name: withdrawal.user.name,
-            email: withdrawal.user.email,
-            image: withdrawal.user.image,
-            emailVerified: withdrawal.user.emailVerified,
-            banned: withdrawal.user.banned,
-          }
+          id: withdrawal.user.id,
+          name: withdrawal.user.name,
+          email: withdrawal.user.email,
+          image: withdrawal.user.image,
+          emailVerified: withdrawal.user.emailVerified,
+          banned: withdrawal.user.banned,
+        }
         : null,
       payoutAccount: withdrawal.payoutAccount,
       amount: Number(withdrawal.amount),
@@ -393,24 +452,24 @@ export class WithdrawalsService {
           if (!payoutResult || !payoutResult.success) {
             const errorMessage = payoutResult?.message || 'PayPal payout failed';
             this.logger.error(`PayPal payout error: ${errorMessage}`);
-            
+
             // Check if it's a configuration issue
             if (errorMessage.includes('credentials') || errorMessage.includes('not configured')) {
               throw new BadRequestException(
                 `PayPal is not properly configured. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables. Error: ${errorMessage}`,
               );
             }
-            
+
             throw new BadRequestException(`PayPal payout failed: ${errorMessage}`);
           }
         } catch (error: any) {
           this.logger.error(`PayPal payout processing error: ${error.message || error}`);
-          
+
           // Re-throw with more context
           if (error instanceof HttpException) {
             throw error; // Re-throw HttpExceptions as-is
           }
-          
+
           throw new BadRequestException(
             `Failed to process PayPal payout: ${error.message || 'Unknown error'}`,
           );
@@ -420,7 +479,7 @@ export class WithdrawalsService {
         this.logger.log(
           `PayPal payout initiated - Batch ID: ${payoutResult.payoutBatchId}, Initial Status: ${payoutResult.status}`,
         );
-        
+
         // Store payout batch ID in metadata for webhook matching
         // Using raw query to avoid Prisma type errors if migration not run
         try {
@@ -474,7 +533,7 @@ export class WithdrawalsService {
       });
 
       const rejectionReason = updateDto.reason || 'Withdrawal request rejected by admin';
-      
+
       this.logger.log(
         `Withdrawal ${id} rejected. Reason: ${rejectionReason}. Funds remain in available balance.`,
       );
@@ -589,11 +648,11 @@ export class WithdrawalsService {
       userId: updated.userId,
       user: updated.user
         ? {
-            id: updated.user.id,
-            name: updated.user.name,
-            email: updated.user.email,
-            image: updated.user.image,
-          }
+          id: updated.user.id,
+          name: updated.user.name,
+          email: updated.user.email,
+          image: updated.user.image,
+        }
         : null,
       payoutAccount: updated.payoutAccount,
       amount: Number(updated.amount),
