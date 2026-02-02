@@ -1,8 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { Injectable, Logger } from "@nestjs/common";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { extname } from "path";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class S3Service {
@@ -14,14 +18,18 @@ export class S3Service {
 
   constructor() {
     // Get configuration from environment variables
-    this.region = process.env.AWS_REGION || 'us-east-1';
-    this.bucketName = process.env.AWS_S3_BUCKET_NAME || '';
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID || '';
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || '';
-    this.publicUrlBase = process.env.AWS_S3_PUBLIC_URL || `https://${this.bucketName}.s3.${this.region}.amazonaws.com`;
+    this.region = process.env.AWS_REGION || "us-east-1";
+    this.bucketName = process.env.AWS_S3_BUCKET_NAME || "";
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID || "";
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || "";
+    this.publicUrlBase =
+      process.env.AWS_S3_PUBLIC_URL ||
+      `https://${this.bucketName}.s3.${this.region}.amazonaws.com`;
 
     if (!accessKeyId || !secretAccessKey || !this.bucketName) {
-      this.logger.warn('⚠️ AWS S3 credentials not fully configured. Some features may not work.');
+      this.logger.warn(
+        "⚠️ AWS S3 credentials not fully configured. Some features may not work.",
+      );
     }
 
     this.s3Client = new S3Client({
@@ -32,7 +40,9 @@ export class S3Service {
       },
     });
 
-    this.logger.log(`✅ S3 client initialized for bucket: ${this.bucketName} in region: ${this.region}`);
+    this.logger.log(
+      `✅ S3 client initialized for bucket: ${this.bucketName} in region: ${this.region}`,
+    );
   }
 
   /**
@@ -53,7 +63,7 @@ export class S3Service {
       const targetBucket = bucket || this.bucketName;
       const fileExtension = extname(fileName);
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
-      
+
       // Determine folder based on content type
       const folder = this.getFolderForContentType(contentType);
       const objectKey = folder ? `${folder}/${uniqueFileName}` : uniqueFileName;
@@ -71,7 +81,7 @@ export class S3Service {
       const publicUrl = this.getPublicUrl(objectKey);
 
       this.logger.log(`✅ Presigned upload URL generated for: ${objectKey}`);
-      
+
       return {
         presignedUrl,
         publicUrl,
@@ -79,7 +89,9 @@ export class S3Service {
       };
     } catch (error: any) {
       this.logger.error(`❌ Failed to generate presigned URL:`, error.message);
-      throw new Error(`Failed to generate presigned upload URL: ${error.message}`);
+      throw new Error(
+        `Failed to generate presigned upload URL: ${error.message}`,
+      );
     }
   }
 
@@ -109,8 +121,13 @@ export class S3Service {
 
       return presignedUrl;
     } catch (error: any) {
-      this.logger.error(`❌ Failed to generate presigned download URL:`, error.message);
-      throw new Error(`Failed to generate presigned download URL: ${error.message}`);
+      this.logger.error(
+        `❌ Failed to generate presigned download URL:`,
+        error.message,
+      );
+      throw new Error(
+        `Failed to generate presigned download URL: ${error.message}`,
+      );
     }
   }
 
@@ -120,9 +137,9 @@ export class S3Service {
    * @returns Public URL
    */
   getPublicUrl(objectKey: string): string {
-    const cleanKey = objectKey.startsWith('/') ? objectKey.slice(1) : objectKey;
-    const baseUrl = this.publicUrlBase.endsWith('/') 
-      ? this.publicUrlBase.slice(0, -1) 
+    const cleanKey = objectKey.startsWith("/") ? objectKey.slice(1) : objectKey;
+    const baseUrl = this.publicUrlBase.endsWith("/")
+      ? this.publicUrlBase.slice(0, -1)
       : this.publicUrlBase;
     return `${baseUrl}/${cleanKey}`;
   }
@@ -131,13 +148,15 @@ export class S3Service {
    * Determine folder/bucket path based on content type
    */
   private getFolderForContentType(contentType: string): string {
-    if (contentType.startsWith('image/')) {
-      return 'images';
+    if (contentType.startsWith("image/")) {
+      return "images";
     }
-    if (contentType === 'application/pdf' || contentType.startsWith('application/')) {
-      return 'documents';
+    if (
+      contentType === "application/pdf" ||
+      contentType.startsWith("application/")
+    ) {
+      return "documents";
     }
-    return ''; // Root of bucket
+    return ""; // Root of bucket
   }
 }
-

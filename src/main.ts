@@ -48,7 +48,7 @@ async function bootstrap() {
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
-    })
+    }),
   );
 
   // CRITICAL FIX: Clean duplicate better-auth.session_token cookies BEFORE Better Auth processes them
@@ -60,12 +60,12 @@ async function bootstrap() {
 
       // Extract all better-auth.session_token cookies
       const sessionTokenMatches = cookieHeader.match(
-        /better-auth\.session_token=([^;]+)/g
+        /better-auth\.session_token=([^;]+)/g,
       );
 
       if (sessionTokenMatches && sessionTokenMatches.length > 1) {
         console.log(
-          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`
+          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`,
         );
 
         // Remove all better-auth.session_token cookies from the header
@@ -83,8 +83,9 @@ async function bootstrap() {
         req.headers.cookie = cleanedCookies;
 
         console.log(
-          `[Cookie Cleaner] Cleaned cookie header - removed ${sessionTokenMatches.length - 1
-          } duplicate session tokens`
+          `[Cookie Cleaner] Cleaned cookie header - removed ${
+            sessionTokenMatches.length - 1
+          } duplicate session tokens`,
         );
       }
     }
@@ -101,7 +102,7 @@ async function bootstrap() {
     {
       logger: ["error", "warn", "log", "debug", "verbose"],
       bodyParser: false,
-    }
+    },
   );
 
   app.useStaticAssets(join(__dirname, "..", "public"));
@@ -117,7 +118,7 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
       contentSecurityPolicy: false,
       originAgentCluster: false,
-    })
+    }),
   );
   // app.enableCors(corsService.getOptions());
   app.useGlobalPipes(
@@ -129,7 +130,7 @@ async function bootstrap() {
       skipMissingProperties: false,
       skipNullProperties: false,
       skipUndefinedProperties: false,
-    })
+    }),
   );
   app.use(cookieParser());
 
@@ -145,11 +146,11 @@ async function bootstrap() {
     .addServer("http://localhost:3099", "Localhost")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
-      "Render Production URL"
+      "Render Production URL",
     )
     .addServer(
       "https://art-store-backend-latest.onrender.com/api",
-      "Render Production API URL"
+      "Render Production API URL",
     )
     .addServer("http://51.20.54.47:3099/api", "EC2 Production API")
     .addServer("http://51.20.54.47:3099", "EC2 Production (Root)")
@@ -179,7 +180,7 @@ async function bootstrap() {
       Object.entries(openAPISchema.paths).map(([path, schema]) => [
         `/auth${path}`, // e.g. /auth/sign-up/email
         schema,
-      ])
+      ]),
     );
 
     // merge into Nest Swagger doc
@@ -234,7 +235,7 @@ async function bootstrap() {
   await app.listen(port);
   logger.success(`🚀 Application started on port ${port} `);
   logger.log(
-    `📚 API Documentation available at http://localhost:${port}/swagger`
+    `📚 API Documentation available at http://localhost:${port}/swagger`,
   );
   logger.log(`🌍 Environment: ${configurationService.getEnvironment()}`);
 }

@@ -1,6 +1,6 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { Logger, LoggerService } from '../../libraries/logger';
-import { Exception } from './exception';
+import { HttpStatus, Injectable } from "@nestjs/common";
+import { Logger, LoggerService } from "../../libraries/logger";
+import { Exception } from "./exception";
 
 export interface IException {
   status: HttpStatus;
@@ -27,7 +27,7 @@ export class ExceptionService {
   private logger: Logger;
 
   constructor(private loggerService: LoggerService) {
-    this.logger = this.loggerService.create({ name: 'ExceptionService' });
+    this.logger = this.loggerService.create({ name: "ExceptionService" });
   }
 
   throw(payload: IException): never {
@@ -35,7 +35,7 @@ export class ExceptionService {
 
     this.logger.log(
       `[ErrorCode | ${payload.code}] ${message}`,
-      'ExceptionService',
+      "ExceptionService",
     );
 
     throw new Exception({
@@ -48,7 +48,7 @@ export class ExceptionService {
   isCustom(exception: Exception): boolean {
     try {
       const payload = exception.getResponse() as any;
-      return payload?.type === 'CORE_EXCEPTION';
+      return payload?.type === "CORE_EXCEPTION";
     } catch {
       return false;
     }

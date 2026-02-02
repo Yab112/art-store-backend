@@ -1,5 +1,5 @@
-import { IsBoolean, IsOptional, IsString, IsIn } from 'class-validator';
-import { PROFILE_CONSTANTS } from '../constants';
+import { IsBoolean, IsOptional, IsString, IsIn } from "class-validator";
+import { PROFILE_CONSTANTS } from "../constants";
 
 export class NotificationPreferencesDto {
   @IsOptional()
@@ -67,7 +67,7 @@ export class UpdatePreferencesDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['light', 'dark'])
+  @IsIn(["light", "dark"])
   themePreference?: string;
 
   @IsOptional()

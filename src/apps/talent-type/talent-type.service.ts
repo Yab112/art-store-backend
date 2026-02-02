@@ -14,7 +14,7 @@ export class TalentTypeService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly s3Service: S3Service
+    private readonly s3Service: S3Service,
   ) {}
 
   /**
@@ -58,7 +58,7 @@ export class TalentTypeService {
    * Create a new talent type (admin only)
    */
   async createTalentType(
-    dto: CreateTalentTypeDto
+    dto: CreateTalentTypeDto,
   ): Promise<TalentTypeResponseDto> {
     try {
       const slug =
@@ -98,7 +98,7 @@ export class TalentTypeService {
    */
   async updateTalentType(
     id: string,
-    dto: UpdateTalentTypeDto
+    dto: UpdateTalentTypeDto,
   ): Promise<TalentTypeResponseDto> {
     try {
       const existing = await this.prisma.talentType.findUnique({
@@ -179,7 +179,7 @@ export class TalentTypeService {
       // Check if any users are using this talent type
       if (talentType.users.length > 0) {
         throw new Error(
-          `Cannot delete talent type. ${talentType.users.length} user(s) are using it.`
+          `Cannot delete talent type. ${talentType.users.length} user(s) are using it.`,
         );
       }
 
@@ -200,7 +200,7 @@ export class TalentTypeService {
   async getArtistsByTalentType(
     talentTypeId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -295,7 +295,7 @@ export class TalentTypeService {
     } catch (error) {
       this.logger.error(
         `Failed to get artists by talent type ${talentTypeId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -306,7 +306,7 @@ export class TalentTypeService {
    * Converts S3 object key to pre-signed URL if image exists
    */
   private async mapToResponseDto(
-    talentType: any
+    talentType: any,
   ): Promise<TalentTypeResponseDto> {
     let imageUrl = talentType.image;
 
@@ -321,11 +321,11 @@ export class TalentTypeService {
         imageUrl = await this.s3Service.getPresignedDownloadUrl(
           imageUrl,
           undefined,
-          604800
+          604800,
         );
       } catch (error) {
         this.logger.warn(
-          `Failed to generate pre-signed URL for image ${imageUrl}, using public URL instead`
+          `Failed to generate pre-signed URL for image ${imageUrl}, using public URL instead`,
         );
         // Fallback to public URL if pre-signed URL generation fails
         imageUrl = this.s3Service.getPublicUrl(imageUrl);

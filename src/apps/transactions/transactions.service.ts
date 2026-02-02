@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { PaymentStatus } from '@prisma/client';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { PaymentStatus } from "@prisma/client";
 // If PaymentStatus is not available, use: type PaymentStatus = 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'REFUNDED';
 
 @Injectable()
@@ -35,10 +35,10 @@ export class TransactionsService {
       // Search by buyer email (from order) or transaction ID
       if (search) {
         where.OR = [
-          { id: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: "insensitive" } },
           {
             order: {
-              buyerEmail: { contains: search, mode: 'insensitive' },
+              buyerEmail: { contains: search, mode: "insensitive" },
             },
           },
         ];
@@ -47,7 +47,7 @@ export class TransactionsService {
       // First, get all transactions matching status and search
       const allTransactions = await this.prisma.transaction.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           order: {
             select: {
@@ -73,7 +73,8 @@ export class TransactionsService {
       if (provider) {
         filteredTransactions = allTransactions.filter((tx) => {
           const metadata = tx.metadata as any;
-          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          const txProvider =
+            metadata?.paymentProvider || metadata?.provider || "";
           return txProvider.toLowerCase() === provider.toLowerCase();
         });
       }
@@ -94,7 +95,7 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to fetch transactions:', error);
+      this.logger.error("Failed to fetch transactions:", error);
       throw error;
     }
   }
@@ -114,7 +115,9 @@ export class TransactionsService {
     provider?: string,
   ) {
     try {
-      this.logger.log(`[BUYER-TX] Getting transactions for buyer userId: ${userId}`);
+      this.logger.log(
+        `[BUYER-TX] Getting transactions for buyer userId: ${userId}`,
+      );
       const skip = (page - 1) * limit;
 
       // Get user email for fallback query (for backward compatibility with old orders)
@@ -143,10 +146,10 @@ export class TransactionsService {
       // Search by transaction ID or order ID
       if (search) {
         where.OR = [
-          { id: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: "insensitive" } },
           {
             order: {
-              id: { contains: search, mode: 'insensitive' },
+              id: { contains: search, mode: "insensitive" },
             },
           },
         ];
@@ -155,7 +158,7 @@ export class TransactionsService {
       // Get all transactions for this user
       const allTransactions = await this.prisma.transaction.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           order: {
             select: {
@@ -187,14 +190,17 @@ export class TransactionsService {
         },
       });
 
-      this.logger.log(`[BUYER-TX] Found ${allTransactions.length} transactions for buyer userId: ${userId}`);
+      this.logger.log(
+        `[BUYER-TX] Found ${allTransactions.length} transactions for buyer userId: ${userId}`,
+      );
 
       // Filter by provider if provided (from metadata)
       let filteredTransactions = allTransactions;
       if (provider) {
         filteredTransactions = allTransactions.filter((tx) => {
           const metadata = tx.metadata as any;
-          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          const txProvider =
+            metadata?.paymentProvider || metadata?.provider || "";
           return txProvider.toLowerCase() === provider.toLowerCase();
         });
       }
@@ -205,7 +211,9 @@ export class TransactionsService {
       // Apply pagination
       const transactions = filteredTransactions.slice(skip, skip + limit);
 
-      this.logger.log(`[BUYER-TX] Returning ${transactions.length} transactions (page ${page} of ${Math.ceil(total / limit)})`);
+      this.logger.log(
+        `[BUYER-TX] Returning ${transactions.length} transactions (page ${page} of ${Math.ceil(total / limit)})`,
+      );
 
       return {
         transactions,
@@ -217,7 +225,7 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error('[BUYER-TX] Failed to fetch user transactions:', error);
+      this.logger.error("[BUYER-TX] Failed to fetch user transactions:", error);
       throw error;
     }
   }
@@ -258,7 +266,7 @@ export class TransactionsService {
     });
 
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new Error("Transaction not found");
     }
 
     return transaction;
@@ -278,7 +286,9 @@ export class TransactionsService {
     try {
       const skip = (page - 1) * limit;
 
-      this.logger.log(`Fetching transactions for userId: ${userId}, page: ${page}, limit: ${limit}`);
+      this.logger.log(
+        `Fetching transactions for userId: ${userId}, page: ${page}, limit: ${limit}`,
+      );
 
       // Get all orders for this user
       const userOrders = await this.prisma.order.findMany({
@@ -318,7 +328,7 @@ export class TransactionsService {
       // Get all transactions for user's orders
       const allTransactions = await this.prisma.transaction.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           order: {
             select: {
@@ -359,7 +369,8 @@ export class TransactionsService {
       if (provider) {
         filteredTransactions = allTransactions.filter((tx) => {
           const metadata = tx.metadata as any;
-          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          const txProvider =
+            metadata?.paymentProvider || metadata?.provider || "";
           return txProvider.toLowerCase() === provider.toLowerCase();
         });
       }
@@ -384,7 +395,10 @@ export class TransactionsService {
           order: tx.order,
           paymentGateway: tx.paymentGateway,
           // Extract payment provider from metadata
-          provider: (tx.metadata as any)?.paymentProvider || (tx.metadata as any)?.provider || null,
+          provider:
+            (tx.metadata as any)?.paymentProvider ||
+            (tx.metadata as any)?.provider ||
+            null,
         };
       });
 
@@ -398,7 +412,10 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch transactions for userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -415,16 +432,16 @@ export class TransactionsService {
   ) {
     try {
       const skip = (page - 1) * limit;
-      this.logger.log(`Fetching all transactions for userId: ${userId}, page: ${page}, limit: ${limit}`);
+      this.logger.log(
+        `Fetching all transactions for userId: ${userId}, page: ${page}, limit: ${limit}`,
+      );
 
       // Get buyer transactions (purchases - debits)
       const buyerTransactions = await this.prisma.transaction.findMany({
         where: {
           orderId: { not: null },
           order: {
-            OR: [
-              { userId: userId },
-            ],
+            OR: [{ userId: userId }],
           },
           ...(status ? { status } : {}),
         },
@@ -460,7 +477,7 @@ export class TransactionsService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       // Get seller transactions (earnings - credits)
@@ -469,8 +486,8 @@ export class TransactionsService {
           sellerId: userId,
           orderId: null,
           metadata: {
-            path: ['type'],
-            equals: 'SELLER_PAYMENT',
+            path: ["type"],
+            equals: "SELLER_PAYMENT",
           },
           ...(status ? { status } : {}),
         },
@@ -500,7 +517,7 @@ export class TransactionsService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       // Get withdrawal transactions (debits - money going out)
@@ -510,37 +527,40 @@ export class TransactionsService {
           sellerId: userId,
           orderId: null, // Withdrawal transactions don't have orderId
           metadata: {
-            path: ['type'],
-            equals: 'WITHDRAWAL',
+            path: ["type"],
+            equals: "WITHDRAWAL",
           },
           ...(status ? { status } : {}),
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       this.logger.log(
-        `[SELLER-TX] Found ${withdrawalTransactions.length} withdrawal transactions (debits) for user ${userId}`
+        `[SELLER-TX] Found ${withdrawalTransactions.length} withdrawal transactions (debits) for user ${userId}`,
       );
 
       // Combine and format all transactions
       const allTransactions = [
-        ...buyerTransactions.map(tx => ({
+        ...buyerTransactions.map((tx) => ({
           ...tx,
-          type: 'DEBIT' as const,
-          typeLabel: 'Purchase',
+          type: "DEBIT" as const,
+          typeLabel: "Purchase",
         })),
-        ...sellerTransactions.map(tx => ({
+        ...sellerTransactions.map((tx) => ({
           ...tx,
-          type: 'CREDIT' as const,
-          typeLabel: 'Earning',
+          type: "CREDIT" as const,
+          typeLabel: "Earning",
         })),
-        ...withdrawalTransactions.map(tx => ({
+        ...withdrawalTransactions.map((tx) => ({
           ...tx,
-          type: 'DEBIT' as const,
-          typeLabel: 'Withdrawal',
+          type: "DEBIT" as const,
+          typeLabel: "Withdrawal",
           order: null,
         })),
-      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
 
       const total = allTransactions.length;
       const paginatedTransactions = allTransactions.slice(skip, skip + limit);
@@ -560,7 +580,8 @@ export class TransactionsService {
           type: tx.type,
           typeLabel: tx.typeLabel,
           order: tx.order,
-          paymentGateway: 'paymentGateway' in tx ? tx.paymentGateway || null : null,
+          paymentGateway:
+            "paymentGateway" in tx ? tx.paymentGateway || null : null,
         };
       });
 
@@ -574,7 +595,10 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch all transactions for userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch all transactions for userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -584,22 +608,27 @@ export class TransactionsService {
    * Returns aggregated data by date, status, and provider
    * Includes credits (earnings) and debits (purchases, withdrawals)
    */
-  async getUserTransactionStats(userId: string, period: 'week' | 'month' | 'year' = 'month') {
+  async getUserTransactionStats(
+    userId: string,
+    period: "week" | "month" | "year" = "month",
+  ) {
     try {
-      this.logger.log(`Fetching transaction statistics for userId: ${userId}, period: ${period}`);
+      this.logger.log(
+        `Fetching transaction statistics for userId: ${userId}, period: ${period}`,
+      );
 
       // Calculate date range based on period
       const now = new Date();
       const startDate = new Date();
-      
+
       switch (period) {
-        case 'week':
+        case "week":
           startDate.setDate(now.getDate() - 7);
           break;
-        case 'month':
+        case "month":
           startDate.setMonth(now.getMonth() - 1);
           break;
-        case 'year':
+        case "year":
           startDate.setFullYear(now.getFullYear() - 1);
           break;
       }
@@ -630,8 +659,8 @@ export class TransactionsService {
           sellerId: userId,
           orderId: null,
           metadata: {
-            path: ['type'],
-            equals: 'SELLER_PAYMENT',
+            path: ["type"],
+            equals: "SELLER_PAYMENT",
           },
           createdAt: {
             gte: startDate,
@@ -652,8 +681,8 @@ export class TransactionsService {
           sellerId: userId,
           orderId: null,
           metadata: {
-            path: ['type'],
-            equals: 'WITHDRAWAL',
+            path: ["type"],
+            equals: "WITHDRAWAL",
           },
           createdAt: {
             gte: startDate,
@@ -670,10 +699,16 @@ export class TransactionsService {
 
       // Combine all transactions with type indicators
       const allTransactions = [
-        ...buyerTransactions.map(tx => ({ ...tx, type: 'DEBIT' as const })),
-        ...sellerTransactions.map(tx => ({ ...tx, type: 'CREDIT' as const })),
-        ...withdrawalTransactions.map(tx => ({ ...tx, type: 'DEBIT' as const })),
-      ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        ...buyerTransactions.map((tx) => ({ ...tx, type: "DEBIT" as const })),
+        ...sellerTransactions.map((tx) => ({ ...tx, type: "CREDIT" as const })),
+        ...withdrawalTransactions.map((tx) => ({
+          ...tx,
+          type: "DEBIT" as const,
+        })),
+      ].sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
 
       if (allTransactions.length === 0) {
         return {
@@ -690,43 +725,70 @@ export class TransactionsService {
       }
 
       // Group by date with proper sorting - separate credits and debits
-      const byDateMap = new Map<string, { date: string; dateValue: Date; amount: number; credits: number; debits: number; count: number }>();
-      
+      const byDateMap = new Map<
+        string,
+        {
+          date: string;
+          dateValue: Date;
+          amount: number;
+          credits: number;
+          debits: number;
+          count: number;
+        }
+      >();
+
       allTransactions.forEach((tx) => {
         const date = new Date(tx.createdAt);
         let dateKey: string;
         let dateValue: Date;
-        
+
         // Normalize date to start of period for grouping
         switch (period) {
-          case 'week':
+          case "week":
             // Group by day of week
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
             break;
-          case 'month':
+          case "month":
             // Group by day
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
             break;
-          case 'year':
+          case "year":
             // Group by month
             dateValue = new Date(date.getFullYear(), date.getMonth(), 1);
-            dateKey = dateValue.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            });
             break;
           default:
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US');
+            dateKey = dateValue.toLocaleDateString("en-US");
         }
 
-        const existing = byDateMap.get(dateKey) || { date: dateKey, dateValue, amount: 0, credits: 0, debits: 0, count: 0 };
+        const existing = byDateMap.get(dateKey) || {
+          date: dateKey,
+          dateValue,
+          amount: 0,
+          credits: 0,
+          debits: 0,
+          count: 0,
+        };
         const amount = Number(tx.amount);
         existing.amount += amount;
         existing.count += 1;
-        if (tx.type === 'CREDIT') {
+        if (tx.type === "CREDIT") {
           existing.credits += amount;
         } else {
           existing.debits += amount;
@@ -736,7 +798,13 @@ export class TransactionsService {
 
       // Sort by actual date value, not string
       const byDate = Array.from(byDateMap.values())
-        .map(item => ({ date: item.date, amount: item.amount, credits: item.credits, debits: item.debits, count: item.count }))
+        .map((item) => ({
+          date: item.date,
+          amount: item.amount,
+          credits: item.credits,
+          debits: item.debits,
+          count: item.count,
+        }))
         .sort((a, b) => {
           const dateA = byDateMap.get(a.date)?.dateValue || new Date(0);
           const dateB = byDateMap.get(b.date)?.dateValue || new Date(0);
@@ -744,8 +812,16 @@ export class TransactionsService {
         });
 
       // Separate by date for credits and debits
-      const byDateCredits = byDate.map(item => ({ date: item.date, amount: item.credits, count: item.count }));
-      const byDateDebits = byDate.map(item => ({ date: item.date, amount: item.debits, count: item.count }));
+      const byDateCredits = byDate.map((item) => ({
+        date: item.date,
+        amount: item.credits,
+        count: item.count,
+      }));
+      const byDateDebits = byDate.map((item) => ({
+        date: item.date,
+        amount: item.debits,
+        count: item.count,
+      }));
 
       // Group by status
       const byStatus: Record<string, { count: number; amount: number }> = {};
@@ -762,7 +838,8 @@ export class TransactionsService {
       const byProvider: Record<string, { count: number; amount: number }> = {};
       allTransactions.forEach((tx) => {
         const metadata = tx.metadata as any;
-        const provider = metadata?.paymentProvider || metadata?.provider || 'unknown';
+        const provider =
+          metadata?.paymentProvider || metadata?.provider || "unknown";
         if (!byProvider[provider]) {
           byProvider[provider] = { count: 0, amount: 0 };
         }
@@ -770,9 +847,16 @@ export class TransactionsService {
         byProvider[provider].amount += Number(tx.amount);
       });
 
-      const totalAmount = allTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
-      const totalCredits = allTransactions.filter(tx => tx.type === 'CREDIT').reduce((sum, tx) => sum + Number(tx.amount), 0);
-      const totalDebits = allTransactions.filter(tx => tx.type === 'DEBIT').reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalAmount = allTransactions.reduce(
+        (sum, tx) => sum + Number(tx.amount),
+        0,
+      );
+      const totalCredits = allTransactions
+        .filter((tx) => tx.type === "CREDIT")
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalDebits = allTransactions
+        .filter((tx) => tx.type === "DEBIT")
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
       const totalCount = allTransactions.length;
 
       return {
@@ -787,9 +871,11 @@ export class TransactionsService {
         totalCount,
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch transaction statistics for userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch transaction statistics for userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
 }
-

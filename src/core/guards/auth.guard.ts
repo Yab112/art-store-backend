@@ -17,7 +17,7 @@ export class AuthGuard implements CanActivate {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly reflector: Reflector
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,7 +35,7 @@ export class AuthGuard implements CanActivate {
         let cookieHeader = request.headers.cookie;
         if (cookieHeader && typeof cookieHeader === "string") {
           const sessionTokenMatches = cookieHeader.match(
-            /better-auth\.session_token=([^;]+)/g
+            /better-auth\.session_token=([^;]+)/g,
           );
 
           if (sessionTokenMatches && sessionTokenMatches.length > 1) {
@@ -82,7 +82,7 @@ export class AuthGuard implements CanActivate {
       this.logger.debug(`Cookies: ${JSON.stringify(request.cookies || {})}`);
       this.logger.debug(`Cookie header: ${request.headers.cookie || "none"}`);
       this.logger.debug(
-        `Authorization header: ${request.headers.authorization || "none"}`
+        `Authorization header: ${request.headers.authorization || "none"}`,
       );
 
       // CRITICAL FIX: Clean duplicate better-auth.session_token cookies before calling getSession()
@@ -90,12 +90,12 @@ export class AuthGuard implements CanActivate {
       let cookieHeader = request.headers.cookie;
       if (cookieHeader && typeof cookieHeader === "string") {
         const sessionTokenMatches = cookieHeader.match(
-          /better-auth\.session_token=([^;]+)/g
+          /better-auth\.session_token=([^;]+)/g,
         );
 
         if (sessionTokenMatches && sessionTokenMatches.length > 1) {
           this.logger.debug(
-            `[AuthGuard] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`
+            `[AuthGuard] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`,
           );
 
           // Remove all better-auth.session_token cookies from the header
@@ -114,7 +114,7 @@ export class AuthGuard implements CanActivate {
           request.headers.cookie = cleanedCookies;
 
           this.logger.debug(
-            `[AuthGuard] Cleaned cookie header - removed ${sessionTokenMatches.length - 1} duplicate session tokens`
+            `[AuthGuard] Cleaned cookie header - removed ${sessionTokenMatches.length - 1} duplicate session tokens`,
           );
         }
       }
@@ -126,7 +126,7 @@ export class AuthGuard implements CanActivate {
 
       this.logger.debug(`Session: ${session ? "Found" : "Not found"}`);
       this.logger.debug(
-        `User: ${session?.user ? session.user.id : "Not found"}`
+        `User: ${session?.user ? session.user.id : "Not found"}`,
       );
 
       if (!session || !session.user) {
@@ -137,7 +137,7 @@ export class AuthGuard implements CanActivate {
       // Validate that the user ID exists in the database
       // This ensures the user hasn't been deleted but session still exists
       this.logger.debug(
-        `Checking if user exists in database: ${session.user.id}`
+        `Checking if user exists in database: ${session.user.id}`,
       );
 
       const userExists = await this.prisma.user.findUnique({
@@ -152,19 +152,19 @@ export class AuthGuard implements CanActivate {
           take: 5,
         });
         this.logger.error(
-          `Session user ID ${session.user.id} does not exist in database`
+          `Session user ID ${session.user.id} does not exist in database`,
         );
         this.logger.error(`Session user email: ${session.user.email}`);
         this.logger.error(
-          `Sample users in database: ${JSON.stringify(allUsers)}`
+          `Sample users in database: ${JSON.stringify(allUsers)}`,
         );
         throw new UnauthorizedException(
-          `User account not found. Session user ID: ${session.user.id}, Email: ${session.user.email}. Please sign in again.`
+          `User account not found. Session user ID: ${session.user.id}, Email: ${session.user.email}. Please sign in again.`,
         );
       }
 
       this.logger.debug(
-        `User found in database: ${userExists.id} (${userExists.email})`
+        `User found in database: ${userExists.id} (${userExists.email})`,
       );
 
       // Attach user and session to request for use in controllers
@@ -172,7 +172,7 @@ export class AuthGuard implements CanActivate {
       request["session"] = session;
 
       this.logger.debug(
-        `User authenticated: ${session.user.id} (${session.user.email})`
+        `User authenticated: ${session.user.id} (${session.user.email})`,
       );
 
       return true;

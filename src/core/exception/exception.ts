@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from "@nestjs/common";
 
 export interface IException {
   status: HttpStatus;
@@ -8,6 +8,6 @@ export interface IException {
 
 export class Exception extends HttpException {
   constructor(options: IException) {
-    super({ ...options, type: 'CORE_EXCEPTION' }, options.status);
+    super({ ...options, type: "CORE_EXCEPTION" }, options.status);
   }
 }

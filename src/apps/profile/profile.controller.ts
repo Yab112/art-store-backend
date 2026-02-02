@@ -45,7 +45,8 @@ export class ProfileController {
   async getPaymentMethodPreference(@Request() req: any) {
     try {
       const userId = req.user.id;
-      const preference = await this.profileService.getPaymentMethodPreference(userId);
+      const preference =
+        await this.profileService.getPaymentMethodPreference(userId);
       return {
         success: true,
         data: preference,
@@ -68,13 +69,13 @@ export class ProfileController {
   @ApiOperation({ summary: "Update user's preferred payment method" })
   async updatePaymentMethodPreference(
     @Body() dto: UpdatePaymentMethodPreferenceDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       return await this.profileService.updatePaymentMethodPreference(
         userId,
-        dto.paymentMethodPreference
+        dto.paymentMethodPreference,
       );
     } catch (error) {
       return {
@@ -94,7 +95,7 @@ export class ProfileController {
   async getPublicProfile(
     @Param("id") id: string,
     @Request() req: any,
-    @Ip() ip: string
+    @Ip() ip: string,
   ) {
     try {
       // Try to get user from session, but don't require it
@@ -102,7 +103,7 @@ export class ProfileController {
       const profile = await this.profileService.getPublicProfile(
         id,
         viewerUserId,
-        ip
+        ip,
       );
 
       return {
@@ -148,7 +149,7 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async updateProfile(
     @Body() updateProfileDto: UpdateProfileDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
@@ -169,7 +170,7 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async patchProfile(
     @Body() updateProfileDto: UpdateProfileDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     return this.updateProfile(updateProfileDto, req);
   }
@@ -182,13 +183,13 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async updatePreferences(
     @Body() updatePreferencesDto: UpdatePreferencesDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       return await this.profileService.updatePreferences(
         userId,
-        updatePreferencesDto
+        updatePreferencesDto,
       );
     } catch (error) {
       return {
@@ -229,13 +230,13 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async updateSettings(
     @Body() updateSettingsDto: UpdateSettingsDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       return await this.profileService.updateSettings(
         userId,
-        updateSettingsDto
+        updateSettingsDto,
       );
     } catch (error) {
       return {
@@ -263,7 +264,6 @@ export class ProfileController {
     }
   }
 
-
   /**
    * GET /profile/uploads
    * List uploaded artworks including drafts
@@ -273,14 +273,14 @@ export class ProfileController {
   async getUploadedArtworks(
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
     @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 10,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       const result = await this.profileService.getUploadedArtworks(
         userId,
         page,
-        limit
+        limit,
       );
 
       return {
@@ -304,14 +304,14 @@ export class ProfileController {
   async getActivityLogs(
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
     @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
       const result = await this.profileService.getActivityLogs(
         userId,
         page,
-        limit
+        limit,
       );
 
       return {
@@ -334,7 +334,7 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async deactivateAccount(
     @Body() deactivateDto: DeactivateAccountDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;
@@ -376,7 +376,7 @@ export class ProfileController {
   @ApiResponse({ status: 401, description: "Unauthorized" })
   async updateAvatar(
     @Body("avatarUrl") avatarUrl: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     try {
       const userId = req.user.id;

@@ -1,18 +1,18 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateBlogPostDto } from './create-blog-post.dto';
+import { PartialType } from "@nestjs/swagger";
+import { CreateBlogPostDto } from "./create-blog-post.dto";
 import {
   IsString,
   IsBoolean,
   IsOptional,
   MinLength,
   MaxLength,
-} from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+} from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 
 export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
   @ApiPropertyOptional({
-    description: 'Title of the blog post',
-    example: 'The Future of Digital Art - Updated',
+    description: "Title of the blog post",
+    example: "The Future of Digital Art - Updated",
     minLength: 3,
     maxLength: 200,
   })
@@ -23,16 +23,16 @@ export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
   title?: string;
 
   @ApiPropertyOptional({
-    description: 'URL-friendly slug',
-    example: 'the-future-of-digital-art-updated',
+    description: "URL-friendly slug",
+    example: "the-future-of-digital-art-updated",
   })
   @IsOptional()
   @IsString()
   slug?: string;
 
   @ApiPropertyOptional({
-    description: 'Full blog post content',
-    example: '<p>Updated content...</p>',
+    description: "Full blog post content",
+    example: "<p>Updated content...</p>",
     minLength: 50,
   })
   @IsOptional()
@@ -41,8 +41,8 @@ export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
   content?: string;
 
   @ApiPropertyOptional({
-    description: 'Short excerpt/summary',
-    example: 'Updated excerpt...',
+    description: "Short excerpt/summary",
+    example: "Updated excerpt...",
     maxLength: 500,
   })
   @IsOptional()
@@ -51,30 +51,18 @@ export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
   excerpt?: string;
 
   @ApiPropertyOptional({
-    description: 'Featured image URL',
-    example: 'https://minio.example.com/blog/new-featured-image.jpg',
+    description: "Featured image URL",
+    example: "https://minio.example.com/blog/new-featured-image.jpg",
   })
   @IsOptional()
   @IsString()
   featuredImage?: string;
 
   @ApiPropertyOptional({
-    description: 'Publish status',
+    description: "Publish status",
     example: true,
   })
   @IsOptional()
   @IsBoolean()
   published?: boolean;
 }
-
-
-
-
-
-
-
-
-
-
-
-

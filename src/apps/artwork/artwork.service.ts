@@ -35,7 +35,7 @@ export class ArtworkService {
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
     private readonly configurationService: ConfigurationService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(createArtworkDto: CreateArtworkDto, userId: string) {
@@ -52,7 +52,7 @@ export class ArtworkService {
       console.log("Trimmed userId length:", trimmedUserId?.length);
 
       this.logger.debug(
-        `Creating artwork for user ID: "${trimmedUserId}" (length: ${trimmedUserId?.length})`
+        `Creating artwork for user ID: "${trimmedUserId}" (length: ${trimmedUserId?.length})`,
       );
 
       if (!trimmedUserId) {
@@ -69,7 +69,7 @@ export class ArtworkService {
 
       console.log(
         "User lookup result:",
-        user ? `Found: ${user.id} (${user.email})` : "NOT FOUND"
+        user ? `Found: ${user.id} (${user.email})` : "NOT FOUND",
       );
 
       if (!user) {
@@ -81,14 +81,14 @@ export class ArtworkService {
         });
         console.error(
           "Sample users in database:",
-          JSON.stringify(allUsers, null, 2)
+          JSON.stringify(allUsers, null, 2),
         );
 
         this.logger.error(`User not found in database: "${trimmedUserId}"`);
         this.logger.error(`User ID type: ${typeof trimmedUserId}`);
         this.logger.error(`User ID length: ${trimmedUserId.length}`);
         this.logger.error(
-          `Sample users in database: ${JSON.stringify(allUsers, null, 2)}`
+          `Sample users in database: ${JSON.stringify(allUsers, null, 2)}`,
         );
 
         // Check if user exists with different casing or format
@@ -98,21 +98,21 @@ export class ArtworkService {
 
         if (userByEmail) {
           console.error(
-            `Sample user ID format: "${userByEmail.id}" (length: ${userByEmail.id.length})`
+            `Sample user ID format: "${userByEmail.id}" (length: ${userByEmail.id.length})`,
           );
           this.logger.error(
-            `Sample user ID format: "${userByEmail.id}" (length: ${userByEmail.id.length})`
+            `Sample user ID format: "${userByEmail.id}" (length: ${userByEmail.id.length})`,
           );
         }
 
         throw new NotFoundException(
-          `User with ID "${trimmedUserId}" not found in database. Please ensure you are logged in with a valid account.`
+          `User with ID "${trimmedUserId}" not found in database. Please ensure you are logged in with a valid account.`,
         );
       }
 
       console.log("User verified, proceeding with artwork creation...");
       this.logger.debug(
-        `User verified: ${user.id} (${user.email}) - Proceeding with artwork creation`
+        `User verified: ${user.id} (${user.email}) - Proceeding with artwork creation`,
       );
 
       // Convert dimensions to JSON format for Prisma
@@ -144,19 +144,19 @@ export class ArtworkService {
       });
       console.log(
         "Final user check result:",
-        finalUserCheck ? `User exists: ${finalUserCheck.id}` : "USER NOT FOUND"
+        finalUserCheck ? `User exists: ${finalUserCheck.id}` : "USER NOT FOUND",
       );
 
       if (!finalUserCheck) {
         console.error("CRITICAL: User disappeared between lookup and create!");
         throw new NotFoundException(
-          `User ${user.id} not found in database. This should not happen.`
+          `User ${user.id} not found in database. This should not happen.`,
         );
       }
 
       console.log(
         "Attempting to create artwork in database with userId:",
-        user.id
+        user.id,
       );
 
       // Create artwork with categories in a transaction
@@ -208,12 +208,11 @@ export class ArtworkService {
       });
 
       // Extract categories for the event
-      const categories = artworkWithCategories?.categories?.map(
-        (ac) => ac.category
-      ) || [];
-      
+      const categories =
+        artworkWithCategories?.categories?.map((ac) => ac.category) || [];
+
       this.logger.log(
-        `📋 Artwork ${artwork.id} has ${categories.length} categories: ${categories.map(c => c.name).join(', ') || 'none'}`
+        `📋 Artwork ${artwork.id} has ${categories.length} categories: ${categories.map((c) => c.name).join(", ") || "none"}`,
       );
 
       // Emit artwork submitted event - use user from query or artwork.user
@@ -231,14 +230,14 @@ export class ArtworkService {
         categories: categories,
         submittedAt: new Date(),
       };
-      
+
       this.logger.log(
-        `📧 Emitting artwork submitted event with ${eventPayload.categories?.length || 0} categories`
+        `📧 Emitting artwork submitted event with ${eventPayload.categories?.length || 0} categories`,
       );
-      
+
       await this.eventService.emit<ArtworkSubmittedEvent>(
         ARTWORK_EVENTS.SUBMITTED,
-        eventPayload
+        eventPayload,
       );
 
       this.logger.log(`✅ Artwork created: ${artwork.id}`);
@@ -304,7 +303,7 @@ export class ArtworkService {
       } else {
         // If no status filter is provided, only show APPROVED and SOLD
         where.status = {
-          in: ['APPROVED', 'SOLD'],
+          in: ["APPROVED", "SOLD"],
         };
       }
 
@@ -551,7 +550,7 @@ export class ArtworkService {
       const isLiked =
         userId && likeInteractions.length > 0
           ? likeInteractions.some(
-              (interaction) => interaction.userId === userId
+              (interaction) => interaction.userId === userId,
             )
           : false;
 
@@ -689,7 +688,7 @@ export class ArtworkService {
           userEmail: artworkWithUser.user.email,
           changes,
           updatedAt: new Date(),
-        }
+        },
       );
 
       // If price was updated, emit price updated event
@@ -707,7 +706,7 @@ export class ArtworkService {
             oldPrice: priceChange.oldValue,
             newPrice: priceChange.newValue,
             updatedAt: new Date(),
-          }
+          },
         );
       }
 
@@ -758,7 +757,7 @@ export class ArtworkService {
           artist: existingArtwork.artist,
           title: existingArtwork.title,
           deletedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`✅ Artwork deleted: ${id}`);
@@ -802,7 +801,7 @@ export class ArtworkService {
             approvedBy: adminId || "system",
             approvedAt: new Date(),
             publicUrl: `${this.configurationService.getServerBaseUrl()}/artworks/${artwork.id}`,
-          }
+          },
         );
       } else if (status === ArtworkStatus.REJECTED) {
         await this.eventService.emit<ArtworkRejectedEvent>(
@@ -818,7 +817,7 @@ export class ArtworkService {
             rejectedAt: new Date(),
             reason: "Does not meet quality standards", // TODO: Pass reason as parameter
             canResubmit: true,
-          }
+          },
         );
       }
 
@@ -858,7 +857,7 @@ export class ArtworkService {
     } catch (error) {
       this.logger.error(
         `❌ Failed to fetch user artworks for ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -876,7 +875,7 @@ export class ArtworkService {
         {
           where: { artworkId },
           select: { collectionId: true },
-        }
+        },
       );
 
       const collectionIds = artworkCollections.map((ac) => ac.collectionId);
@@ -888,7 +887,7 @@ export class ArtworkService {
       }
 
       this.logger.log(
-        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(", ")}`
+        `[Similar Artworks] Artwork ${artworkId} is in ${collectionIds.length} collections: ${collectionIds.join(", ")}`,
       );
 
       // 2. Get all CollectionOnArtwork records from those collections (excluding the current artwork)
@@ -911,7 +910,7 @@ export class ArtworkService {
 
       if (uniqueArtworkIds.length === 0) {
         this.logger.warn(
-          `No other artworks found in collections for artwork ${artworkId}`
+          `No other artworks found in collections for artwork ${artworkId}`,
         );
         return [];
       }
@@ -922,7 +921,7 @@ export class ArtworkService {
           id: { in: uniqueArtworkIds },
           isApproved: true,
           status: {
-            in: ['APPROVED', 'SOLD'],
+            in: ["APPROVED", "SOLD"],
           },
         },
         include: {
@@ -956,7 +955,7 @@ export class ArtworkService {
       artworks.forEach((artwork) => {
         // Count how many collections this artwork shares with the original artwork
         const sharedCount = artworksInCollections.filter(
-          (ac) => ac.artworkId === artwork.id
+          (ac) => ac.artworkId === artwork.id,
         ).length;
 
         artworkCollectionCount.set(artwork.id, {
@@ -980,17 +979,17 @@ export class ArtworkService {
       // 7. Ensure no duplicates by ID (additional safeguard)
       const uniqueArtworks = rankedArtworks.filter(
         (artwork, index, self) =>
-          index === self.findIndex((a) => a.id === artwork.id)
+          index === self.findIndex((a) => a.id === artwork.id),
       );
 
       this.logger.log(
-        `[Similar Artworks] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`
+        `[Similar Artworks] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`,
       );
       return uniqueArtworks;
     } catch (error) {
       this.logger.error(
         `Failed to fetch similar artworks for artwork ${artworkId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -1034,7 +1033,7 @@ export class ArtworkService {
       }
 
       this.logger.log(
-        `[Similar Artworks by Category] Artwork ${artworkId} has ${categoryIds.length} categories: ${categoryIds.join(", ")}`
+        `[Similar Artworks by Category] Artwork ${artworkId} has ${categoryIds.length} categories: ${categoryIds.join(", ")}`,
       );
 
       // 2. Get all artwork IDs that share at least one category (excluding the current artwork)
@@ -1052,7 +1051,7 @@ export class ArtworkService {
 
       if (artworksWithCategories.length === 0) {
         this.logger.warn(
-          `No other artworks found with shared categories for artwork ${artworkId}`
+          `No other artworks found with shared categories for artwork ${artworkId}`,
         );
         return [];
       }
@@ -1068,7 +1067,7 @@ export class ArtworkService {
           id: { in: uniqueArtworkIds },
           isApproved: true,
           status: {
-            in: ['APPROVED', 'SOLD'],
+            in: ["APPROVED", "SOLD"],
           },
         },
         include: {
@@ -1095,7 +1094,7 @@ export class ArtworkService {
 
       if (artworks.length === 0) {
         this.logger.warn(
-          `No approved artworks found with shared categories for artwork ${artworkId}`
+          `No approved artworks found with shared categories for artwork ${artworkId}`,
         );
         return [];
       }
@@ -1109,10 +1108,10 @@ export class ArtworkService {
       artworks.forEach((artwork) => {
         // Count how many categories this artwork shares with the original artwork
         const artworkCategoryIds = artwork.categories.map(
-          (ac: any) => ac.categoryId
+          (ac: any) => ac.categoryId,
         );
         const sharedCount = categoryIds.filter((id) =>
-          artworkCategoryIds.includes(id)
+          artworkCategoryIds.includes(id),
         ).length;
 
         if (sharedCount > 0) {
@@ -1138,17 +1137,17 @@ export class ArtworkService {
       // 5. Ensure no duplicates by ID (additional safeguard)
       const uniqueArtworks = rankedArtworks.filter(
         (artwork, index, self) =>
-          index === self.findIndex((a) => a.id === artwork.id)
+          index === self.findIndex((a) => a.id === artwork.id),
       );
 
       this.logger.log(
-        `[Similar Artworks by Category] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`
+        `[Similar Artworks by Category] Found ${uniqueArtworks.length} unique similar artworks for artwork ${artworkId}`,
       );
       return uniqueArtworks;
     } catch (error) {
       this.logger.error(
         `Failed to fetch similar artworks by category for artwork ${artworkId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -1163,7 +1162,7 @@ export class ArtworkService {
   async addComment(
     artworkId: string,
     createCommentDto: CreateCommentDto,
-    userId: string
+    userId: string,
   ) {
     try {
       // Get artwork with owner details
@@ -1224,7 +1223,7 @@ export class ArtworkService {
           commenterAvatar: commenter.image,
           comment: createCommentDto.comment,
           createdAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`✅ Comment added to artwork ${artworkId}`);
@@ -1236,7 +1235,7 @@ export class ArtworkService {
     } catch (error) {
       this.logger.error(
         `❌ Failed to add comment to artwork ${artworkId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -1248,7 +1247,7 @@ export class ArtworkService {
   async getComments(
     artworkId: string,
     page: number = 1,
-    limit: number = ARTWORK_CONSTANTS.COMMENTS.DEFAULT_LIMIT
+    limit: number = ARTWORK_CONSTANTS.COMMENTS.DEFAULT_LIMIT,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -1277,7 +1276,7 @@ export class ArtworkService {
     } catch (error) {
       this.logger.error(
         `❌ Failed to fetch comments for artwork ${artworkId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -1290,7 +1289,7 @@ export class ArtworkService {
   async updateComment(
     commentId: string,
     updateCommentDto: UpdateCommentDto,
-    userId: string
+    userId: string,
   ) {
     try {
       const comment = await this.prisma.comment.findUnique({
@@ -1322,7 +1321,7 @@ export class ArtworkService {
           oldComment,
           newComment: updateCommentDto.comment,
           updatedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`✅ Comment updated: ${commentId}`);
@@ -1365,7 +1364,7 @@ export class ArtworkService {
           artworkId: comment.artworkId,
           userId,
           deletedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`✅ Comment deleted: ${commentId}`);
@@ -1532,7 +1531,7 @@ export class ArtworkService {
           userId,
           unlikedAt: new Date(),
           totalLikes,
-        }
+        },
       );
 
       this.logger.log(`✅ Artwork unliked: ${artworkId} by ${userId}`);
@@ -1588,7 +1587,7 @@ export class ArtworkService {
     } catch (error) {
       this.logger.error(
         `❌ Failed to get likes for artwork ${artworkId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -1596,7 +1595,7 @@ export class ArtworkService {
 
   /**
    * Get trending artists based on comprehensive metrics
-   * Calculates trending score from: engagement (views, likes, comments, favorites), 
+   * Calculates trending score from: engagement (views, likes, comments, favorites),
    * sales (totalSales, salesCount, earnings), and artwork count
    */
   async getTrendingArtists(limit: number = 10) {
@@ -1609,7 +1608,7 @@ export class ArtworkService {
       const artworks = await this.prisma.artwork.findMany({
         where: {
           isApproved: true,
-          status: 'APPROVED',
+          status: "APPROVED",
         },
         include: {
           user: {
@@ -1637,7 +1636,7 @@ export class ArtworkService {
           orderItems: {
             where: {
               order: {
-                status: 'PAID',
+                status: "PAID",
               },
             },
             select: {
@@ -1679,11 +1678,11 @@ export class ArtworkService {
         const existing = artistMap.get(userId);
 
         // Count interactions by type (case-insensitive)
-        const views = artwork.interactions.filter((i) => 
-          i.type?.toUpperCase() === 'VIEW'
+        const views = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === "VIEW",
         ).length;
-        const likes = artwork.interactions.filter((i) => 
-          i.type?.toUpperCase() === 'LIKE'
+        const likes = artwork.interactions.filter(
+          (i) => i.type?.toUpperCase() === "LIKE",
         ).length;
 
         const comments = artwork.comments.length;
@@ -1691,7 +1690,7 @@ export class ArtworkService {
 
         // Calculate sales metrics for this artwork
         const artworkSales = artwork.orderItems
-          .filter((item) => item.order.status === 'PAID')
+          .filter((item) => item.order.status === "PAID")
           .reduce(
             (acc, item) => {
               const salePrice = Number(item.price);
@@ -1703,11 +1702,11 @@ export class ArtworkService {
                 totalEarnings: acc.totalEarnings + earnings,
               };
             },
-            { totalSales: 0, salesCount: 0, totalEarnings: 0 }
+            { totalSales: 0, salesCount: 0, totalEarnings: 0 },
           );
 
         // Get user profile avatar (prefer user image, fallback to placeholder)
-        const artistAvatar = artwork.user.image || '/placeholder.svg';
+        const artistAvatar = artwork.user.image || "/placeholder.svg";
 
         if (existing) {
           existing.artworkCount += 1;
@@ -1725,7 +1724,7 @@ export class ArtworkService {
         } else {
           artistMap.set(userId, {
             userId,
-            name: artwork.user.name || artwork.artist || 'Unknown Artist',
+            name: artwork.user.name || artwork.artist || "Unknown Artist",
             avatar: artistAvatar,
             artworkCount: 1,
             totalViews: views,
@@ -1741,7 +1740,7 @@ export class ArtworkService {
       });
 
       // Calculate comprehensive trending score for each artist
-      // Weighted formula: 
+      // Weighted formula:
       // - Engagement: views (1x) + likes (3x) + comments (2x) + favorites (2x) + artwork count (1x)
       // - Sales: totalSales (0.01x per euro) + salesCount (10x) + totalEarnings (0.01x per euro)
       const artistsWithScores = Array.from(artistMap.values()).map((artist) => {
@@ -1774,7 +1773,7 @@ export class ArtworkService {
 
       return trendingArtists;
     } catch (error) {
-      this.logger.error('❌ Failed to get trending artists:', error);
+      this.logger.error("❌ Failed to get trending artists:", error);
       throw error;
     }
   }
@@ -1790,7 +1789,7 @@ export class ArtworkService {
         where: {
           isApproved: true,
           status: {
-            in: ['APPROVED', 'SOLD'],
+            in: ["APPROVED", "SOLD"],
           },
         },
         include: {
@@ -1820,7 +1819,7 @@ export class ArtworkService {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
 
@@ -1829,10 +1828,10 @@ export class ArtworkService {
       const artworksWithScores = artworks.map((artwork) => {
         // Count interactions by type (case-insensitive)
         const views = artwork.interactions.filter(
-          (i) => i.type?.toUpperCase() === 'VIEW'
+          (i) => i.type?.toUpperCase() === "VIEW",
         ).length;
         const likes = artwork.interactions.filter(
-          (i) => i.type?.toUpperCase() === 'LIKE'
+          (i) => i.type?.toUpperCase() === "LIKE",
         ).length;
         const comments = artwork.comments.length;
         const favorites = artwork.favorites.length;
@@ -1840,12 +1839,14 @@ export class ArtworkService {
         // Calculate time decay factor (artworks created in last 7 days get bonus)
         const daysSinceCreation =
           (now.getTime() - artwork.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-        const recencyBonus = daysSinceCreation <= 7 ? 1.5 : daysSinceCreation <= 30 ? 1.2 : 1.0;
+        const recencyBonus =
+          daysSinceCreation <= 7 ? 1.5 : daysSinceCreation <= 30 ? 1.2 : 1.0;
 
         // Calculate engagement score with time decay
         // Weighted formula: views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
         const engagementScore =
-          (views * 1 + likes * 3 + comments * 2 + favorites * 2.5) * recencyBonus;
+          (views * 1 + likes * 3 + comments * 2 + favorites * 2.5) *
+          recencyBonus;
 
         return {
           artwork,
@@ -1861,7 +1862,7 @@ export class ArtworkService {
 
       return trendingArtworks;
     } catch (error) {
-      this.logger.error('❌ Failed to get trending artworks:', error);
+      this.logger.error("❌ Failed to get trending artworks:", error);
       throw error;
     }
   }

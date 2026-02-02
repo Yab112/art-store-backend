@@ -5,13 +5,13 @@ import {
   IsNotEmpty,
   MinLength,
   MaxLength,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateBlogPostDto {
   @ApiProperty({
-    description: 'Title of the blog post',
-    example: 'The Future of Digital Art',
+    description: "Title of the blog post",
+    example: "The Future of Digital Art",
     minLength: 3,
     maxLength: 200,
   })
@@ -22,8 +22,8 @@ export class CreateBlogPostDto {
   title: string;
 
   @ApiProperty({
-    description: 'URL-friendly slug (auto-generated if not provided)',
-    example: 'the-future-of-digital-art',
+    description: "URL-friendly slug (auto-generated if not provided)",
+    example: "the-future-of-digital-art",
     required: false,
   })
   @IsOptional()
@@ -31,8 +31,8 @@ export class CreateBlogPostDto {
   slug?: string;
 
   @ApiProperty({
-    description: 'Full blog post content (HTML or markdown)',
-    example: '<p>This is the full content of the blog post...</p>',
+    description: "Full blog post content (HTML or markdown)",
+    example: "<p>This is the full content of the blog post...</p>",
     minLength: 50,
   })
   @IsString()
@@ -41,8 +41,9 @@ export class CreateBlogPostDto {
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Short excerpt/summary for preview',
-    example: 'Discover the latest trends in digital art and how technology is shaping the future of artistic expression.',
+    description: "Short excerpt/summary for preview",
+    example:
+      "Discover the latest trends in digital art and how technology is shaping the future of artistic expression.",
     maxLength: 500,
   })
   @IsOptional()
@@ -51,15 +52,15 @@ export class CreateBlogPostDto {
   excerpt?: string;
 
   @ApiPropertyOptional({
-    description: 'Featured image URL (S3/MinIO)',
-    example: 'https://minio.example.com/blog/featured-image.jpg',
+    description: "Featured image URL (S3/MinIO)",
+    example: "https://minio.example.com/blog/featured-image.jpg",
   })
   @IsOptional()
   @IsString()
   featuredImage?: string;
 
   @ApiPropertyOptional({
-    description: 'Whether to publish immediately',
+    description: "Whether to publish immediately",
     example: false,
     default: false,
   })
@@ -67,15 +68,3 @@ export class CreateBlogPostDto {
   @IsBoolean()
   published?: boolean;
 }
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,2 +1,1 @@
-export * from './transactions-query.dto';
-
+export * from "./transactions-query.dto";

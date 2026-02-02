@@ -66,13 +66,13 @@ export class TalentTypeController {
   async getArtistsByTalentType(
     @Param("id") id: string,
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
   ) {
     try {
       return await this.talentTypeService.getArtistsByTalentType(
         id,
         page,
-        limit
+        limit,
       );
     } catch (error) {
       this.logger.error(`Failed to get artists by talent type ${id}:`, error);
@@ -87,7 +87,7 @@ export class TalentTypeController {
   @UseGuards(AuthGuard)
   async createTalentType(
     @Body() dto: CreateTalentTypeDto,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     try {
       if (user.role !== "ADMIN") {
@@ -116,7 +116,7 @@ export class TalentTypeController {
   async updateTalentType(
     @Param("id") id: string,
     @Body() dto: UpdateTalentTypeDto,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     try {
       if (user.role !== "ADMIN") {
