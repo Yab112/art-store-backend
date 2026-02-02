@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { EmailService } from '../../libraries/email';
-import { PrismaService } from '../../core/database';
-import { ConfigurationService } from '../../core/configuration';
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
+import { EmailService } from "../../libraries/email";
+import { PrismaService } from "../../core/database";
+import { ConfigurationService } from "../../core/configuration";
 import {
   BLOG_EVENTS,
   BlogPostPublishedEvent,
@@ -12,8 +12,8 @@ import {
   BlogPostUnpublishedEvent,
   BlogPostApprovedEvent,
   BlogPostRejectedEvent,
-} from './events';
-import { BLOG_EMAIL_SUBJECTS } from './constants';
+} from "./events";
+import { BLOG_EMAIL_SUBJECTS } from "./constants";
 
 /**
  * Blog Event Subscriber
@@ -43,30 +43,32 @@ export class BlogEventSubscriber {
       const baseUrl = this.configurationService.getServerBaseUrl();
       const blogPostUrl = `${baseUrl}/blog/${event.slug}`;
 
-      await this.emailService.send({
-        name: event.authorName,
-        email: event.authorEmail,
-        subject: BLOG_EMAIL_SUBJECTS.POST_CREATED.replace('{{title}}', event.title),
-        template: 'blog-post-created',
-        variables: {
-          userName: event.authorName,
-          blogTitle: event.title,
-          blogPostUrl: blogPostUrl,
-          createdAt: event.createdAt.toISOString(),
-          status: event.published ? 'Published' : 'Pending Approval',
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send creation email to ${event.authorEmail}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: event.authorName,
+          email: event.authorEmail,
+          subject: BLOG_EMAIL_SUBJECTS.POST_CREATED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-created",
+          variables: {
+            userName: event.authorName,
+            blogTitle: event.title,
+            blogPostUrl: blogPostUrl,
+            createdAt: event.createdAt.toISOString(),
+            status: event.published ? "Published" : "Pending Approval",
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send creation email to ${event.authorEmail}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post creation email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post created event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post created event:", error);
     }
   }
 
@@ -95,30 +97,32 @@ export class BlogEventSubscriber {
       const baseUrl = this.configurationService.getServerBaseUrl();
       const blogPostUrl = `${baseUrl}/blog/${event.slug}`;
 
-      await this.emailService.send({
-        name: author.name || 'User',
-        email: author.email,
-        subject: BLOG_EMAIL_SUBJECTS.POST_UPDATED.replace('{{title}}', event.title),
-        template: 'blog-post-updated',
-        variables: {
-          userName: author.name || 'User',
-          blogTitle: event.title,
-          blogPostUrl: blogPostUrl,
-          updatedAt: event.updatedAt.toISOString(),
-          published: event.published ? 'Yes' : 'No',
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send update email to ${author.email}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: author.name || "User",
+          email: author.email,
+          subject: BLOG_EMAIL_SUBJECTS.POST_UPDATED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-updated",
+          variables: {
+            userName: author.name || "User",
+            blogTitle: event.title,
+            blogPostUrl: blogPostUrl,
+            updatedAt: event.updatedAt.toISOString(),
+            published: event.published ? "Yes" : "No",
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send update email to ${author.email}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post update email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post updated event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post updated event:", error);
     }
   }
 
@@ -144,28 +148,30 @@ export class BlogEventSubscriber {
         return;
       }
 
-      await this.emailService.send({
-        name: author.name || 'User',
-        email: author.email,
-        subject: BLOG_EMAIL_SUBJECTS.POST_DELETED.replace('{{title}}', event.title),
-        template: 'blog-post-deleted',
-        variables: {
-          userName: author.name || 'User',
-          blogTitle: event.title,
-          deletedAt: event.deletedAt.toISOString(),
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send deletion email to ${author.email}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: author.name || "User",
+          email: author.email,
+          subject: BLOG_EMAIL_SUBJECTS.POST_DELETED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-deleted",
+          variables: {
+            userName: author.name || "User",
+            blogTitle: event.title,
+            deletedAt: event.deletedAt.toISOString(),
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send deletion email to ${author.email}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post deletion email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post deleted event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post deleted event:", error);
     }
   }
 
@@ -183,29 +189,31 @@ export class BlogEventSubscriber {
       const baseUrl = this.configurationService.getServerBaseUrl();
       const blogPostUrl = `${baseUrl}/blog/${event.slug}`;
 
-      await this.emailService.send({
-        name: event.authorName,
-        email: event.authorEmail,
-        subject: BLOG_EMAIL_SUBJECTS.POST_APPROVED.replace('{{title}}', event.title),
-        template: 'blog-post-approved',
-        variables: {
-          userName: event.authorName,
-          blogTitle: event.title,
-          blogPostUrl: blogPostUrl,
-          approvedAt: event.approvedAt.toISOString(),
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send approval email to ${event.authorEmail}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: event.authorName,
+          email: event.authorEmail,
+          subject: BLOG_EMAIL_SUBJECTS.POST_APPROVED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-approved",
+          variables: {
+            userName: event.authorName,
+            blogTitle: event.title,
+            blogPostUrl: blogPostUrl,
+            approvedAt: event.approvedAt.toISOString(),
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send approval email to ${event.authorEmail}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post approval email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post approved event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post approved event:", error);
     }
   }
 
@@ -220,29 +228,31 @@ export class BlogEventSubscriber {
         `Blog post rejected: ${event.blogPostId} - ${event.title}`,
       );
 
-      await this.emailService.send({
-        name: event.authorName,
-        email: event.authorEmail,
-        subject: BLOG_EMAIL_SUBJECTS.POST_REJECTED.replace('{{title}}', event.title),
-        template: 'blog-post-rejected',
-        variables: {
-          userName: event.authorName,
-          blogTitle: event.title,
-          rejectedAt: event.rejectedAt.toISOString(),
-          reason: event.reason || 'No reason provided',
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send rejection email to ${event.authorEmail}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: event.authorName,
+          email: event.authorEmail,
+          subject: BLOG_EMAIL_SUBJECTS.POST_REJECTED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-rejected",
+          variables: {
+            userName: event.authorName,
+            blogTitle: event.title,
+            rejectedAt: event.rejectedAt.toISOString(),
+            reason: event.reason || "No reason provided",
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send rejection email to ${event.authorEmail}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post rejection email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post rejected event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post rejected event:", error);
     }
   }
 
@@ -257,28 +267,30 @@ export class BlogEventSubscriber {
         `Blog post unpublished: ${event.blogPostId} - ${event.title}`,
       );
 
-      await this.emailService.send({
-        name: event.authorName,
-        email: event.authorEmail,
-        subject: BLOG_EMAIL_SUBJECTS.POST_UNPUBLISHED.replace('{{title}}', event.title),
-        template: 'blog-post-unpublished',
-        variables: {
-          userName: event.authorName,
-          blogTitle: event.title,
-          unpublishedAt: event.unpublishedAt.toISOString(),
-        },
-      }).catch((error) => {
-        this.logger.error(
-          `Failed to send unpublish email to ${event.authorEmail}: ${error.message}`,
-        );
-      });
+      await this.emailService
+        .send({
+          name: event.authorName,
+          email: event.authorEmail,
+          subject: BLOG_EMAIL_SUBJECTS.POST_UNPUBLISHED.replace(
+            "{{title}}",
+            event.title,
+          ),
+          template: "blog-post-unpublished",
+          variables: {
+            userName: event.authorName,
+            blogTitle: event.title,
+            unpublishedAt: event.unpublishedAt.toISOString(),
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send unpublish email to ${event.authorEmail}: ${error.message}`,
+          );
+        });
 
       this.logger.log(`Blog post unpublish email sent to author`);
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post unpublished event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post unpublished event:", error);
     }
   }
 
@@ -316,33 +328,38 @@ export class BlogEventSubscriber {
 
       // Send email to each subscribed user
       const emailPromises = subscribedUsers.map((user) =>
-        this.emailService.send({
-          name: user.name,
-          email: user.email,
-          subject: BLOG_EMAIL_SUBJECTS.NEW_POST.replace('{{title}}', event.title),
-          template: 'blog-post-published',
-          variables: {
-            userName: user.name,
-            blogTitle: event.title,
-            blogExcerpt: event.excerpt || 'Read our latest blog post!',
-            blogPostUrl: blogPostUrl,
-            featuredImage: event.featuredImage || '',
-            publishedAt: event.publishedAt.toISOString(),
-          },
-        }).catch((error) => {
-          // Log error but don't fail the entire process
-          this.logger.error(
-            `Failed to send email to ${user.email}: ${error.message}`,
-          );
-          return null;
-        }),
+        this.emailService
+          .send({
+            name: user.name,
+            email: user.email,
+            subject: BLOG_EMAIL_SUBJECTS.NEW_POST.replace(
+              "{{title}}",
+              event.title,
+            ),
+            template: "blog-post-published",
+            variables: {
+              userName: user.name,
+              blogTitle: event.title,
+              blogExcerpt: event.excerpt || "Read our latest blog post!",
+              blogPostUrl: blogPostUrl,
+              featuredImage: event.featuredImage || "",
+              publishedAt: event.publishedAt.toISOString(),
+            },
+          })
+          .catch((error) => {
+            // Log error but don't fail the entire process
+            this.logger.error(
+              `Failed to send email to ${user.email}: ${error.message}`,
+            );
+            return null;
+          }),
       );
 
       // Wait for all emails to be sent (or fail gracefully)
       const results = await Promise.allSettled(emailPromises);
-      
-      const successful = results.filter((r) => r.status === 'fulfilled').length;
-      const failed = results.filter((r) => r.status === 'rejected').length;
+
+      const successful = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
 
       this.logger.log(
         `Blog post notification emails sent: ${successful} successful, ${failed} failed`,
@@ -351,11 +368,7 @@ export class BlogEventSubscriber {
       // TODO: Log analytics event
       // TODO: Create notifications in database for users
     } catch (error) {
-      this.logger.error(
-        'Failed to handle blog post published event:',
-        error,
-      );
+      this.logger.error("Failed to handle blog post published event:", error);
     }
   }
 }
-

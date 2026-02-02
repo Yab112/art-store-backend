@@ -1,10 +1,15 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto';
-import { UpdatePaymentGatewayDto } from './dto/update-payment-gateway.dto';
-import { UpdatePaymentSettingsDto } from './dto/update-payment-settings.dto';
-import { UpdateOrderSettingsDto } from './dto/update-order-settings.dto';
-import { UpdateCollectionSettingsDto } from './dto/update-collection-settings.dto';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { UpdatePlatformSettingsDto } from "./dto/update-platform-settings.dto";
+import { UpdatePaymentGatewayDto } from "./dto/update-payment-gateway.dto";
+import { UpdatePaymentSettingsDto } from "./dto/update-payment-settings.dto";
+import { UpdateOrderSettingsDto } from "./dto/update-order-settings.dto";
+import { UpdateCollectionSettingsDto } from "./dto/update-collection-settings.dto";
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
@@ -26,7 +31,7 @@ export class SettingsService implements OnModuleInit {
     try {
       const defaultPlatformSettings = {
         platformCommissionRate: 10,
-        siteName: 'Art Gallery',
+        siteName: "Art Gallery",
       };
 
       const defaultPaymentSettings = {
@@ -49,7 +54,7 @@ export class SettingsService implements OnModuleInit {
       };
 
       // Initialize platform settings
-      const platformKey = 'platform';
+      const platformKey = "platform";
       const existingPlatform = await this.prisma.settings.findUnique({
         where: { key: platformKey },
       });
@@ -58,15 +63,15 @@ export class SettingsService implements OnModuleInit {
         await this.prisma.settings.create({
           data: {
             key: platformKey,
-            category: 'platform',
+            category: "platform",
             value: defaultPlatformSettings,
           },
         });
-        this.logger.log('Default platform settings initialized');
+        this.logger.log("Default platform settings initialized");
       }
 
       // Initialize payment settings
-      const paymentKey = 'payment';
+      const paymentKey = "payment";
       const existingPayment = await this.prisma.settings.findUnique({
         where: { key: paymentKey },
       });
@@ -75,15 +80,15 @@ export class SettingsService implements OnModuleInit {
         await this.prisma.settings.create({
           data: {
             key: paymentKey,
-            category: 'payment',
+            category: "payment",
             value: defaultPaymentSettings,
           },
         });
-        this.logger.log('Default payment settings initialized');
+        this.logger.log("Default payment settings initialized");
       }
 
       // Initialize order settings
-      const orderKey = 'order';
+      const orderKey = "order";
       const existingOrder = await this.prisma.settings.findUnique({
         where: { key: orderKey },
       });
@@ -92,15 +97,15 @@ export class SettingsService implements OnModuleInit {
         await this.prisma.settings.create({
           data: {
             key: orderKey,
-            category: 'order',
+            category: "order",
             value: defaultOrderSettings,
           },
         });
-        this.logger.log('Default order settings initialized');
+        this.logger.log("Default order settings initialized");
       }
 
       // Initialize collection settings
-      const collectionKey = 'collection';
+      const collectionKey = "collection";
       const existingCollection = await this.prisma.settings.findUnique({
         where: { key: collectionKey },
       });
@@ -109,14 +114,14 @@ export class SettingsService implements OnModuleInit {
         await this.prisma.settings.create({
           data: {
             key: collectionKey,
-            category: 'collection',
+            category: "collection",
             value: defaultCollectionSettings,
           },
         });
-        this.logger.log('Default collection settings initialized');
+        this.logger.log("Default collection settings initialized");
       }
     } catch (error) {
-      this.logger.error('Failed to initialize default settings:', error);
+      this.logger.error("Failed to initialize default settings:", error);
     }
   }
 
@@ -133,7 +138,11 @@ export class SettingsService implements OnModuleInit {
   /**
    * Set or update setting by key
    */
-  private async setSetting(key: string, value: any, category: string = 'platform'): Promise<void> {
+  private async setSetting(
+    key: string,
+    value: any,
+    category: string = "platform",
+  ): Promise<void> {
     await this.prisma.settings.upsert({
       where: { key },
       update: { value, updatedAt: new Date() },
@@ -147,26 +156,26 @@ export class SettingsService implements OnModuleInit {
   async getAllSettings() {
     try {
       // Get platform settings
-      const platformSettings = await this.getSetting('platform') || {
+      const platformSettings = (await this.getSetting("platform")) || {
         platformCommissionRate: 10,
-        siteName: 'Art Gallery',
+        siteName: "Art Gallery",
       };
 
       // Get payment settings
-      const paymentSettings = await this.getSetting('payment') || {
+      const paymentSettings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
       };
 
       // Get order settings
-      const orderSettings = await this.getSetting('order') || {
+      const orderSettings = (await this.getSetting("order")) || {
         orderExpirationHours: 24,
         autoCancelPendingOrdersDays: 7,
       };
 
       // Get collection settings
-      const collectionSettings = await this.getSetting('collection') || {
+      const collectionSettings = (await this.getSetting("collection")) || {
         maxCollectionsPerUser: 50,
         maxArtworksPerCollection: 100,
         minArtworksForPublish: 3,
@@ -174,7 +183,7 @@ export class SettingsService implements OnModuleInit {
 
       // Get payment gateways
       const paymentGateways = await this.prisma.paymentGateway.findMany({
-        orderBy: { name: 'asc' },
+        orderBy: { name: "asc" },
       });
 
       return {
@@ -182,7 +191,7 @@ export class SettingsService implements OnModuleInit {
         payment: paymentSettings,
         order: orderSettings,
         collection: collectionSettings,
-        paymentGateways: paymentGateways.map(gw => ({
+        paymentGateways: paymentGateways.map((gw) => ({
           id: gw.id,
           name: gw.name,
           enabled: gw.enabled,
@@ -191,7 +200,7 @@ export class SettingsService implements OnModuleInit {
         })),
       };
     } catch (error) {
-      this.logger.error('Failed to fetch settings:', error);
+      this.logger.error("Failed to fetch settings:", error);
       throw error;
     }
   }
@@ -201,9 +210,9 @@ export class SettingsService implements OnModuleInit {
    */
   async getPlatformSettings() {
     try {
-      const settings = await this.getSetting('platform') || {
+      const settings = (await this.getSetting("platform")) || {
         platformCommissionRate: 10,
-        siteName: 'Art Gallery',
+        siteName: "Art Gallery",
       };
 
       return {
@@ -211,7 +220,7 @@ export class SettingsService implements OnModuleInit {
         settings,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch platform settings:', error);
+      this.logger.error("Failed to fetch platform settings:", error);
       throw error;
     }
   }
@@ -222,30 +231,32 @@ export class SettingsService implements OnModuleInit {
   async updatePlatformSettings(dto: UpdatePlatformSettingsDto) {
     try {
       // Get current settings
-      const currentSettings = await this.getSetting('platform') || {
+      const currentSettings = (await this.getSetting("platform")) || {
         platformCommissionRate: 10,
-        siteName: 'Art Gallery',
+        siteName: "Art Gallery",
       };
 
       // Update only provided fields
       const updatedSettings = {
         ...currentSettings,
-        ...(dto.platformCommissionRate !== undefined && { platformCommissionRate: dto.platformCommissionRate }),
+        ...(dto.platformCommissionRate !== undefined && {
+          platformCommissionRate: dto.platformCommissionRate,
+        }),
         ...(dto.siteName !== undefined && { siteName: dto.siteName }),
       };
 
       // Save to database
-      await this.setSetting('platform', updatedSettings, 'platform');
+      await this.setSetting("platform", updatedSettings, "platform");
 
-      this.logger.log('Platform settings updated');
-      
+      this.logger.log("Platform settings updated");
+
       return {
         success: true,
-        message: 'Platform settings updated successfully',
+        message: "Platform settings updated successfully",
         settings: updatedSettings,
       };
     } catch (error) {
-      this.logger.error('Failed to update platform settings:', error);
+      this.logger.error("Failed to update platform settings:", error);
       throw error;
     }
   }
@@ -256,12 +267,12 @@ export class SettingsService implements OnModuleInit {
   async getPaymentGateways() {
     try {
       const gateways = await this.prisma.paymentGateway.findMany({
-        orderBy: { name: 'asc' },
+        orderBy: { name: "asc" },
       });
 
       return {
         success: true,
-        gateways: gateways.map(gw => ({
+        gateways: gateways.map((gw) => ({
           id: gw.id,
           name: gw.name,
           enabled: gw.enabled,
@@ -270,7 +281,7 @@ export class SettingsService implements OnModuleInit {
         })),
       };
     } catch (error) {
-      this.logger.error('Failed to fetch payment gateways:', error);
+      this.logger.error("Failed to fetch payment gateways:", error);
       throw error;
     }
   }
@@ -309,7 +320,7 @@ export class SettingsService implements OnModuleInit {
 
       return {
         success: true,
-        message: 'Payment gateway updated successfully',
+        message: "Payment gateway updated successfully",
         gateway: {
           id: updated.id,
           name: updated.name,
@@ -319,7 +330,7 @@ export class SettingsService implements OnModuleInit {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to update payment gateway:', error);
+      this.logger.error("Failed to update payment gateway:", error);
       throw error;
     }
   }
@@ -329,7 +340,7 @@ export class SettingsService implements OnModuleInit {
    */
   async getPaymentSettings() {
     try {
-      const settings = await this.getSetting('payment') || {
+      const settings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
@@ -340,7 +351,7 @@ export class SettingsService implements OnModuleInit {
         settings,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch payment settings:', error);
+      this.logger.error("Failed to fetch payment settings:", error);
       throw error;
     }
   }
@@ -350,7 +361,7 @@ export class SettingsService implements OnModuleInit {
    */
   async updatePaymentSettings(dto: UpdatePaymentSettingsDto) {
     try {
-      const currentSettings = await this.getSetting('payment') || {
+      const currentSettings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
@@ -358,22 +369,28 @@ export class SettingsService implements OnModuleInit {
 
       const updatedSettings = {
         ...currentSettings,
-        ...(dto.minWithdrawalAmount !== undefined && { minWithdrawalAmount: dto.minWithdrawalAmount }),
-        ...(dto.maxWithdrawalAmount !== undefined && { maxWithdrawalAmount: dto.maxWithdrawalAmount }),
-        ...(dto.paymentTimeoutMinutes !== undefined && { paymentTimeoutMinutes: dto.paymentTimeoutMinutes }),
+        ...(dto.minWithdrawalAmount !== undefined && {
+          minWithdrawalAmount: dto.minWithdrawalAmount,
+        }),
+        ...(dto.maxWithdrawalAmount !== undefined && {
+          maxWithdrawalAmount: dto.maxWithdrawalAmount,
+        }),
+        ...(dto.paymentTimeoutMinutes !== undefined && {
+          paymentTimeoutMinutes: dto.paymentTimeoutMinutes,
+        }),
       };
 
-      await this.setSetting('payment', updatedSettings, 'payment');
+      await this.setSetting("payment", updatedSettings, "payment");
 
-      this.logger.log('Payment settings updated');
+      this.logger.log("Payment settings updated");
 
       return {
         success: true,
-        message: 'Payment settings updated successfully',
+        message: "Payment settings updated successfully",
         settings: updatedSettings,
       };
     } catch (error) {
-      this.logger.error('Failed to update payment settings:', error);
+      this.logger.error("Failed to update payment settings:", error);
       throw error;
     }
   }
@@ -383,7 +400,7 @@ export class SettingsService implements OnModuleInit {
    */
   async getOrderSettings() {
     try {
-      const settings = await this.getSetting('order') || {
+      const settings = (await this.getSetting("order")) || {
         orderExpirationHours: 24,
         autoCancelPendingOrdersDays: 7,
       };
@@ -393,7 +410,7 @@ export class SettingsService implements OnModuleInit {
         settings,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch order settings:', error);
+      this.logger.error("Failed to fetch order settings:", error);
       throw error;
     }
   }
@@ -403,28 +420,32 @@ export class SettingsService implements OnModuleInit {
    */
   async updateOrderSettings(dto: UpdateOrderSettingsDto) {
     try {
-      const currentSettings = await this.getSetting('order') || {
+      const currentSettings = (await this.getSetting("order")) || {
         orderExpirationHours: 24,
         autoCancelPendingOrdersDays: 7,
       };
 
       const updatedSettings = {
         ...currentSettings,
-        ...(dto.orderExpirationHours !== undefined && { orderExpirationHours: dto.orderExpirationHours }),
-        ...(dto.autoCancelPendingOrdersDays !== undefined && { autoCancelPendingOrdersDays: dto.autoCancelPendingOrdersDays }),
+        ...(dto.orderExpirationHours !== undefined && {
+          orderExpirationHours: dto.orderExpirationHours,
+        }),
+        ...(dto.autoCancelPendingOrdersDays !== undefined && {
+          autoCancelPendingOrdersDays: dto.autoCancelPendingOrdersDays,
+        }),
       };
 
-      await this.setSetting('order', updatedSettings, 'order');
+      await this.setSetting("order", updatedSettings, "order");
 
-      this.logger.log('Order settings updated');
+      this.logger.log("Order settings updated");
 
       return {
         success: true,
-        message: 'Order settings updated successfully',
+        message: "Order settings updated successfully",
         settings: updatedSettings,
       };
     } catch (error) {
-      this.logger.error('Failed to update order settings:', error);
+      this.logger.error("Failed to update order settings:", error);
       throw error;
     }
   }
@@ -434,7 +455,7 @@ export class SettingsService implements OnModuleInit {
    */
   async getCollectionSettings() {
     try {
-      const settings = await this.getSetting('collection') || {
+      const settings = (await this.getSetting("collection")) || {
         maxCollectionsPerUser: 50,
         maxArtworksPerCollection: 100,
         minArtworksForPublish: 3,
@@ -445,7 +466,7 @@ export class SettingsService implements OnModuleInit {
         settings,
       };
     } catch (error) {
-      this.logger.error('Failed to fetch collection settings:', error);
+      this.logger.error("Failed to fetch collection settings:", error);
       throw error;
     }
   }
@@ -455,7 +476,7 @@ export class SettingsService implements OnModuleInit {
    */
   async updateCollectionSettings(dto: UpdateCollectionSettingsDto) {
     try {
-      const currentSettings = await this.getSetting('collection') || {
+      const currentSettings = (await this.getSetting("collection")) || {
         maxCollectionsPerUser: 50,
         maxArtworksPerCollection: 100,
         minArtworksForPublish: 3,
@@ -463,22 +484,28 @@ export class SettingsService implements OnModuleInit {
 
       const updatedSettings = {
         ...currentSettings,
-        ...(dto.maxCollectionsPerUser !== undefined && { maxCollectionsPerUser: dto.maxCollectionsPerUser }),
-        ...(dto.maxArtworksPerCollection !== undefined && { maxArtworksPerCollection: dto.maxArtworksPerCollection }),
-        ...(dto.minArtworksForPublish !== undefined && { minArtworksForPublish: dto.minArtworksForPublish }),
+        ...(dto.maxCollectionsPerUser !== undefined && {
+          maxCollectionsPerUser: dto.maxCollectionsPerUser,
+        }),
+        ...(dto.maxArtworksPerCollection !== undefined && {
+          maxArtworksPerCollection: dto.maxArtworksPerCollection,
+        }),
+        ...(dto.minArtworksForPublish !== undefined && {
+          minArtworksForPublish: dto.minArtworksForPublish,
+        }),
       };
 
-      await this.setSetting('collection', updatedSettings, 'collection');
+      await this.setSetting("collection", updatedSettings, "collection");
 
-      this.logger.log('Collection settings updated');
+      this.logger.log("Collection settings updated");
 
       return {
         success: true,
-        message: 'Collection settings updated successfully',
+        message: "Collection settings updated successfully",
         settings: updatedSettings,
       };
     } catch (error) {
-      this.logger.error('Failed to update collection settings:', error);
+      this.logger.error("Failed to update collection settings:", error);
       throw error;
     }
   }
@@ -489,14 +516,14 @@ export class SettingsService implements OnModuleInit {
    */
   async getPlatformCommissionRate(): Promise<number> {
     try {
-      const platformSettings = await this.getSetting('platform') || {
+      const platformSettings = (await this.getSetting("platform")) || {
         platformCommissionRate: 10,
       };
       const rate = platformSettings.platformCommissionRate || 10;
       return rate / 100; // Convert percentage to decimal
     } catch (error) {
-      this.logger.error('Failed to get platform commission rate:', error);
-      return 0.10; // Default to 10% if error
+      this.logger.error("Failed to get platform commission rate:", error);
+      return 0.1; // Default to 10% if error
     }
   }
 
@@ -505,12 +532,12 @@ export class SettingsService implements OnModuleInit {
    */
   async getMinWithdrawalAmount(): Promise<number> {
     try {
-      const paymentSettings = await this.getSetting('payment') || {
+      const paymentSettings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
       };
       return paymentSettings.minWithdrawalAmount || 10;
     } catch (error) {
-      this.logger.error('Failed to get minimum withdrawal amount:', error);
+      this.logger.error("Failed to get minimum withdrawal amount:", error);
       return 10; // Default to $10 if error
     }
   }
@@ -524,7 +551,7 @@ export class SettingsService implements OnModuleInit {
     minArtworksForPublish: number;
   }> {
     try {
-      const settings = await this.getSetting('collection') || {
+      const settings = (await this.getSetting("collection")) || {
         maxCollectionsPerUser: 50,
         maxArtworksPerCollection: 100,
         minArtworksForPublish: 3,
@@ -535,7 +562,7 @@ export class SettingsService implements OnModuleInit {
         minArtworksForPublish: settings.minArtworksForPublish || 3,
       };
     } catch (error) {
-      this.logger.error('Failed to get collection settings:', error);
+      this.logger.error("Failed to get collection settings:", error);
       return {
         maxCollectionsPerUser: 50,
         maxArtworksPerCollection: 100,
@@ -555,7 +582,7 @@ export class SettingsService implements OnModuleInit {
     platformCommissionRate: number;
   }> {
     try {
-      const settings = await this.getSetting('payment') || {
+      const settings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
         paymentTimeoutMinutes: 30,
@@ -570,7 +597,7 @@ export class SettingsService implements OnModuleInit {
         platformCommissionRate: settings.platformCommissionRate || 10,
       };
     } catch (error) {
-      this.logger.error('Failed to get payment settings:', error);
+      this.logger.error("Failed to get payment settings:", error);
       return {
         minWithdrawalAmount: 10,
         maxWithdrawalAmount: 0,
@@ -589,7 +616,7 @@ export class SettingsService implements OnModuleInit {
     autoCancelPendingOrdersDays: number;
   }> {
     try {
-      const settings = await this.getSetting('order') || {
+      const settings = (await this.getSetting("order")) || {
         orderExpirationHours: 24,
         autoCancelPendingOrdersDays: 7,
       };
@@ -598,7 +625,7 @@ export class SettingsService implements OnModuleInit {
         autoCancelPendingOrdersDays: settings.autoCancelPendingOrdersDays || 7,
       };
     } catch (error) {
-      this.logger.error('Failed to get order settings:', error);
+      this.logger.error("Failed to get order settings:", error);
       return {
         orderExpirationHours: 24,
         autoCancelPendingOrdersDays: 7,

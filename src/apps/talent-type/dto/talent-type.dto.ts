@@ -27,4 +27,3 @@ export class TalentTypeResponseDto {
   createdAt: Date;
   updatedAt: Date;
 }
-

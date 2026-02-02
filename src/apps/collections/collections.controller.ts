@@ -5,27 +5,36 @@ import {
   Put,
   Delete,
   Body,
-  Param, 
+  Param,
   Query,
   Request,
   ParseIntPipe,
-} from '@nestjs/common';
-import { CollectionsService } from './collections.service';
-import { CreateCollectionDto, UpdateCollectionDto, AddArtworkDto, CollectionsQueryDto } from './dto';
-import { AuthGuard } from '@/core/guards/auth.guard';
-import { UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger';
+} from "@nestjs/common";
+import { CollectionsService } from "./collections.service";
+import {
+  CreateCollectionDto,
+  UpdateCollectionDto,
+  AddArtworkDto,
+  CollectionsQueryDto,
+} from "./dto";
+import { AuthGuard } from "@/core/guards/auth.guard";
+import { UseGuards } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiResponse,
+  ApiQuery,
+} from "@nestjs/swagger";
 
 /**
  * Collections Controller
  * Handles all collection-related endpoints
  */
-@ApiTags('Collections')
-@Controller('collections')
+@ApiTags("Collections")
+@Controller("collections")
 export class CollectionsController {
-  constructor(
-    private readonly collectionsService: CollectionsService,
-  ) {}
+  constructor(private readonly collectionsService: CollectionsService) {}
 
   /**
    * POST /collections
@@ -46,13 +55,13 @@ export class CollectionsController {
 
       return {
         success: true,
-        message: 'Collection created successfully',
+        message: "Collection created successfully",
         collection,
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to create collection',
+        message: error.message || "Failed to create collection",
       };
     }
   }
@@ -61,20 +70,21 @@ export class CollectionsController {
    * GET /collections/hot
    * Get hot collections sorted by engagement score
    */
-  @Get('hot')
-  @ApiOperation({ 
-    summary: 'Get hot collections',
-    description: 'Returns public collections sorted by engagement score (views, likes, comments, favorites)'
+  @Get("hot")
+  @ApiOperation({
+    summary: "Get hot collections",
+    description:
+      "Returns public collections sorted by engagement score (views, likes, comments, favorites)",
   })
   @ApiQuery({
-    name: 'limit',
+    name: "limit",
     required: false,
     type: Number,
-    description: 'Number of hot collections to return (default: 10)',
-    example: 10
+    description: "Number of hot collections to return (default: 10)",
+    example: 10,
   })
   async getHotCollections(
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit?: number,
   ) {
     try {
       const collections = await this.collectionsService.getHotCollections(
@@ -88,7 +98,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch hot collections',
+        message: error.message || "Failed to fetch hot collections",
       };
     }
   }
@@ -99,11 +109,8 @@ export class CollectionsController {
    * If visibility filter is provided, filters by it. Otherwise returns all collections.
    */
   @Get()
-  @ApiOperation({ summary: 'Get all collections with pagination and filters' })
-  async findAll(
-    @Query() query: CollectionsQueryDto,
-    @Request() req: any,
-  ) {
+  @ApiOperation({ summary: "Get all collections with pagination and filters" })
+  async findAll(@Query() query: CollectionsQueryDto, @Request() req: any) {
     try {
       const result = await this.collectionsService.findAll(
         query.page,
@@ -120,7 +127,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch collections',
+        message: error.message || "Failed to fetch collections",
       };
     }
   }
@@ -129,9 +136,11 @@ export class CollectionsController {
    * GET /collections/my-collections
    * Get user's own collections
    */
-  @Get('my-collections')
+  @Get("my-collections")
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Get user\'s own collections with pagination and filters' })
+  @ApiOperation({
+    summary: "Get user's own collections with pagination and filters",
+  })
   async findMyCollections(
     @Query() query: CollectionsQueryDto,
     @Request() req: any,
@@ -151,7 +160,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch collections',
+        message: error.message || "Failed to fetch collections",
       };
     }
   }
@@ -160,13 +169,13 @@ export class CollectionsController {
    * GET /collections/:id
    * Get collection details with artworks
    */
-  @Get(':id')
-  async findOne(@Param('id') id: string, @Request() req: any) {
+  @Get(":id")
+  async findOne(@Param("id") id: string, @Request() req: any) {
     try {
       // Optionally extract user session if available (for private collections)
       let userId: string | undefined;
       try {
-        const { auth } = await import('../../auth');
+        const { auth } = await import("../../auth");
         const session = await auth.api.getSession({
           headers: req.headers as any,
         });
@@ -185,7 +194,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch collection',
+        message: error.message || "Failed to fetch collection",
       };
     }
   }
@@ -194,10 +203,10 @@ export class CollectionsController {
    * PUT /collections/:id
    * Update collection (name, description, cover)
    */
-  @Put(':id')
+  @Put(":id")
   @UseGuards(AuthGuard)
   async update(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updateCollectionDto: UpdateCollectionDto,
     @Request() req: any,
   ) {
@@ -211,13 +220,13 @@ export class CollectionsController {
 
       return {
         success: true,
-        message: 'Collection updated successfully',
+        message: "Collection updated successfully",
         collection,
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to update collection',
+        message: error.message || "Failed to update collection",
       };
     }
   }
@@ -226,9 +235,9 @@ export class CollectionsController {
    * DELETE /collections/:id
    * Delete collection
    */
-  @Delete(':id')
+  @Delete(":id")
   @UseGuards(AuthGuard)
-  async remove(@Param('id') id: string, @Request() req: any) {
+  async remove(@Param("id") id: string, @Request() req: any) {
     try {
       const userId = req.user.id;
       const result = await this.collectionsService.remove(id, userId);
@@ -240,7 +249,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to delete collection',
+        message: error.message || "Failed to delete collection",
       };
     }
   }
@@ -249,10 +258,10 @@ export class CollectionsController {
    * POST /collections/:id/artworks
    * Add artwork to collection
    */
-  @Post(':id/artworks')
+  @Post(":id/artworks")
   @UseGuards(AuthGuard)
   async addArtwork(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() addArtworkDto: AddArtworkDto,
     @Request() req: any,
   ) {
@@ -271,7 +280,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to add artwork to collection',
+        message: error.message || "Failed to add artwork to collection",
       };
     }
   }
@@ -280,11 +289,11 @@ export class CollectionsController {
    * DELETE /collections/:id/artworks/:artworkId
    * Remove artwork from collection
    */
-  @Delete(':id/artworks/:artworkId')
+  @Delete(":id/artworks/:artworkId")
   @UseGuards(AuthGuard)
   async removeArtwork(
-    @Param('id') id: string,
-    @Param('artworkId') artworkId: string,
+    @Param("id") id: string,
+    @Param("artworkId") artworkId: string,
     @Request() req: any,
   ) {
     try {
@@ -302,7 +311,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to remove artwork from collection',
+        message: error.message || "Failed to remove artwork from collection",
       };
     }
   }
@@ -311,9 +320,9 @@ export class CollectionsController {
    * POST /collections/:id/publish
    * Make collection public
    */
-  @Post(':id/publish')
+  @Post(":id/publish")
   @UseGuards(AuthGuard)
-  async publish(@Param('id') id: string, @Request() req: any) {
+  async publish(@Param("id") id: string, @Request() req: any) {
     try {
       const userId = req.user.id;
       const result = await this.collectionsService.publish(id, userId);
@@ -325,7 +334,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to publish collection',
+        message: error.message || "Failed to publish collection",
       };
     }
   }
@@ -334,9 +343,9 @@ export class CollectionsController {
    * POST /collections/:id/unpublish
    * Make collection private
    */
-  @Post(':id/unpublish')
+  @Post(":id/unpublish")
   @UseGuards(AuthGuard)
-  async unpublish(@Param('id') id: string, @Request() req: any) {
+  async unpublish(@Param("id") id: string, @Request() req: any) {
     try {
       const userId = req.user.id;
       const result = await this.collectionsService.unpublish(id, userId);
@@ -348,7 +357,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to unpublish collection',
+        message: error.message || "Failed to unpublish collection",
       };
     }
   }
@@ -357,19 +366,19 @@ export class CollectionsController {
    * GET /collections/:id/artworks
    * Get paginated artworks in a collection
    */
-  @Get(':id/artworks')
-  @ApiOperation({ summary: 'Get paginated artworks in a collection' })
+  @Get(":id/artworks")
+  @ApiOperation({ summary: "Get paginated artworks in a collection" })
   async getCollectionArtworks(
-    @Param('id') id: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
+    @Param("id") id: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
     @Request() req?: any,
   ) {
     try {
       const userId = req.user?.id; // Optional
       const pageNum = page ? Number(page) : 1;
       const limitNum = limit ? Number(limit) : 12;
-      
+
       const result = await this.collectionsService.findCollectionArtworks(
         id,
         pageNum,
@@ -388,7 +397,7 @@ export class CollectionsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch collection artworks',
+        message: error.message || "Failed to fetch collection artworks",
       };
     }
   }
@@ -397,31 +406,32 @@ export class CollectionsController {
    * PUT /collections/:id/cover
    * Update collection cover image with S3 URL (uploaded from frontend)
    */
-  @Put(':id/cover')
+  @Put(":id/cover")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Update collection cover image',
-    description: 'Update collection cover image with S3 public URL. Frontend should upload to S3 first using presigned URL, then send the public URL here.',
+    summary: "Update collection cover image",
+    description:
+      "Update collection cover image with S3 public URL. Frontend should upload to S3 first using presigned URL, then send the public URL here.",
   })
   @ApiBody({
     schema: {
-      type: 'object',
+      type: "object",
       properties: {
         coverUrl: {
-          type: 'string',
-          description: 'S3 public URL of the cover image',
-          example: 'https://bucket.s3.region.amazonaws.com/images/abc123.jpg',
+          type: "string",
+          description: "S3 public URL of the cover image",
+          example: "https://bucket.s3.region.amazonaws.com/images/abc123.jpg",
         },
       },
-      required: ['coverUrl'],
+      required: ["coverUrl"],
     },
   })
-  @ApiResponse({ status: 200, description: 'Cover image updated successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid URL' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 200, description: "Cover image updated successfully" })
+  @ApiResponse({ status: 400, description: "Invalid URL" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async updateCover(
-    @Param('id') id: string,
-    @Body('coverUrl') coverUrl: string,
+    @Param("id") id: string,
+    @Body("coverUrl") coverUrl: string,
     @Request() req: any,
   ) {
     try {
@@ -430,7 +440,7 @@ export class CollectionsController {
       if (!coverUrl) {
         return {
           success: false,
-          message: 'Cover URL is required',
+          message: "Cover URL is required",
         };
       }
 
@@ -443,13 +453,13 @@ export class CollectionsController {
 
       return {
         success: true,
-        message: 'Collection cover image updated successfully',
+        message: "Collection cover image updated successfully",
         coverUrl,
       };
     } catch (error: any) {
       return {
         success: false,
-        message: error.message || 'Failed to update collection cover image',
+        message: error.message || "Failed to update collection cover image",
       };
     }
   }

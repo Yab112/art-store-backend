@@ -10,7 +10,7 @@ export class ApiResponse<T> {
 
   constructor(
     data?: T,
-    message = 'Success',
+    message = "Success",
     success = true,
     meta?: { page?: number; limit?: number; total?: number },
   ) {
@@ -22,13 +22,13 @@ export class ApiResponse<T> {
 
   static ok<T>(
     data?: T,
-    message = 'Success',
+    message = "Success",
     meta?: { page?: number; limit?: number; total?: number },
   ): ApiResponse<T> {
     return new ApiResponse<T>(data, message, true, meta);
   }
 
-  static fail<T>(message = 'Failed', data?: T): ApiResponse<T> {
+  static fail<T>(message = "Failed", data?: T): ApiResponse<T> {
     return new ApiResponse<T>(data, message, false);
   }
 }

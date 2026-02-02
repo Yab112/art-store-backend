@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { EmailService } from '../../libraries/email';
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
+import { EmailService } from "../../libraries/email";
 import {
   COLLECTION_EVENTS,
   CollectionCreatedEvent,
@@ -9,10 +9,10 @@ import {
   CollectionPublishedEvent,
   CollectionUnpublishedEvent,
   CollectionFeaturedEvent,
-  ArtworkAddedToCollectionEvent, 
+  ArtworkAddedToCollectionEvent,
   ArtworksBulkAddedEvent,
-} from './events';
-import { COLLECTION_EMAIL_SUBJECTS } from './constants';  
+} from "./events";
+import { COLLECTION_EMAIL_SUBJECTS } from "./constants";
 
 /**
  * Collection Event Subscriber
@@ -39,12 +39,12 @@ export class CollectionsEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: COLLECTION_EMAIL_SUBJECTS.CREATED,
-        template: 'collection-created',
+        template: "collection-created",
         variables: {
           userName: event.userName,
           collectionId: event.collectionId,
           collectionName: event.name,
-          description: event.description || 'No description',
+          description: event.description || "No description",
           visibility: event.visibility,
           createdAt: event.createdAt.toISOString(),
         },
@@ -57,7 +57,7 @@ export class CollectionsEventSubscriber {
       // TODO: Log analytics
       // TODO: Create notification
     } catch (error) {
-      this.logger.error('Failed to handle collection created event:', error);
+      this.logger.error("Failed to handle collection created event:", error);
     }
   }
 
@@ -74,7 +74,7 @@ export class CollectionsEventSubscriber {
       // TODO: Log activity
       // TODO: Notify followers if visibility changed to public
     } catch (error) {
-      this.logger.error('Failed to handle collection updated event:', error);
+      this.logger.error("Failed to handle collection updated event:", error);
     }
   }
 
@@ -90,8 +90,8 @@ export class CollectionsEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.userEmail,
-        subject: 'Collection Deleted',
-        template: 'collection-deleted',
+        subject: "Collection Deleted",
+        template: "collection-deleted",
         variables: {
           userName: event.userName,
           collectionId: event.collectionId,
@@ -108,7 +108,7 @@ export class CollectionsEventSubscriber {
       // TODO: Remove from search index
       // TODO: Archive data
     } catch (error) {
-      this.logger.error('Failed to handle collection deleted event:', error);
+      this.logger.error("Failed to handle collection deleted event:", error);
     }
   }
 
@@ -125,11 +125,11 @@ export class CollectionsEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: COLLECTION_EMAIL_SUBJECTS.PUBLISHED,
-        template: 'collection-published',
+        template: "collection-published",
         variables: {
           userName: event.userName,
           collectionName: event.name,
-          description: event.description || 'No description',
+          description: event.description || "No description",
           artworkCount: event.artworkCount.toString(),
           publicUrl: event.publicUrl,
           publishedAt: event.publishedAt.toISOString(),
@@ -144,7 +144,7 @@ export class CollectionsEventSubscriber {
       // TODO: Notify followers
       // TODO: Add to recommendations
     } catch (error) {
-      this.logger.error('Failed to handle collection published event:', error);
+      this.logger.error("Failed to handle collection published event:", error);
     }
   }
 
@@ -160,7 +160,7 @@ export class CollectionsEventSubscriber {
       // TODO: Update recommendations
     } catch (error) {
       this.logger.error(
-        'Failed to handle collection unpublished event:',
+        "Failed to handle collection unpublished event:",
         error,
       );
     }
@@ -181,7 +181,7 @@ export class CollectionsEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: COLLECTION_EMAIL_SUBJECTS.FEATURED,
-        template: 'collection-featured',
+        template: "collection-featured",
         variables: {
           userName: event.userName,
           collectionName: event.name,
@@ -197,7 +197,7 @@ export class CollectionsEventSubscriber {
       // TODO: Add to featured collections list
       // TODO: Send push notification
     } catch (error) {
-      this.logger.error('Failed to handle collection featured event:', error);
+      this.logger.error("Failed to handle collection featured event:", error);
     }
   }
 
@@ -216,13 +216,13 @@ export class CollectionsEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: COLLECTION_EMAIL_SUBJECTS.ARTWORK_ADDED,
-        template: 'artwork-added-to-collection',
+        template: "artwork-added-to-collection",
         variables: {
           userName: event.userName,
           collectionName: event.collectionName,
-          artworkTitle: event.artworkTitle || 'Untitled',
+          artworkTitle: event.artworkTitle || "Untitled",
           artworkArtist: event.artworkArtist,
-          artworkPhotoUrl: event.artworkPhotoUrl || '',
+          artworkPhotoUrl: event.artworkPhotoUrl || "",
           addedAt: event.addedAt.toISOString(),
         },
       });
@@ -232,7 +232,7 @@ export class CollectionsEventSubscriber {
       // TODO: Update collection cover if first artwork
       // TODO: Notify collection followers
     } catch (error) {
-      this.logger.error('Failed to handle artwork added event:', error);
+      this.logger.error("Failed to handle artwork added event:", error);
     }
   }
 
@@ -250,8 +250,8 @@ export class CollectionsEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.userEmail,
-        subject: 'Multiple Artworks Added to Collection',
-        template: 'artworks-bulk-added',
+        subject: "Multiple Artworks Added to Collection",
+        template: "artworks-bulk-added",
         variables: {
           userName: event.userName,
           collectionName: event.collectionName,
@@ -262,7 +262,7 @@ export class CollectionsEventSubscriber {
 
       // TODO: Update collection statistics
     } catch (error) {
-      this.logger.error('Failed to handle bulk artworks added event:', error);
+      this.logger.error("Failed to handle bulk artworks added event:", error);
     }
   }
 
@@ -273,14 +273,14 @@ export class CollectionsEventSubscriber {
   async handleCollectionViewed(event: any) {
     try {
       this.logger.debug(
-        `Collection ${event.collectionId} viewed by ${event.viewerUserId || 'anonymous'}`,
+        `Collection ${event.collectionId} viewed by ${event.viewerUserId || "anonymous"}`,
       );
 
       // TODO: Log analytics
       // TODO: Update view count
       // TODO: Track popular collections
     } catch (error) {
-      this.logger.error('Failed to handle collection viewed event:', error);
+      this.logger.error("Failed to handle collection viewed event:", error);
     }
   }
 }

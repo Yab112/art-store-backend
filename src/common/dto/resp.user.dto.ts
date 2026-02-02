@@ -1,8 +1,8 @@
-import { sessionUser } from '@/auth';
+import { sessionUser } from "@/auth";
 
 export class UserRes {
   error?: string;
-  user?: sessionUser['user'];
+  user?: sessionUser["user"];
 }
 
 // Pagination users Response

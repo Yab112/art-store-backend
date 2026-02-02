@@ -5,28 +5,28 @@
 
 export const COLLECTION_EVENTS = {
   // Collection lifecycle
-  CREATED: 'collection.created',
-  UPDATED: 'collection.updated',
-  DELETED: 'collection.deleted',
+  CREATED: "collection.created",
+  UPDATED: "collection.updated",
+  DELETED: "collection.deleted",
 
   // Publication events
-  PUBLISHED: 'collection.published',
-  UNPUBLISHED: 'collection.unpublished',
-  FEATURED: 'collection.featured', // When admin features a collection
+  PUBLISHED: "collection.published",
+  UNPUBLISHED: "collection.unpublished",
+  FEATURED: "collection.featured", // When admin features a collection
 
   // Artwork management
-  ARTWORK_ADDED: 'collection.artwork.added',
-  ARTWORK_REMOVED: 'collection.artwork.removed',
-  ARTWORKS_BULK_ADDED: 'collection.artworks.bulk_added',
+  ARTWORK_ADDED: "collection.artwork.added",
+  ARTWORK_REMOVED: "collection.artwork.removed",
+  ARTWORKS_BULK_ADDED: "collection.artworks.bulk_added",
 
   // Interaction events
-  VIEWED: 'collection.viewed',
-  SHARED: 'collection.shared',
-  CLONED: 'collection.cloned', // When someone creates a copy
+  VIEWED: "collection.viewed",
+  SHARED: "collection.shared",
+  CLONED: "collection.cloned", // When someone creates a copy
 
   // Collaboration events (future)
-  COLLABORATOR_ADDED: 'collection.collaborator.added',
-  COLLABORATOR_REMOVED: 'collection.collaborator.removed',
+  COLLABORATOR_ADDED: "collection.collaborator.added",
+  COLLABORATOR_REMOVED: "collection.collaborator.removed",
 } as const;
 
 // Event payload interfaces
@@ -141,7 +141,7 @@ export interface CollectionViewedEvent {
 export interface CollectionSharedEvent {
   collectionId: string;
   userId?: string;
-  platform: 'email' | 'facebook' | 'twitter' | 'whatsapp' | 'link';
+  platform: "email" | "facebook" | "twitter" | "whatsapp" | "link";
   timestamp: Date;
 }
 

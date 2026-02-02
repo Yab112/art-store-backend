@@ -1,5 +1,5 @@
-import { IsString, IsEnum } from 'class-validator';
-import { PaymentProvider } from './initialize-payment.dto';
+import { IsString, IsEnum } from "class-validator";
+import { PaymentProvider } from "./initialize-payment.dto";
 
 export class VerifyPaymentDto {
   @IsEnum(PaymentProvider)

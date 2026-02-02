@@ -15,8 +15,8 @@ export class OrderService {
 
   constructor(
     private prisma: PrismaService,
-    private settingsService: SettingsService
-  ) { }
+    private settingsService: SettingsService,
+  ) {}
 
   /**
    * Get user by email (helper for order creation)
@@ -36,8 +36,10 @@ export class OrderService {
       this.logger.log(`Creating order for authenticated user: ${userId}`);
 
       // Validate userId is provided (should never be 'guest' since we require authentication)
-      if (!userId || userId === 'guest') {
-        throw new BadRequestException('Valid user ID is required to create an order');
+      if (!userId || userId === "guest") {
+        throw new BadRequestException(
+          "Valid user ID is required to create an order",
+        );
       }
 
       // Validate artworks exist and are available (only APPROVED artworks can be purchased)
@@ -64,14 +66,14 @@ export class OrderService {
 
       // Prevent users from purchasing their own artwork
       const ownArtworks = artworks.filter(
-        (artwork) => artwork.userId === userId
+        (artwork) => artwork.userId === userId,
       );
       if (ownArtworks.length > 0) {
         const artworkTitles = ownArtworks
           .map((a) => a.title || a.id)
           .join(", ");
         throw new BadRequestException(
-          `You cannot purchase your own artwork: ${artworkTitles}`
+          `You cannot purchase your own artwork: ${artworkTitles}`,
         );
       }
 
@@ -109,16 +111,22 @@ export class OrderService {
       const timestamp = Date.now();
 
       // Try to get userId from email if it's 'guest' or null
-      let finalUserId = userId !== 'guest' ? userId : null;
+      let finalUserId = userId !== "guest" ? userId : null;
       if (!finalUserId) {
         try {
-          const userByEmail = await this.getUserByEmail(createOrderDto.buyerEmail);
+          const userByEmail = await this.getUserByEmail(
+            createOrderDto.buyerEmail,
+          );
           if (userByEmail?.id) {
             finalUserId = userByEmail.id;
-            this.logger.log(`Found user by email during order creation: ${createOrderDto.buyerEmail} -> ${finalUserId}`);
+            this.logger.log(
+              `Found user by email during order creation: ${createOrderDto.buyerEmail} -> ${finalUserId}`,
+            );
           }
         } catch (error) {
-          this.logger.warn(`Could not find user by email ${createOrderDto.buyerEmail} during order creation`);
+          this.logger.warn(
+            `Could not find user by email ${createOrderDto.buyerEmail} during order creation`,
+          );
         }
       }
 
@@ -146,7 +154,7 @@ export class OrderService {
                   shippingAddress: createOrderDto.shippingAddress,
                   paymentMethod: createOrderDto.paymentMethod,
                   userId, // Keep in metadata for backward compatibility
-                })
+                }),
               ),
             },
           },
@@ -219,12 +227,23 @@ export class OrderService {
    * @param paymentProvider - Payment provider (chapa, paypal)
    * @param paymentMetadata - Optional additional payment metadata (customerEmail, customerName, originalTxRef, etc.)
    */
-  async completeOrder(orderId: string, txRef: string, paymentProvider: string, userId?: string) {
+  async completeOrder(
+    orderId: string,
+    txRef: string,
+    paymentProvider: string,
+    userId?: string,
+  ) {
     try {
-      this.logger.log(`[ORDER-COMPLETE] ========================================`);
-      this.logger.log(`[ORDER-COMPLETE] Starting order completion for order: ${orderId}`);
-      this.logger.log(`[ORDER-COMPLETE] Payment provider: ${paymentProvider}, txRef: ${txRef}`);
-      this.logger.log(`[ORDER-COMPLETE] Buyer userId: ${userId || 'N/A'}`);
+      this.logger.log(
+        `[ORDER-COMPLETE] ========================================`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE] Starting order completion for order: ${orderId}`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE] Payment provider: ${paymentProvider}, txRef: ${txRef}`,
+      );
+      this.logger.log(`[ORDER-COMPLETE] Buyer userId: ${userId || "N/A"}`);
 
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
@@ -247,10 +266,14 @@ export class OrderService {
         throw new NotFoundException("Order not found");
       }
 
-      this.logger.log(`[ORDER-COMPLETE] Order found: ${orderId}, Status: ${order.status}, Items: ${order.items.length}`);
+      this.logger.log(
+        `[ORDER-COMPLETE] Order found: ${orderId}, Status: ${order.status}, Items: ${order.items.length}`,
+      );
 
       if (order.status === "PAID") {
-        this.logger.warn(`[ORDER-COMPLETE] ⚠️ Order ${orderId} already paid - skipping completion`);
+        this.logger.warn(
+          `[ORDER-COMPLETE] ⚠️ Order ${orderId} already paid - skipping completion`,
+        );
         // Return order with items included for cart clearing
         return await this.prisma.order.findUnique({
           where: { id: orderId },
@@ -270,7 +293,7 @@ export class OrderService {
 
       // Build enhanced metadata with payment completion details
       const enhancedMetadata = {
-        ...(order.transaction?.metadata as any || {}),
+        ...((order.transaction?.metadata as any) || {}),
         txRef,
         paymentProvider,
         completedAt: new Date().toISOString(),
@@ -283,20 +306,20 @@ export class OrderService {
           status: "PAID",
           transaction: order.transaction
             ? {
-              // Transaction exists - update it to COMPLETED
-              update: {
-                status: "COMPLETED",
-                metadata: enhancedMetadata,
-              },
-            }
+                // Transaction exists - update it to COMPLETED
+                update: {
+                  status: "COMPLETED",
+                  metadata: enhancedMetadata,
+                },
+              }
             : {
-              // Transaction doesn't exist - create it with COMPLETED status
-              create: {
-                amount: order.totalAmount,
-                status: "COMPLETED",
-                metadata: enhancedMetadata,
+                // Transaction doesn't exist - create it with COMPLETED status
+                create: {
+                  amount: order.totalAmount,
+                  status: "COMPLETED",
+                  metadata: enhancedMetadata,
+                },
               },
-            },
         },
         include: {
           items: {
@@ -316,16 +339,22 @@ export class OrderService {
         where: { id: { in: artworkIds } },
         data: { status: "SOLD" },
       });
-      this.logger.log(`[ORDER-COMPLETE] ✅ Marked ${artworkUpdateResult.count} artwork(s) as SOLD`);
+      this.logger.log(
+        `[ORDER-COMPLETE] ✅ Marked ${artworkUpdateResult.count} artwork(s) as SOLD`,
+      );
 
       // Calculate artist earnings and create withdrawal entries
-      this.logger.log(`[ORDER-COMPLETE] Calculating earnings and commissions...`);
+      this.logger.log(
+        `[ORDER-COMPLETE] Calculating earnings and commissions...`,
+      );
       const metadata = order.transaction.metadata as any;
       const platformCommissionRate =
         metadata.platformCommissionRate ||
         (await this.settingsService.getPlatformCommissionRate());
 
-      this.logger.log(`[ORDER-COMPLETE] Platform commission rate: ${platformCommissionRate} (${(platformCommissionRate * 100).toFixed(2)}%)`);
+      this.logger.log(
+        `[ORDER-COMPLETE] Platform commission rate: ${platformCommissionRate} (${(platformCommissionRate * 100).toFixed(2)}%)`,
+      );
 
       let totalPlatformCommission = 0;
       let totalOrderValue = 0;
@@ -341,12 +370,15 @@ export class OrderService {
         totalOrderValue += itemPrice;
 
         this.logger.log(
-          `[ORDER-COMPLETE] Item: ${item.artworkId}, Price: ${itemPrice}, Platform Fee: ${platformCommission}, Artist Amount: ${artistAmount}`
+          `[ORDER-COMPLETE] Item: ${item.artworkId}, Price: ${itemPrice}, Platform Fee: ${platformCommission}, Artist Amount: ${artistAmount}`,
         );
 
         // Track earnings for this artist
         const currentEarnings = artistEarningsMap.get(item.artwork.userId) || 0;
-        artistEarningsMap.set(item.artwork.userId, currentEarnings + artistAmount);
+        artistEarningsMap.set(
+          item.artwork.userId,
+          currentEarnings + artistAmount,
+        );
       }
 
       // Update user earnings and create seller transactions for each artist
@@ -361,7 +393,7 @@ export class OrderService {
           },
         });
         this.logger.log(
-          `[SELLER-EARNING] Updated earnings for artist ${artistUserId}: +${earnings} (Total earning updated)`
+          `[SELLER-EARNING] Updated earnings for artist ${artistUserId}: +${earnings} (Total earning updated)`,
         );
 
         // Create seller transaction record
@@ -384,16 +416,16 @@ export class OrderService {
             },
           });
           this.logger.log(
-            `[SELLER-TRANSACTION] ✅ Created seller transaction for artist ${artistUserId}: ${earnings} (Transaction ID: ${sellerTransaction.id})`
+            `[SELLER-TRANSACTION] ✅ Created seller transaction for artist ${artistUserId}: ${earnings} (Transaction ID: ${sellerTransaction.id})`,
           );
         } catch (sellerTxError: any) {
           // Log error but don't fail order completion
           this.logger.error(
             `[SELLER-TRANSACTION] ❌ Failed to create seller transaction for artist ${artistUserId}:`,
-            sellerTxError
+            sellerTxError,
           );
           this.logger.error(
-            `[SELLER-TRANSACTION] Error: ${sellerTxError?.message || 'Unknown error'}`
+            `[SELLER-TRANSACTION] Error: ${sellerTxError?.message || "Unknown error"}`,
           );
         }
       }
@@ -406,24 +438,28 @@ export class OrderService {
           platformCommissionRate,
           paymentProvider,
           txRef,
-          orderId
+          orderId,
         );
       } catch (platformEarningError: any) {
         // Log error but don't fail order completion
         // Platform earnings are important but order completion should still succeed
         this.logger.error(
           `[ORDER-COMPLETE] ⚠️ Platform earning creation failed for order ${orderId}, but order completion continues:`,
-          platformEarningError
+          platformEarningError,
         );
         // Continue with order completion even if platform earning fails
       }
 
       // Clear user's cart after successful order completion
-      if (userId && userId !== 'guest') {
+      if (userId && userId !== "guest") {
         try {
-          const artworkIds = updatedOrder.items.map((item: any) => item.artworkId);
+          const artworkIds = updatedOrder.items.map(
+            (item: any) => item.artworkId,
+          );
 
-          this.logger.log(`[ORDER-COMPLETE] 🛒 Clearing cart for user ${userId}: removing ${artworkIds.length} purchased artwork(s)`);
+          this.logger.log(
+            `[ORDER-COMPLETE] 🛒 Clearing cart for user ${userId}: removing ${artworkIds.length} purchased artwork(s)`,
+          );
 
           const deleteResult = await this.prisma.cartItem.deleteMany({
             where: {
@@ -434,28 +470,54 @@ export class OrderService {
             },
           });
 
-          this.logger.log(`[ORDER-COMPLETE] ✅ Successfully removed ${deleteResult.count} purchased artwork(s) from cart for user ${userId}`);
-          this.logger.log(`[ORDER-COMPLETE] Removed artwork IDs: ${artworkIds.join(', ')}`);
+          this.logger.log(
+            `[ORDER-COMPLETE] ✅ Successfully removed ${deleteResult.count} purchased artwork(s) from cart for user ${userId}`,
+          );
+          this.logger.log(
+            `[ORDER-COMPLETE] Removed artwork IDs: ${artworkIds.join(", ")}`,
+          );
         } catch (cartError) {
           // Log error but don't fail order completion
-          this.logger.error(`[ORDER-COMPLETE] ❌ Failed to remove artworks from cart for user ${userId} after order ${orderId}:`, cartError);
+          this.logger.error(
+            `[ORDER-COMPLETE] ❌ Failed to remove artworks from cart for user ${userId} after order ${orderId}:`,
+            cartError,
+          );
         }
       } else {
-        this.logger.warn(`[ORDER-COMPLETE] ⚠️ Could not clear cart: userId not provided or is guest for order ${orderId}`);
+        this.logger.warn(
+          `[ORDER-COMPLETE] ⚠️ Could not clear cart: userId not provided or is guest for order ${orderId}`,
+        );
       }
 
-      this.logger.log(`[ORDER-COMPLETE] ========================================`);
-      this.logger.log(`[ORDER-COMPLETE] ✅ Order ${orderId} completed successfully`);
+      this.logger.log(
+        `[ORDER-COMPLETE] ========================================`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE] ✅ Order ${orderId} completed successfully`,
+      );
       this.logger.log(`[ORDER-COMPLETE] Summary:`);
-      this.logger.log(`[ORDER-COMPLETE]   - Total order value: ${totalOrderValue}`);
-      this.logger.log(`[ORDER-COMPLETE]   - Total platform commission: ${totalPlatformCommission}`);
-      this.logger.log(`[ORDER-COMPLETE]   - Number of artists: ${artistEarningsMap.size}`);
-      this.logger.log(`[ORDER-COMPLETE]   - Artworks marked as SOLD: ${artworkIds.length}`);
-      this.logger.log(`[ORDER-COMPLETE] ========================================`);
+      this.logger.log(
+        `[ORDER-COMPLETE]   - Total order value: ${totalOrderValue}`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE]   - Total platform commission: ${totalPlatformCommission}`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE]   - Number of artists: ${artistEarningsMap.size}`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE]   - Artworks marked as SOLD: ${artworkIds.length}`,
+      );
+      this.logger.log(
+        `[ORDER-COMPLETE] ========================================`,
+      );
 
       return updatedOrder;
     } catch (error) {
-      this.logger.error(`Order cancellation failed for order ${orderId}:`, error);
+      this.logger.error(
+        `Order cancellation failed for order ${orderId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -469,16 +531,24 @@ export class OrderService {
     platformCommissionRate: number,
     paymentProvider: string,
     txRef: string,
-    orderId: string
+    orderId: string,
   ): Promise<void> {
     try {
-      this.logger.log(`[PLATFORM-EARNING] Creating platform earning for order ${orderId}`);
-      this.logger.log(`[PLATFORM-EARNING] Total commission: ${totalPlatformCommission}, Rate: ${platformCommissionRate}`);
+      this.logger.log(
+        `[PLATFORM-EARNING] Creating platform earning for order ${orderId}`,
+      );
+      this.logger.log(
+        `[PLATFORM-EARNING] Total commission: ${totalPlatformCommission}, Rate: ${platformCommissionRate}`,
+      );
 
       // Check if platformEarning model exists in Prisma client
       if (!this.prisma.platformEarning) {
-        this.logger.error(`[PLATFORM-EARNING] ❌ PlatformEarning model not found in Prisma client. Please run 'npx prisma generate'`);
-        throw new Error("PlatformEarning model not available. Database migration may be required.");
+        this.logger.error(
+          `[PLATFORM-EARNING] ❌ PlatformEarning model not found in Prisma client. Please run 'npx prisma generate'`,
+        );
+        throw new Error(
+          "PlatformEarning model not available. Database migration may be required.",
+        );
       }
 
       // Check if platform earning already exists for this order (idempotency)
@@ -488,18 +558,22 @@ export class OrderService {
 
       if (existingEarning) {
         this.logger.log(
-          `[PLATFORM-EARNING] ⚠️ Platform earning already exists for order ${orderId} - skipping creation`
+          `[PLATFORM-EARNING] ⚠️ Platform earning already exists for order ${orderId} - skipping creation`,
         );
         return;
       }
 
       // Validate data before creation
       if (totalPlatformCommission <= 0) {
-        this.logger.warn(`[PLATFORM-EARNING] ⚠️ Total platform commission is ${totalPlatformCommission} - creating record anyway`);
+        this.logger.warn(
+          `[PLATFORM-EARNING] ⚠️ Total platform commission is ${totalPlatformCommission} - creating record anyway`,
+        );
       }
 
       if (!order.transaction?.id) {
-        this.logger.warn(`[PLATFORM-EARNING] ⚠️ Order ${orderId} has no transaction ID - creating platform earning without transaction link`);
+        this.logger.warn(
+          `[PLATFORM-EARNING] ⚠️ Order ${orderId} has no transaction ID - creating platform earning without transaction link`,
+        );
       }
 
       const platformEarning = await this.prisma.platformEarning.create({
@@ -529,13 +603,13 @@ export class OrderService {
             })),
             transaction: order.transaction
               ? {
-                id: order.transaction.id,
-                paymentGatewayId: order.transaction.paymentGatewayId,
-                status: order.transaction.status,
-                amount: Number(order.transaction.amount),
-                metadata: order.transaction.metadata,
-                createdAt: order.transaction.createdAt.toISOString(),
-              }
+                  id: order.transaction.id,
+                  paymentGatewayId: order.transaction.paymentGatewayId,
+                  status: order.transaction.status,
+                  amount: Number(order.transaction.amount),
+                  metadata: order.transaction.metadata,
+                  createdAt: order.transaction.createdAt.toISOString(),
+                }
               : null,
           },
           metadata: {
@@ -548,38 +622,42 @@ export class OrderService {
       });
 
       this.logger.log(
-        `[PLATFORM-EARNING] ✅ Created platform earning for order ${orderId}: ${totalPlatformCommission} (Rate: ${platformCommissionRate})`
+        `[PLATFORM-EARNING] ✅ Created platform earning for order ${orderId}: ${totalPlatformCommission} (Rate: ${platformCommissionRate})`,
       );
       this.logger.log(
-        `[PLATFORM-EARNING] Platform earning ID: ${platformEarning.id}`
+        `[PLATFORM-EARNING] Platform earning ID: ${platformEarning.id}`,
       );
     } catch (platformEarningError: any) {
       // Log detailed error information
       this.logger.error(
         `[PLATFORM-EARNING] ❌ Failed to create platform earning for order ${orderId}:`,
-        platformEarningError
+        platformEarningError,
       );
       this.logger.error(
-        `[PLATFORM-EARNING] Error message: ${platformEarningError?.message || 'Unknown error'}`
+        `[PLATFORM-EARNING] Error message: ${platformEarningError?.message || "Unknown error"}`,
       );
       this.logger.error(
-        `[PLATFORM-EARNING] Error stack: ${platformEarningError?.stack || 'No stack trace'}`
+        `[PLATFORM-EARNING] Error stack: ${platformEarningError?.stack || "No stack trace"}`,
       );
 
       // Check for specific error types
-      if (platformEarningError?.message?.includes('Unknown model') ||
-        platformEarningError?.message?.includes('platformEarning')) {
+      if (
+        platformEarningError?.message?.includes("Unknown model") ||
+        platformEarningError?.message?.includes("platformEarning")
+      ) {
         this.logger.error(
           `[PLATFORM-EARNING] ❌ PlatformEarning model not found. Please ensure:\n` +
-          `1. Database migration has been applied: npx prisma migrate deploy\n` +
-          `2. Prisma client has been regenerated: npx prisma generate\n` +
-          `3. Server has been restarted after Prisma client regeneration`
+            `1. Database migration has been applied: npx prisma migrate deploy\n` +
+            `2. Prisma client has been regenerated: npx prisma generate\n` +
+            `3. Server has been restarted after Prisma client regeneration`,
         );
       }
 
       // Re-throw the error so order completion can handle it appropriately
       // This ensures we know when platform earnings fail to create
-      throw new Error(`Failed to create platform earning: ${platformEarningError?.message || 'Unknown error'}`);
+      throw new Error(
+        `Failed to create platform earning: ${platformEarningError?.message || "Unknown error"}`,
+      );
     }
   }
 
@@ -623,7 +701,7 @@ export class OrderService {
     page: number = 1,
     limit: number = 20,
     search?: string,
-    status?: string
+    status?: string,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -696,10 +774,7 @@ export class OrderService {
     // If we have both userId and userEmail, check both to catch all orders
     // This handles cases where orders were created with userId=null but have buyerEmail
     if (userId && userEmail) {
-      where.OR = [
-        { userId: userId },
-        { buyerEmail: userEmail },
-      ];
+      where.OR = [{ userId: userId }, { buyerEmail: userEmail }];
     } else if (userId) {
       // If only userId, also try to get user email to check buyerEmail
       try {
@@ -708,10 +783,7 @@ export class OrderService {
           select: { email: true },
         });
         if (user?.email) {
-          where.OR = [
-            { userId: userId },
-            { buyerEmail: user.email },
-          ];
+          where.OR = [{ userId: userId }, { buyerEmail: user.email }];
         } else {
           where.userId = userId;
         }
@@ -722,7 +794,9 @@ export class OrderService {
     } else if (userEmail) {
       where.buyerEmail = userEmail;
     } else {
-      throw new BadRequestException("Either userId or userEmail must be provided");
+      throw new BadRequestException(
+        "Either userId or userEmail must be provided",
+      );
     }
 
     return this.prisma.order.findMany({
@@ -760,13 +834,17 @@ export class OrderService {
     page: number = 1,
     limit: number = 20,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ) {
     try {
       // Check if platformEarning model exists in Prisma client
       if (!this.prisma.platformEarning) {
-        this.logger.error("PlatformEarning model not found in Prisma client. Please run 'npx prisma generate'");
-        throw new Error("PlatformEarning model not available. Database migration may be required.");
+        this.logger.error(
+          "PlatformEarning model not found in Prisma client. Please run 'npx prisma generate'",
+        );
+        throw new Error(
+          "PlatformEarning model not available. Database migration may be required.",
+        );
       }
 
       // Build date filter
@@ -836,9 +914,7 @@ export class OrderService {
           ...dateFilter,
           createdAt: {
             ...(dateFilter.createdAt || {}),
-            gte: startDate
-              ? new Date(startDate)
-              : twelveMonthsAgo,
+            gte: startDate ? new Date(startDate) : twelveMonthsAgo,
             lte: endDate ? new Date(endDate) : new Date(),
           },
         },
@@ -850,7 +926,10 @@ export class OrderService {
       });
 
       // Group by month
-      const monthlyBreakdown: Record<string, { month: string; total: number; count: number }> = {};
+      const monthlyBreakdown: Record<
+        string,
+        { month: string; total: number; count: number }
+      > = {};
 
       monthlyEarnings.forEach((earning) => {
         const date = new Date(earning.createdAt);
@@ -870,7 +949,7 @@ export class OrderService {
 
       // Convert to array and sort
       const monthlyBreakdownArray = Object.values(monthlyBreakdown).sort(
-        (a, b) => a.month.localeCompare(b.month)
+        (a, b) => a.month.localeCompare(b.month),
       );
 
       // Format recent earnings
@@ -909,12 +988,15 @@ export class OrderService {
       this.logger.error("Failed to get platform commission analytics:", error);
 
       // Provide more helpful error messages
-      if (error?.message?.includes("Unknown model") || error?.message?.includes("platformEarning")) {
+      if (
+        error?.message?.includes("Unknown model") ||
+        error?.message?.includes("platformEarning")
+      ) {
         throw new Error(
           "PlatformEarning model not found. Please ensure:\n" +
-          "1. Database migration has been applied: npx prisma migrate deploy\n" +
-          "2. Prisma client has been regenerated: npx prisma generate\n" +
-          "3. Server has been restarted after Prisma client regeneration"
+            "1. Database migration has been applied: npx prisma migrate deploy\n" +
+            "2. Prisma client has been regenerated: npx prisma generate\n" +
+            "3. Server has been restarted after Prisma client regeneration",
         );
       }
 

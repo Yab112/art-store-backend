@@ -1,6 +1,6 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { AnalyticsDto, TrackProfileViewDto } from './dto/analytics.dto';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { AnalyticsDto, TrackProfileViewDto } from "./dto/analytics.dto";
 
 @Injectable()
 export class AnalyticsService {
@@ -47,23 +47,23 @@ export class AnalyticsService {
             userId,
           },
           type: {
-            in: ['LIKE', 'VIEW'],
+            in: ["LIKE", "VIEW"],
           },
         },
       });
 
       const artworkLikes = artworkInteractions.filter(
-        (i) => i.type === 'LIKE',
+        (i) => i.type === "LIKE",
       ).length;
       const artworkViews = artworkInteractions.filter(
-        (i) => i.type === 'VIEW',
+        (i) => i.type === "VIEW",
       ).length;
 
       // Get sales count
       const salesCount = await this.prisma.artwork.count({
         where: {
           userId,
-          status: 'SOLD',
+          status: "SOLD",
         },
       });
 
@@ -137,7 +137,10 @@ export class AnalyticsService {
 
       return Math.max(0, heatScore);
     } catch (error) {
-      this.logger.error(`Failed to calculate heat score for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to calculate heat score for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -183,10 +186,16 @@ export class AnalyticsService {
 
       // Recalculate heat score (async, don't wait)
       this.calculateHeatScore(userId).catch((err) => {
-        this.logger.warn(`Failed to recalculate heat score after profile view:`, err);
+        this.logger.warn(
+          `Failed to recalculate heat score after profile view:`,
+          err,
+        );
       });
     } catch (error) {
-      this.logger.error(`Failed to track profile view for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to track profile view for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -203,7 +212,10 @@ export class AnalyticsService {
         },
       });
     } catch (error) {
-      this.logger.error(`Failed to update lastActiveAt for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to update lastActiveAt for user ${userId}:`,
+        error,
+      );
       // Don't throw - this is a non-critical operation
     }
   }
@@ -243,22 +255,22 @@ export class AnalyticsService {
             userId,
           },
           type: {
-            in: ['LIKE', 'VIEW'],
+            in: ["LIKE", "VIEW"],
           },
         },
       });
 
       const artworkLikes = artworkInteractions.filter(
-        (i) => i.type === 'LIKE',
+        (i) => i.type === "LIKE",
       ).length;
       const artworkViews = artworkInteractions.filter(
-        (i) => i.type === 'VIEW',
+        (i) => i.type === "VIEW",
       ).length;
 
       const salesCount = await this.prisma.artwork.count({
         where: {
           userId,
-          status: 'SOLD',
+          status: "SOLD",
         },
       });
 
@@ -331,7 +343,7 @@ export class AnalyticsService {
    */
   async recalculateAllHeatScores(): Promise<void> {
     try {
-      this.logger.log('Starting heat score recalculation for all users...');
+      this.logger.log("Starting heat score recalculation for all users...");
 
       const users = await this.prisma.user.findMany({
         select: { id: true },
@@ -362,20 +374,8 @@ export class AnalyticsService {
         `Heat score recalculation completed. Processed ${processed} users.`,
       );
     } catch (error) {
-      this.logger.error('Failed to recalculate all heat scores:', error);
+      this.logger.error("Failed to recalculate all heat scores:", error);
       throw error;
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

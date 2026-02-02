@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { EmailService } from './email.service';
-import { EmailBridgeInitializerService } from './email-bridge-initializer.service';
-import { LoggerModule } from '../logger';
-import { ConfigurationModule } from '../../core/configuration';
+import { Module } from "@nestjs/common";
+import { EmailService } from "./email.service";
+import { EmailBridgeInitializerService } from "./email-bridge-initializer.service";
+import { LoggerModule } from "../logger";
+import { ConfigurationModule } from "../../core/configuration";
 
 @Module({
   imports: [LoggerModule, ConfigurationModule],

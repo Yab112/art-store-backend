@@ -1,4 +1,4 @@
-import { EmailService } from './email.service';
+import { EmailService } from "./email.service";
 
 /**
  * Global email bridge for Better Auth integration
@@ -29,16 +29,16 @@ class EmailBridge {
     link: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Verify Your Email Address - Art Gallery',
-        template: 'email-verification',
+        subject: "Verify Your Email Address - Art Gallery",
+        template: "email-verification",
         variables: {
           email,
           link,
@@ -59,16 +59,16 @@ class EmailBridge {
     link: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Reset Your Password - Art Gallery',
-        template: 'password-reset',
+        subject: "Reset Your Password - Art Gallery",
+        template: "password-reset",
         variables: {
           email,
           link,
@@ -89,16 +89,16 @@ class EmailBridge {
     link: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Your Magic Link - Art Gallery',
-        template: 'magic-link',
+        subject: "Your Magic Link - Art Gallery",
+        template: "magic-link",
         variables: {
           email,
           link,
@@ -119,16 +119,16 @@ class EmailBridge {
     code: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Your 2FA Code - Art Gallery',
-        template: '2fa-code',
+        subject: "Your 2FA Code - Art Gallery",
+        template: "2fa-code",
         variables: {
           email,
           code,
@@ -149,16 +149,16 @@ class EmailBridge {
     code: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Verify Your Email - Art Gallery',
-        template: 'verification-otp',
+        subject: "Verify Your Email - Art Gallery",
+        template: "verification-otp",
         variables: {
           email,
           code,
@@ -179,16 +179,16 @@ class EmailBridge {
     code: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Reset Your Password - Art Gallery',
-        template: 'password-reset-otp',
+        subject: "Reset Your Password - Art Gallery",
+        template: "password-reset-otp",
         variables: {
           email,
           code,
@@ -209,16 +209,16 @@ class EmailBridge {
     code: string;
   }): Promise<void> {
     if (!this.emailService) {
-      console.error('EmailService not initialized in EmailBridge');
+      console.error("EmailService not initialized in EmailBridge");
       return;
     }
 
     try {
       await this.emailService.send({
-        name: 'User',
+        name: "User",
         email,
-        subject: 'Your Sign In Code - Art Gallery',
-        template: 'signin-otp',
+        subject: "Your Sign In Code - Art Gallery",
+        template: "signin-otp",
         variables: {
           email,
           code,

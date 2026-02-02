@@ -3,9 +3,9 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { VoteDto, VoteTypeDto } from './dto';
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { VoteDto, VoteTypeDto } from "./dto";
 
 @Injectable()
 export class BlogVotesService {
@@ -25,7 +25,7 @@ export class BlogVotesService {
       });
 
       if (!blogPost) {
-        throw new NotFoundException('Blog post not found');
+        throw new NotFoundException("Blog post not found");
       }
 
       // Check if user already voted
@@ -63,7 +63,7 @@ export class BlogVotesService {
           });
 
           return {
-            message: 'Vote removed',
+            message: "Vote removed",
             data: {
               blogPostId,
               voteType: null,
@@ -118,7 +118,7 @@ export class BlogVotesService {
       }
 
       return {
-        message: `Blog post ${voteDto.type === VoteTypeDto.LIKE ? 'liked' : 'disliked'}`,
+        message: `Blog post ${voteDto.type === VoteTypeDto.LIKE ? "liked" : "disliked"}`,
         data: {
           blogPostId,
           voteType: voteDto.type,
@@ -127,7 +127,10 @@ export class BlogVotesService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to vote on blog post: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to vote on blog post: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -150,20 +153,11 @@ export class BlogVotesService {
         voteType: vote?.type || null,
       };
     } catch (error) {
-      this.logger.error(`Failed to get user vote: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get user vote: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

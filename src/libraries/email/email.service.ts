@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { Logger, LoggerService } from '../logger';
-import { ConfigurationService } from '../../core/configuration';
-import * as nodemailer from 'nodemailer';
-import * as ejs from 'ejs';
-import * as path from 'path';
+import { Injectable } from "@nestjs/common";
+import { Logger, LoggerService } from "../logger";
+import { ConfigurationService } from "../../core/configuration";
+import * as nodemailer from "nodemailer";
+import * as ejs from "ejs";
+import * as path from "path";
 
 type SendOptions = {
   name: string;
@@ -22,20 +22,20 @@ export class EmailService {
     private loggerService: LoggerService,
     private configurationService: ConfigurationService,
   ) {
-    this.logger = this.loggerService.create({ name: 'EmailService' });
+    this.logger = this.loggerService.create({ name: "EmailService" });
     this.initializeTransporter();
   }
 
   private initializeTransporter() {
     try {
       this.transporter = nodemailer.createTransport({
-        host: this.configurationService.get('SMTP_HOST'),
-        port: parseInt(this.configurationService.get('SMTP_PORT') || '587'),
+        host: this.configurationService.get("SMTP_HOST"),
+        port: parseInt(this.configurationService.get("SMTP_PORT") || "587"),
         secure: false, // true for 465, false for other ports
         requireTLS: true, // Force TLS for Gmail
         auth: {
-          user: this.configurationService.get('SMTP_USER'),
-          pass: this.configurationService.get('SMTP_PASS')?.trim(), // Trim whitespace
+          user: this.configurationService.get("SMTP_USER"),
+          pass: this.configurationService.get("SMTP_PASS")?.trim(), // Trim whitespace
         },
         tls: {
           // Don't reject unauthorized certificates (for development)
@@ -50,13 +50,15 @@ export class EmailService {
         maxConnections: 1,
         maxMessages: 3,
       });
-      
+
       // Verify connection
       this.transporter.verify((error, success) => {
         if (error) {
-          this.logger.error(`SMTP connection verification failed: ${error.message}`);
+          this.logger.error(
+            `SMTP connection verification failed: ${error.message}`,
+          );
         } else {
-          this.logger.success('Email transporter initialized and verified');
+          this.logger.success("Email transporter initialized and verified");
         }
       });
     } catch (error) {
@@ -75,13 +77,13 @@ export class EmailService {
       // );
       const templatePath = path.join(
         process.cwd(),
-        'templates',
+        "templates",
         `${options.template}.ejs`,
       );
       const html = await ejs.renderFile(templatePath, options.variables);
 
       const mailOptions = {
-        from: 'eshetieyabibal@gmail.com',
+        from: "eshetieyabibal@gmail.com",
         to: options.email,
         subject: options.subject,
         html,

@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import { LoggingInterceptor } from './logging.interceptor';
-import { LoggingService } from './logging.service';
+import { Module } from "@nestjs/common";
+import { APP_INTERCEPTOR } from "@nestjs/core";
+import { LoggingInterceptor } from "./logging.interceptor";
+import { LoggingService } from "./logging.service";
 
 @Module({
   imports: [],

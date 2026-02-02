@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -9,8 +14,8 @@ export class ArtistService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly settingsService: SettingsService
-  ) { }
+    private readonly settingsService: SettingsService,
+  ) {}
 
   /**
    * Get artist earnings statistics
@@ -47,7 +52,7 @@ export class ArtistService {
 
       // Calculate total withdrawn (COMPLETED withdrawals)
       const totalWithdrawn = allWithdrawals
-        .filter(w => w.status === "COMPLETED")
+        .filter((w) => w.status === "COMPLETED")
         .reduce((sum, w) => sum + Number(w.amount), 0);
 
       // Available balance = total earnings - total withdrawn
@@ -94,7 +99,7 @@ export class ArtistService {
         },
         orderBy: {
           order: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         },
       });
@@ -114,7 +119,8 @@ export class ArtistService {
       }> = [];
 
       // Get platform commission rate (default fallback)
-      const platformCommissionRate = await this.settingsService.getPlatformCommissionRate();
+      const platformCommissionRate =
+        await this.settingsService.getPlatformCommissionRate();
 
       for (const item of orderItems) {
         const salePrice = Number(item.price) * item.quantity;
@@ -125,15 +131,18 @@ export class ArtistService {
         if (item.order.platformEarning) {
           // Calculate total order value from all items
           const totalOrderValue = item.order.items.reduce(
-            (sum, orderItem) => sum + (Number(orderItem.price) * orderItem.quantity),
-            0
+            (sum, orderItem) =>
+              sum + Number(orderItem.price) * orderItem.quantity,
+            0,
           );
 
           // Calculate this item's proportion of the order
-          const itemProportion = totalOrderValue > 0 ? salePrice / totalOrderValue : 0;
+          const itemProportion =
+            totalOrderValue > 0 ? salePrice / totalOrderValue : 0;
 
           // Apply proportion to platform earning
-          commission = Number(item.order.platformEarning.amount) * itemProportion;
+          commission =
+            Number(item.order.platformEarning.amount) * itemProportion;
         } else {
           // Fallback: calculate commission using default rate
           commission = salePrice * platformCommissionRate;
@@ -143,13 +152,14 @@ export class ArtistService {
         const earnings = salePrice - commission;
 
         // Get artwork image (first photo or placeholder)
-        const artworkImage = item.artwork.photos && item.artwork.photos.length > 0
-          ? item.artwork.photos[0]
-          : '';
+        const artworkImage =
+          item.artwork.photos && item.artwork.photos.length > 0
+            ? item.artwork.photos[0]
+            : "";
 
         sales.push({
           artworkId: item.artwork.id,
-          artworkTitle: item.artwork.title || 'Untitled',
+          artworkTitle: item.artwork.title || "Untitled",
           artworkImage: artworkImage,
           salePrice: salePrice,
           commission: commission,
@@ -160,17 +170,17 @@ export class ArtistService {
       }
 
       // Get unique order count (sales count)
-      const uniqueOrderIds = new Set(orderItems.map(item => item.order.id));
+      const uniqueOrderIds = new Set(orderItems.map((item) => item.order.id));
       const salesCount = uniqueOrderIds.size;
 
       this.logger.log(
         `[EARNINGS] User ${userId} - ` +
-        `Total Earnings: ${totalEarnings}, ` +
-        `Total Sales: ${totalSales}, ` +
-        `Total Commission: ${totalCommission}, ` +
-        `Total Withdrawn: ${totalWithdrawn}, ` +
-        `Available Balance: ${availableBalance}, ` +
-        `Sales Count: ${salesCount}`
+          `Total Earnings: ${totalEarnings}, ` +
+          `Total Sales: ${totalSales}, ` +
+          `Total Commission: ${totalCommission}, ` +
+          `Total Withdrawn: ${totalWithdrawn}, ` +
+          `Available Balance: ${availableBalance}, ` +
+          `Sales Count: ${salesCount}`,
       );
 
       return {
@@ -202,7 +212,11 @@ export class ArtistService {
   /**
    * Get withdrawal history for artist with pagination
    */
-  async getWithdrawalHistory(userId: string, page: number = 1, limit: number = 20) {
+  async getWithdrawalHistory(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
     try {
       // Get all artworks by this artist to find their IBANs
       const artworks = await this.prisma.artwork.findMany({
@@ -260,11 +274,14 @@ export class ArtistService {
 
           if (w.metadata) {
             const metadata = w.metadata as any;
-            if ((w.status === 'REJECTED' || w.status === 'FAILED')) {
+            if (w.status === "REJECTED" || w.status === "FAILED") {
               rejectionReason = metadata.rejectionReason || null;
             }
             // Get PayPal transaction status from webhook (actual status from PayPal)
-            paypalStatus = metadata.webhookTransactionStatus || metadata.paypalItemStatus || null;
+            paypalStatus =
+              metadata.webhookTransactionStatus ||
+              metadata.paypalItemStatus ||
+              null;
           }
 
           return {
@@ -310,7 +327,7 @@ export class ArtistService {
 
       if (!artwork) {
         throw new NotFoundException(
-          "Payment account not found or does not belong to you"
+          "Payment account not found or does not belong to you",
         );
       }
 
@@ -326,14 +343,14 @@ export class ArtistService {
 
       if (!user.emailVerified) {
         throw new BadRequestException(
-          "Your email must be verified before requesting withdrawals. Please verify your email address."
+          "Your email must be verified before requesting withdrawals. Please verify your email address.",
         );
       }
 
       // 3. Check if user is banned
       if (user.banned) {
         throw new BadRequestException(
-          "Your account has been banned. Withdrawal requests are not allowed."
+          "Your account has been banned. Withdrawal requests are not allowed.",
         );
       }
 
@@ -347,7 +364,7 @@ export class ArtistService {
 
       if (activeDisputes.length > 0) {
         throw new BadRequestException(
-          `You have ${activeDisputes.length} active dispute(s). Please resolve all disputes before requesting withdrawals.`
+          `You have ${activeDisputes.length} active dispute(s). Please resolve all disputes before requesting withdrawals.`,
         );
       }
 
@@ -357,7 +374,7 @@ export class ArtistService {
 
       if (amount > availableBalance) {
         throw new BadRequestException(
-          `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${amount.toFixed(2)}`
+          `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${amount.toFixed(2)}`,
         );
       }
 
@@ -367,7 +384,7 @@ export class ArtistService {
 
       if (amount < paymentSettings.minWithdrawalAmount) {
         throw new BadRequestException(
-          `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`
+          `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`,
         );
       }
 
@@ -377,7 +394,7 @@ export class ArtistService {
         amount > paymentSettings.maxWithdrawalAmount
       ) {
         throw new BadRequestException(
-          `Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`
+          `Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`,
         );
       }
 
@@ -391,7 +408,7 @@ export class ArtistService {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          createdAt: "desc",
         },
       });
 
@@ -399,9 +416,11 @@ export class ArtistService {
         const pendingCount = pendingWithdrawals.length;
         const totalPendingAmount = pendingWithdrawals.reduce(
           (sum, w) => sum + Number(w.amount),
-          0
+          0,
         );
-        const statuses = [...new Set(pendingWithdrawals.map(w => w.status))].join(" and ");
+        const statuses = [
+          ...new Set(pendingWithdrawals.map((w) => w.status)),
+        ].join(" and ");
 
         // Create a more informative error message
         const withdrawalDetails = pendingWithdrawals
@@ -409,9 +428,9 @@ export class ArtistService {
           .join(", ");
 
         throw new BadRequestException(
-          `You have ${pendingCount} pending withdrawal request${pendingCount > 1 ? 's' : ''} totaling $${totalPendingAmount.toFixed(2)} with status: ${statuses}. ` +
-          `Please wait until all pending withdrawals are completed or rejected before requesting a new withdrawal. ` +
-          `Pending: ${withdrawalDetails}`
+          `You have ${pendingCount} pending withdrawal request${pendingCount > 1 ? "s" : ""} totaling $${totalPendingAmount.toFixed(2)} with status: ${statuses}. ` +
+            `Please wait until all pending withdrawals are completed or rejected before requesting a new withdrawal. ` +
+            `Pending: ${withdrawalDetails}`,
         );
       }
 
@@ -420,7 +439,9 @@ export class ArtistService {
       // In production, you might want to check if the email is a valid PayPal account
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (user.email && !emailRegex.test(user.email)) {
-        throw new BadRequestException("Invalid email format. Please update your email address.");
+        throw new BadRequestException(
+          "Invalid email format. Please update your email address.",
+        );
       }
 
       // All validations passed - create withdrawal request
@@ -435,12 +456,13 @@ export class ArtistService {
       });
 
       this.logger.log(
-        `✅ Withdrawal request created (passed all validations): ${withdrawal.id} for user ${userId}, amount: $${amount}`
+        `✅ Withdrawal request created (passed all validations): ${withdrawal.id} for user ${userId}, amount: $${amount}`,
       );
 
       return {
         success: true,
-        message: "Withdrawal request submitted successfully and is pending admin approval",
+        message:
+          "Withdrawal request submitted successfully and is pending admin approval",
         data: {
           id: withdrawal.id,
           amount: Number(withdrawal.amount),
@@ -515,7 +537,10 @@ export class ArtistService {
         data: ibans,
       };
     } catch (error) {
-      this.logger.error(`[ARTIST] Failed to get collected IBANs for ${userId}:`, error);
+      this.logger.error(
+        `[ARTIST] Failed to get collected IBANs for ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -528,7 +553,7 @@ export class ArtistService {
     userId: string,
     accountHolder: string,
     iban: string,
-    bicCode?: string
+    bicCode?: string,
   ) {
     try {
       // Update all artworks by this user
@@ -542,7 +567,7 @@ export class ArtistService {
       });
 
       this.logger.log(
-        `Updated payment method for ${result.count} artworks for user ${userId}`
+        `Updated payment method for ${result.count} artworks for user ${userId}`,
       );
 
       return {
@@ -567,7 +592,7 @@ export class ArtistService {
     search?: string,
     country?: string,
     talentTypeId?: string,
-    email?: string
+    email?: string,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -620,7 +645,9 @@ export class ArtistService {
 
         // Only add email to search if email filter is not already set
         if (!email || email.trim() === "") {
-          searchFields.push({ email: { contains: search, mode: "insensitive" } });
+          searchFields.push({
+            email: { contains: search, mode: "insensitive" },
+          });
         }
 
         where.OR = searchFields;
@@ -708,13 +735,13 @@ export class ArtistService {
               sum +
               artwork.orderItems.reduce(
                 (itemSum, item) => itemSum + Number(item.price),
-                0
+                0,
               ),
-            0
+            0,
           );
 
           const salesCount = artworks.filter(
-            (a) => a.orderItems.length > 0
+            (a) => a.orderItems.length > 0,
           ).length;
 
           return {
@@ -738,7 +765,7 @@ export class ArtistService {
                 slug: ut.talentType.slug,
               })) || [],
           };
-        })
+        }),
       );
 
       return {
@@ -821,13 +848,13 @@ export class ArtistService {
               sum +
               artwork.orderItems.reduce(
                 (itemSum, item) => itemSum + Number(item.price),
-                0
+                0,
               ),
-            0
+            0,
           );
 
           const salesCount = user.artworks.filter(
-            (a) => a.orderItems.length > 0
+            (a) => a.orderItems.length > 0,
           ).length;
 
           // Get views from interactions
@@ -862,7 +889,7 @@ export class ArtistService {
                 slug: ut.talentType.slug,
               })) || [],
           };
-        })
+        }),
       );
 
       return {
@@ -953,13 +980,13 @@ export class ArtistService {
               sum +
               artwork.orderItems.reduce(
                 (itemSum, item) => itemSum + Number(item.price),
-                0
+                0,
               ),
-            0
+            0,
           );
 
           const salesCount = user.artworks.filter(
-            (a) => a.orderItems.length > 0
+            (a) => a.orderItems.length > 0,
           ).length;
 
           return {
@@ -983,7 +1010,7 @@ export class ArtistService {
                 slug: ut.talentType.slug,
               })) || [],
           };
-        })
+        }),
       );
 
       return {
@@ -1022,7 +1049,7 @@ export class ArtistService {
       // Extract unique category IDs
       const categoryIds = [
         ...new Set(
-          artistArtworks.flatMap((a) => a.categories.map((c) => c.categoryId))
+          artistArtworks.flatMap((a) => a.categories.map((c) => c.categoryId)),
         ),
       ];
 
@@ -1083,9 +1110,9 @@ export class ArtistService {
                 sum +
                 artwork.orderItems.reduce(
                   (itemSum, item) => itemSum + Number(item.price),
-                  0
+                  0,
                 ),
-              0
+              0,
             );
 
             return {
@@ -1096,7 +1123,7 @@ export class ArtistService {
               sales: sales,
               views: views,
             };
-          })
+          }),
         );
 
         return {
@@ -1166,9 +1193,9 @@ export class ArtistService {
               sum +
               artwork.orderItems.reduce(
                 (itemSum, item) => itemSum + Number(item.price),
-                0
+                0,
               ),
-            0
+            0,
           );
 
           return {
@@ -1179,7 +1206,7 @@ export class ArtistService {
             sales: sales,
             views: views,
           };
-        })
+        }),
       );
 
       return {
@@ -1363,7 +1390,7 @@ export class ArtistService {
   async getArtistsByTalentType(
     talentTypeId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -1477,13 +1504,13 @@ export class ArtistService {
               sum +
               artwork.orderItems.reduce(
                 (itemSum, item) => itemSum + Number(item.price),
-                0
+                0,
               ),
-            0
+            0,
           );
 
           const salesCount = artworks.filter(
-            (a) => a.orderItems.length > 0
+            (a) => a.orderItems.length > 0,
           ).length;
 
           return {
@@ -1510,7 +1537,7 @@ export class ArtistService {
             salesCount: salesCount,
             country: artist.location || "",
           };
-        })
+        }),
       );
 
       return {
@@ -1529,7 +1556,7 @@ export class ArtistService {
     } catch (error) {
       this.logger.error(
         `Failed to get artists by talent type ${talentTypeId}:`,
-        error
+        error,
       );
       throw error;
     }

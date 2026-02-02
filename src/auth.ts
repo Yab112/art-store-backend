@@ -1,4 +1,3 @@
-
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
@@ -47,8 +46,7 @@ export const auth = betterAuth({
           urlObj = new URL(url);
         } else {
           // If relative, construct full URL using baseURL
-          const baseURL =
-            process.env.BETTER_AUTH_URL;
+          const baseURL = process.env.BETTER_AUTH_URL;
           urlObj = new URL(url, baseURL);
         }
 
@@ -119,11 +117,11 @@ export const auth = betterAuth({
 
           if (!dbUser) {
             console.error(
-              `WARNING: User ${user.id} created by Better Auth but not found in database!`
+              `WARNING: User ${user.id} created by Better Auth but not found in database!`,
             );
           } else {
             console.log(
-              `User ${user.id} verified in database: ${dbUser.email}, image: ${dbUser.image || "none"}`
+              `User ${user.id} verified in database: ${dbUser.email}, image: ${dbUser.image || "none"}`,
             );
 
             // If user.image is provided but database doesn't have it, update it
@@ -131,17 +129,25 @@ export const auth = betterAuth({
             if (user.image && user.image.trim() !== "") {
               const imageUrl = user.image.trim();
               // Validate it's a proper URL
-              const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+              const isValidUrl =
+                imageUrl.startsWith("http://") ||
+                imageUrl.startsWith("https://");
 
               if (isValidUrl && (!dbUser.image || dbUser.image !== imageUrl)) {
-                console.log(`🖼️ Updating newly created user ${user.id} image: ${imageUrl}`);
+                console.log(
+                  `🖼️ Updating newly created user ${user.id} image: ${imageUrl}`,
+                );
                 await prisma.user.update({
                   where: { id: user.id },
                   data: { image: imageUrl },
                 });
-                console.log(`✅ Updated newly created user ${user.id} image in database`);
+                console.log(
+                  `✅ Updated newly created user ${user.id} image in database`,
+                );
               } else if (!isValidUrl) {
-                console.warn(`⚠️ Invalid image URL for newly created user ${user.id}: ${imageUrl}`);
+                console.warn(
+                  `⚠️ Invalid image URL for newly created user ${user.id}: ${imageUrl}`,
+                );
               }
             }
           }
@@ -168,23 +174,30 @@ export const auth = betterAuth({
           if (user.image && user.image.trim() !== "") {
             const imageUrl = user.image.trim();
             // Validate it's a proper URL
-            const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+            const isValidUrl =
+              imageUrl.startsWith("http://") || imageUrl.startsWith("https://");
 
             if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
-              console.log(`🖼️ Updating user ${user.id} image from Better Auth: ${imageUrl}`);
+              console.log(
+                `🖼️ Updating user ${user.id} image from Better Auth: ${imageUrl}`,
+              );
               await prisma.user.update({
                 where: { id: user.id },
                 data: { image: imageUrl },
               });
               console.log(`✅ Updated user ${user.id} image in database`);
             } else if (!isValidUrl) {
-              console.warn(`⚠️ Invalid image URL for user ${user.id}: ${imageUrl}`);
+              console.warn(
+                `⚠️ Invalid image URL for user ${user.id}: ${imageUrl}`,
+              );
             }
           }
 
           // If image is missing, try to fetch from Google account
           if (!user.image && user.email) {
-            console.log(`⚠️ User ${user.id} updated but image is missing. Attempting to fetch from Google...`);
+            console.log(
+              `⚠️ User ${user.id} updated but image is missing. Attempting to fetch from Google...`,
+            );
 
             try {
               // Get the Google account to access the access token
@@ -206,7 +219,7 @@ export const auth = betterAuth({
                     headers: {
                       Authorization: `Bearer ${account.accessToken}`,
                     },
-                  }
+                  },
                 );
 
                 if (googleResponse.ok) {
@@ -222,19 +235,28 @@ export const auth = betterAuth({
                       where: { id: user.id },
                       data: { image: googleProfile.picture },
                     });
-                    console.log(`✅ Updated user ${user.id} with Google profile picture: ${googleProfile.picture}`);
+                    console.log(
+                      `✅ Updated user ${user.id} with Google profile picture: ${googleProfile.picture}`,
+                    );
                   } else {
                     console.log(`⚠️ Google profile has no picture field`);
                   }
                 } else {
                   const errorText = await googleResponse.text();
-                  console.log(`⚠️ Failed to fetch Google profile: ${googleResponse.status} - ${errorText}`);
+                  console.log(
+                    `⚠️ Failed to fetch Google profile: ${googleResponse.status} - ${errorText}`,
+                  );
                 }
               } else {
-                console.log(`⚠️ No Google account access token found for user ${user.id}`);
+                console.log(
+                  `⚠️ No Google account access token found for user ${user.id}`,
+                );
               }
             } catch (error) {
-              console.error(`❌ Error fetching Google profile for user ${user.id}:`, error);
+              console.error(
+                `❌ Error fetching Google profile for user ${user.id}:`,
+                error,
+              );
             }
           } else if (user.image) {
             console.log(`✅ User ${user.id} has image: ${user.image}`);
@@ -256,7 +278,9 @@ export const auth = betterAuth({
         const userId = newSession?.user?.id;
 
         if (userId) {
-          console.log(`🔍 Checking user ${userId} for profile image after OAuth callback...`);
+          console.log(
+            `🔍 Checking user ${userId} for profile image after OAuth callback...`,
+          );
 
           // Fetch the user from database to check current image
           const dbUser = await prisma.user.findUnique({
@@ -268,21 +292,28 @@ export const auth = betterAuth({
           const userImage = newSession?.user?.image;
           if (userImage && userImage.trim() !== "") {
             const imageUrl = userImage.trim();
-            const isValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+            const isValidUrl =
+              imageUrl.startsWith("http://") || imageUrl.startsWith("https://");
 
             if (isValidUrl && (!dbUser?.image || dbUser.image !== imageUrl)) {
-              console.log(`🖼️ OAuth Callback: Updating user ${userId} image from Better Auth: ${imageUrl}`);
+              console.log(
+                `🖼️ OAuth Callback: Updating user ${userId} image from Better Auth: ${imageUrl}`,
+              );
               await prisma.user.update({
                 where: { id: userId },
                 data: { image: imageUrl },
               });
-              console.log(`✅ OAuth Callback: Updated user ${userId} image in database`);
+              console.log(
+                `✅ OAuth Callback: Updated user ${userId} image in database`,
+              );
             }
           }
 
           // If image is still missing, try to fetch from Google account
           if (!dbUser?.image || (dbUser.image && dbUser.image.trim() === "")) {
-            console.log(`⚠️ User ${userId} has no image. Attempting to fetch from Google account...`);
+            console.log(
+              `⚠️ User ${userId} has no image. Attempting to fetch from Google account...`,
+            );
 
             // Try to get the account to see if we have access token
             const account = await prisma.account.findFirst({
@@ -302,7 +333,7 @@ export const auth = betterAuth({
                     headers: {
                       Authorization: `Bearer ${account.accessToken}`,
                     },
-                  }
+                  },
                 );
 
                 if (googleResponse.ok) {
@@ -318,16 +349,22 @@ export const auth = betterAuth({
                       where: { id: userId },
                       data: { image: googleProfile.picture },
                     });
-                    console.log(`✅ Updated user ${userId} with Google profile picture: ${googleProfile.picture}`);
+                    console.log(
+                      `✅ Updated user ${userId} with Google profile picture: ${googleProfile.picture}`,
+                    );
                   }
                 } else {
-                  console.log(`⚠️ Failed to fetch Google profile: ${googleResponse.status}`);
+                  console.log(
+                    `⚠️ Failed to fetch Google profile: ${googleResponse.status}`,
+                  );
                 }
               } catch (error) {
                 console.error("❌ Error fetching Google profile:", error);
               }
             } else {
-              console.log(`⚠️ No Google account access token found for user ${userId}`);
+              console.log(
+                `⚠️ No Google account access token found for user ${userId}`,
+              );
             }
           } else if (dbUser?.image) {
             console.log(`✅ User ${userId} already has image: ${dbUser.image}`);
@@ -359,22 +396,38 @@ export const auth = betterAuth({
         });
 
         // Try multiple possible fields for the image URL
-        const pictureUrl = profile.picture || (profile as any).picture_large || (profile as any).photo || null;
+        const pictureUrl =
+          profile.picture ||
+          (profile as any).picture_large ||
+          (profile as any).photo ||
+          null;
 
         // Ensure we're getting the picture URL
         if (!pictureUrl) {
           console.warn("⚠️ WARNING: Google profile has no 'picture' field!");
-          console.warn("⚠️ Full profile object:", JSON.stringify(profile, null, 2));
+          console.warn(
+            "⚠️ Full profile object:",
+            JSON.stringify(profile, null, 2),
+          );
         } else {
           console.log(`✅ Found Google picture URL: ${pictureUrl}`);
           // Ensure the URL is valid and properly formatted
-          if (!pictureUrl.startsWith('http://') && !pictureUrl.startsWith('https://')) {
-            console.warn(`⚠️ Picture URL doesn't start with http:// or https://: ${pictureUrl}`);
+          if (
+            !pictureUrl.startsWith("http://") &&
+            !pictureUrl.startsWith("https://")
+          ) {
+            console.warn(
+              `⚠️ Picture URL doesn't start with http:// or https://: ${pictureUrl}`,
+            );
           }
         }
 
         const mappedUser = {
-          name: profile.name || profile.given_name || profile.email?.split("@")[0] || "User",
+          name:
+            profile.name ||
+            profile.given_name ||
+            profile.email?.split("@")[0] ||
+            "User",
           email: profile.email,
           emailVerified: profile.email_verified || false,
           image: pictureUrl, // Google returns 'picture', map to 'image' - CRITICAL for OAuth
@@ -416,14 +469,16 @@ export const auth = betterAuth({
   // IMPORTANT: Must match Google OAuth redirect URI exactly
   baseURL: (() => {
     const port = process.env.PORT;
-    const url =
-      process.env.BETTER_AUTH_URL
+    const url = process.env.BETTER_AUTH_URL;
     console.log("🔐 Better Auth baseURL:", url);
     console.log("🔐 Better Auth NODE_ENV:", process.env.NODE_ENV);
     console.log("🔐 Better Auth PORT:", port);
     console.log("🔐 Better Auth BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
     console.log("🔐 Better Auth BACKEND_URL:", process.env.BACKEND_URL);
-    console.log("⚠️  Make sure Google OAuth redirect URI matches:", `${url}/api/auth/callback/google`);
+    console.log(
+      "⚠️  Make sure Google OAuth redirect URI matches:",
+      `${url}/api/auth/callback/google`,
+    );
     return url;
   })(),
 
@@ -482,8 +537,14 @@ export const auth = betterAuth({
 
       // Debug logging
       console.log("🔐 Custom Session - User ID:", user.id);
-      console.log("🔐 Custom Session - User image from Better Auth:", user.image);
-      console.log("🔐 Custom Session - User image from database:", fullUser?.image);
+      console.log(
+        "🔐 Custom Session - User image from Better Auth:",
+        user.image,
+      );
+      console.log(
+        "🔐 Custom Session - User image from database:",
+        fullUser?.image,
+      );
       console.log("🔐 Custom Session - Final image to return:", userImage);
 
       return {
@@ -558,23 +619,20 @@ export const auth = betterAuth({
     // CRITICAL: secure: true requires HTTPS, sameSite: "none" requires secure: true
     useSecureCookies: (() => {
       const port = process.env.PORT;
-      const baseURL =
-        process.env.BETTER_AUTH_URL ||
-        process.env.BACKEND_URL
+      const baseURL = process.env.BETTER_AUTH_URL || process.env.BACKEND_URL;
       const isHTTPS = baseURL.startsWith("https://");
       console.log(
         "🔐 Better Auth useSecureCookies:",
         isHTTPS,
         "(baseURL:",
         baseURL,
-        ")"
+        ")",
       );
       return isHTTPS;
     })(),
     defaultCookieAttributes: (() => {
       const port = process.env.PORT;
-      const baseURL =
-        process.env.BETTER_AUTH_URL
+      const baseURL = process.env.BETTER_AUTH_URL;
       const isHTTPS = baseURL.startsWith("https://");
 
       // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)
@@ -582,16 +640,16 @@ export const auth = betterAuth({
       // Note: HTTP cross-origin cookies are fundamentally limited by browser security
       const attributes = isHTTPS
         ? {
-          sameSite: "none" as const,
-          secure: true,
-          httpOnly: true,
-          partitioned: true, // Required for cross-site cookies in modern browsers
-        }
+            sameSite: "none" as const,
+            secure: true,
+            httpOnly: true,
+            partitioned: true, // Required for cross-site cookies in modern browsers
+          }
         : {
-          sameSite: "lax" as const,
-          secure: false,
-          httpOnly: true,
-        };
+            sameSite: "lax" as const,
+            secure: false,
+            httpOnly: true,
+          };
 
       console.log("🔐 Better Auth cookie attributes:", attributes);
       return attributes;
