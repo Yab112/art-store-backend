@@ -1,5 +1,5 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { S3Service } from '../s3';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { S3Service } from "../s3";
 
 @Injectable()
 export class UploadService {
@@ -17,10 +17,10 @@ export class UploadService {
     expirySeconds = 3600,
   ) {
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowedTypes.includes(contentType)) {
       throw new BadRequestException(
-        'Invalid file type. Only JPEG, PNG, and WebP are allowed.',
+        "Invalid file type. Only JPEG, PNG, and WebP are allowed.",
       );
     }
 
@@ -32,11 +32,13 @@ export class UploadService {
         expirySeconds,
       );
 
-      this.logger.log(`✅ Presigned image upload URL generated: ${result.objectKey}`);
+      this.logger.log(
+        `✅ Presigned image upload URL generated: ${result.objectKey}`,
+      );
       return result;
     } catch (error: any) {
-      this.logger.error('❌ Failed to generate presigned image URL:', error);
-      throw new BadRequestException('Failed to generate upload URL');
+      this.logger.error("❌ Failed to generate presigned image URL:", error);
+      throw new BadRequestException("Failed to generate upload URL");
     }
   }
 
@@ -51,14 +53,14 @@ export class UploadService {
   ) {
     // Validate file type
     const allowedTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'application/pdf',
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "application/pdf",
     ];
     if (!allowedTypes.includes(contentType)) {
       throw new BadRequestException(
-        'Invalid file type. Only JPEG, PNG, and PDF are allowed.',
+        "Invalid file type. Only JPEG, PNG, and PDF are allowed.",
       );
     }
 
@@ -70,11 +72,13 @@ export class UploadService {
         expirySeconds,
       );
 
-      this.logger.log(`✅ Presigned document upload URL generated: ${result.objectKey}`);
+      this.logger.log(
+        `✅ Presigned document upload URL generated: ${result.objectKey}`,
+      );
       return result;
     } catch (error: any) {
-      this.logger.error('❌ Failed to generate presigned document URL:', error);
-      throw new BadRequestException('Failed to generate upload URL');
+      this.logger.error("❌ Failed to generate presigned document URL:", error);
+      throw new BadRequestException("Failed to generate upload URL");
     }
   }
 
@@ -86,24 +90,28 @@ export class UploadService {
     expirySeconds = 3600,
   ) {
     if (!files || files.length === 0) {
-      throw new BadRequestException('No files provided');
+      throw new BadRequestException("No files provided");
     }
 
     if (files.length > 10) {
-      throw new BadRequestException('Maximum 10 files allowed at once');
+      throw new BadRequestException("Maximum 10 files allowed at once");
     }
 
     try {
       const uploadPromises = files.map((file) =>
-        this.getPresignedImageUploadUrl(file.fileName, file.contentType, expirySeconds),
+        this.getPresignedImageUploadUrl(
+          file.fileName,
+          file.contentType,
+          expirySeconds,
+        ),
       );
 
       const results = await Promise.all(uploadPromises);
       this.logger.log(`✅ ${files.length} presigned image URLs generated`);
       return results;
     } catch (error: any) {
-      this.logger.error('❌ Failed to generate presigned URLs:', error);
-      throw new BadRequestException('Failed to generate upload URLs');
+      this.logger.error("❌ Failed to generate presigned URLs:", error);
+      throw new BadRequestException("Failed to generate upload URLs");
     }
   }
 
@@ -121,6 +129,10 @@ export class UploadService {
     objectKey: string,
     expirySeconds = 3600,
   ): Promise<string> {
-    return this.s3Service.getPresignedDownloadUrl(objectKey, undefined, expirySeconds);
+    return this.s3Service.getPresignedDownloadUrl(
+      objectKey,
+      undefined,
+      expirySeconds,
+    );
   }
 }

@@ -3,11 +3,11 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
-} from '@nestjs/common';
-import { ContextHelper } from '../../common/util/context';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { LoggingService } from './logging.service';
+} from "@nestjs/common";
+import { ContextHelper } from "../../common/util/context";
+import { Observable } from "rxjs";
+import { tap } from "rxjs/operators";
+import { LoggingService } from "./logging.service";
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {

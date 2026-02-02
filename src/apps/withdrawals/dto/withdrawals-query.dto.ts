@@ -1,11 +1,11 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
-import { Type } from 'class-transformer';
-import { PaymentStatus } from '@prisma/client';
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { IsOptional, IsEnum, IsNumber, Min } from "class-validator";
+import { Type } from "class-transformer";
+import { PaymentStatus } from "@prisma/client";
 
 export class WithdrawalsQueryDto {
   @ApiPropertyOptional({
-    description: 'Page number',
+    description: "Page number",
     example: 1,
     minimum: 1,
   })
@@ -16,7 +16,7 @@ export class WithdrawalsQueryDto {
   page?: number = 1;
 
   @ApiPropertyOptional({
-    description: 'Number of items per page',
+    description: "Number of items per page",
     example: 20,
     minimum: 1,
     maximum: 100,
@@ -28,7 +28,7 @@ export class WithdrawalsQueryDto {
   limit?: number = 20;
 
   @ApiPropertyOptional({
-    description: 'Filter by withdrawal status',
+    description: "Filter by withdrawal status",
     enum: PaymentStatus,
     example: PaymentStatus.INITIATED,
   })
@@ -37,10 +37,9 @@ export class WithdrawalsQueryDto {
   status?: PaymentStatus;
 
   @ApiPropertyOptional({
-    description: 'Search by user email or payout account',
-    example: 'user@example.com',
+    description: "Search by user email or payout account",
+    example: "user@example.com",
   })
   @IsOptional()
   search?: string;
 }
-

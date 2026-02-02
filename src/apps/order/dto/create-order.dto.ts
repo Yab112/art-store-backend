@@ -1,5 +1,12 @@
-import { IsArray, IsString, IsNumber, IsOptional, ValidateNested, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsString,
+  IsNumber,
+  IsOptional,
+  ValidateNested,
+  IsEnum,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class OrderItemDto {
   @IsString()
@@ -37,9 +44,9 @@ export class ShippingAddressDto {
 }
 
 export enum PaymentMethodEnum {
-  CHAPA = 'chapa',
-  PAYPAL = 'paypal',
-  CARD = 'card',
+  CHAPA = "chapa",
+  PAYPAL = "paypal",
+  CARD = "card",
 }
 
 export class CreateOrderDto {

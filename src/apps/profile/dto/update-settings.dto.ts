@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsEmail } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsEmail } from "class-validator";
 
 export class UpdateSettingsDto {
   // Privacy settings

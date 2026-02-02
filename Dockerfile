@@ -26,5 +26,7 @@ COPY --from=builder /app/prisma ./prisma
 RUN pnpm install --prod --frozen-lockfile
 # Copy built application
 COPY --from=builder /app/dist ./dist
+# Copy email templates
+COPY --from=builder /app/templates ./templates
 EXPOSE 3000
 CMD ["node", "dist/src/main"]

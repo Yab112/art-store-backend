@@ -1,14 +1,14 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { EventService } from '../../libraries/event';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { EventService } from "../../libraries/event";
 import {
   UpdateProfileDto,
   UpdatePreferencesDto,
   UpdateSettingsDto,
   DeactivateAccountDto,
-} from './dto';
+} from "./dto";
 
-import { PROFILE_MESSAGES } from './constants';
+import { PROFILE_MESSAGES } from "./constants";
 import {
   AccountDeactivatedEvent,
   PreferencesUpdatedEvent,
@@ -16,7 +16,7 @@ import {
   ProfileUpdatedEvent,
   ProfileViewedEvent,
   SettingsUpdatedEvent,
-} from './events';
+} from "./events";
 
 @Injectable()
 export class ProfileService {
@@ -40,7 +40,7 @@ export class ProfileService {
         where: { id: profileId },
         include: {
           artworks: {
-            where: { status: 'APPROVED' },
+            where: { status: "APPROVED" },
             select: {
               id: true,
               title: true,
@@ -166,19 +166,31 @@ export class ProfileService {
       // Prepare update data
       // Convert empty strings to undefined to make fields truly optional
       const updateData: any = {};
-      if (updateProfileDto.name !== undefined && updateProfileDto.name !== '')
+      if (updateProfileDto.name !== undefined && updateProfileDto.name !== "")
         updateData.name = updateProfileDto.name;
-      if (updateProfileDto.avatar !== undefined && updateProfileDto.avatar !== '')
+      if (
+        updateProfileDto.avatar !== undefined &&
+        updateProfileDto.avatar !== ""
+      )
         updateData.image = updateProfileDto.avatar;
-      if (updateProfileDto.coverImage !== undefined && updateProfileDto.coverImage !== '')
+      if (
+        updateProfileDto.coverImage !== undefined &&
+        updateProfileDto.coverImage !== ""
+      )
         updateData.coverImage = updateProfileDto.coverImage;
-      if (updateProfileDto.bio !== undefined && updateProfileDto.bio !== '')
+      if (updateProfileDto.bio !== undefined && updateProfileDto.bio !== "")
         updateData.bio = updateProfileDto.bio;
-      if (updateProfileDto.location !== undefined && updateProfileDto.location !== '')
+      if (
+        updateProfileDto.location !== undefined &&
+        updateProfileDto.location !== ""
+      )
         updateData.location = updateProfileDto.location;
-      if (updateProfileDto.website !== undefined && updateProfileDto.website !== '')
+      if (
+        updateProfileDto.website !== undefined &&
+        updateProfileDto.website !== ""
+      )
         updateData.website = updateProfileDto.website;
-      if (updateProfileDto.phone !== undefined && updateProfileDto.phone !== '')
+      if (updateProfileDto.phone !== undefined && updateProfileDto.phone !== "")
         updateData.phone = updateProfileDto.phone;
 
       // Update user
@@ -192,13 +204,13 @@ export class ProfileService {
         [];
 
       const fieldsToTrack = [
-        { dtoField: 'name', dbField: 'name' },
-        { dtoField: 'avatar', dbField: 'image' },
-        { dtoField: 'coverImage', dbField: 'coverImage' },
-        { dtoField: 'bio', dbField: 'bio' },
-        { dtoField: 'location', dbField: 'location' },
-        { dtoField: 'website', dbField: 'website' },
-        { dtoField: 'phone', dbField: 'phone' },
+        { dtoField: "name", dbField: "name" },
+        { dtoField: "avatar", dbField: "image" },
+        { dtoField: "coverImage", dbField: "coverImage" },
+        { dtoField: "bio", dbField: "bio" },
+        { dtoField: "location", dbField: "location" },
+        { dtoField: "website", dbField: "website" },
+        { dtoField: "phone", dbField: "phone" },
       ];
 
       for (const { dtoField, dbField } of fieldsToTrack) {
@@ -244,7 +256,7 @@ export class ProfileService {
    */
   async getPreferences(userId: string) {
     // TODO: Implement preferences model in Prisma schema
-    throw new NotFoundException('Preferences feature not yet implemented');
+    throw new NotFoundException("Preferences feature not yet implemented");
     // try {
     //   const user = await this.prisma.user.findUnique({
     //     where: { id: userId },
@@ -282,7 +294,7 @@ export class ProfileService {
     updatePreferencesDto: UpdatePreferencesDto,
   ) {
     // TODO: Implement preferences model in Prisma schema
-    throw new NotFoundException('Preferences feature not yet implemented');
+    throw new NotFoundException("Preferences feature not yet implemented");
   }
 
   /**
@@ -374,7 +386,7 @@ export class ProfileService {
           userId,
           userName: user.name,
           email: user.email,
-          settingsType: 'security',
+          settingsType: "security",
           changes: updateSettingsDto,
           updatedAt: new Date(),
         },
@@ -412,7 +424,7 @@ export class ProfileService {
           where: { userId },
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         }),
         this.prisma.artwork.count({ where: { userId } }),
       ]);
@@ -488,7 +500,7 @@ export class ProfileService {
         data: {
           banned: true,
           banReason:
-            deactivateDto.reason || 'User requested account deactivation',
+            deactivateDto.reason || "User requested account deactivation",
         },
       });
 
@@ -535,7 +547,7 @@ export class ProfileService {
       if (!user.banned) {
         return {
           success: false,
-          message: 'Account is not deactivated',
+          message: "Account is not deactivated",
         };
       }
 
@@ -552,7 +564,7 @@ export class ProfileService {
       this.logger.log(`Account reactivated for user ${userId}`);
       return {
         success: true,
-        message: 'Account successfully reactivated',
+        message: "Account successfully reactivated",
       };
     } catch (error) {
       this.logger.error(
@@ -574,7 +586,7 @@ export class ProfileService {
           artworks: true,
           reviews: true,
           interactions: {
-            where: { type: 'view' },
+            where: { type: "view" },
           },
         },
       });
@@ -586,13 +598,13 @@ export class ProfileService {
       // Calculate statistics
       const totalArtworks = user.artworks.length;
       const approvedArtworks = user.artworks.filter(
-        (a) => a.status === 'APPROVED',
+        (a) => a.status === "APPROVED",
       ).length;
       const pendingArtworks = user.artworks.filter(
-        (a) => a.status === 'PENDING',
+        (a) => a.status === "PENDING",
       ).length;
       const soldArtworks = user.artworks.filter(
-        (a) => a.status === 'SOLD',
+        (a) => a.status === "SOLD",
       ).length;
 
       // Get total views from interactions
@@ -601,7 +613,7 @@ export class ProfileService {
           artwork: {
             userId: userId,
           },
-          type: 'view',
+          type: "view",
         },
       });
 
@@ -611,7 +623,7 @@ export class ProfileService {
           artwork: {
             userId: userId,
           },
-          type: 'like',
+          type: "like",
         },
       });
 
@@ -651,7 +663,7 @@ export class ProfileService {
       this.logger.log(`Avatar deleted for user ${userId}`);
       return {
         success: true,
-        message: 'Avatar deleted successfully',
+        message: "Avatar deleted successfully",
       };
     } catch (error) {
       this.logger.error(`Failed to delete avatar for user ${userId}:`, error);
@@ -670,7 +682,7 @@ export class ProfileService {
     );
     return {
       success: true,
-      message: 'Cover image deletion not yet implemented',
+      message: "Cover image deletion not yet implemented",
     };
   }
 }

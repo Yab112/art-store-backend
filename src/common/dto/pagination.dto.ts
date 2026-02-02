@@ -1,13 +1,13 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
-import { ApiResponse } from '../responses/api-response';
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import { IsOptional, IsString, IsNumber, IsEnum } from "class-validator";
+import { ApiResponse } from "../responses/api-response";
 
-export const pagiKeys = ['limit', 'sort', 'page', 'sortOrder'];
+export const pagiKeys = ["limit", "sort", "page", "sortOrder"];
 
 export class PaginationInputs {
   @ApiPropertyOptional({
-    description: 'Text to search users by',
+    description: "Text to search users by",
     type: String,
   })
   @IsOptional()
@@ -15,7 +15,7 @@ export class PaginationInputs {
   searchText?: string;
 
   @ApiPropertyOptional({
-    description: 'Number of users per page',
+    description: "Number of users per page",
     type: Number,
     default: 25,
     example: 25,
@@ -26,7 +26,7 @@ export class PaginationInputs {
   limit?: number = 25;
 
   @ApiPropertyOptional({
-    description: 'Page number for pagination',
+    description: "Page number for pagination",
     type: Number,
     default: 1,
     example: 1,
@@ -37,25 +37,25 @@ export class PaginationInputs {
   page?: number = 1;
 
   @ApiPropertyOptional({
-    description: 'Field to sort by',
+    description: "Field to sort by",
     type: String,
-    default: 'id',
-    example: 'id',
+    default: "id",
+    example: "id",
   })
   @IsOptional()
   @IsString()
-  sort?: string = 'id';
+  sort?: string = "id";
 
   @ApiPropertyOptional({
-    description: 'Order to sort by',
+    description: "Order to sort by",
     type: String,
-    enum: ['asc', 'desc'],
-    default: 'asc',
-    example: 'asc',
+    enum: ["asc", "desc"],
+    default: "asc",
+    example: "asc",
   })
   @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc' = 'asc';
+  @IsEnum(["asc", "desc"])
+  sortOrder?: "asc" | "desc" = "asc";
 }
 
 export class PaginatedResponse<T> {
@@ -75,7 +75,7 @@ export class PaginatedApiResponse<T> extends ApiResponse<T[]> {
 
   constructor(
     data: T[],
-    message = 'Success',
+    message = "Success",
     page: number,
     limit: number,
     total: number,
@@ -92,7 +92,7 @@ export class PaginatedApiResponse<T> extends ApiResponse<T[]> {
 
   static create<T>(
     data: T[],
-    message = 'Success',
+    message = "Success",
     page: number,
     limit: number,
     total: number,

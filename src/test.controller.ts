@@ -1,40 +1,40 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from './core/guards/auth.guard';
-import { PrismaService } from './core/database/prisma.service';
+import { Controller, Get, Request, UseGuards } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { AuthGuard } from "./core/guards/auth.guard";
+import { PrismaService } from "./core/database/prisma.service";
 
-@ApiTags('Test')
-@Controller('test')
+@ApiTags("Test")
+@Controller("test")
 export class TestController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
   getTest() {
     return {
-      message: 'Better Auth integration is working!',
+      message: "Better Auth integration is working!",
       timestamp: new Date().toISOString(),
       endpoints: {
-        providers: '/api/auth/providers',
-        session: '/api/auth/session',
-        signIn: '/api/auth/sign-in',
-        signUp: '/api/auth/sign-up',
+        providers: "/api/auth/providers",
+        session: "/api/auth/session",
+        signIn: "/api/auth/sign-in",
+        signUp: "/api/auth/sign-up",
       },
     };
   }
 
-  @Get('auth-status')
+  @Get("auth-status")
   getAuthStatus() {
     return {
-      status: 'Better Auth is configured and ready',
+      status: "Better Auth is configured and ready",
       features: [
-        'JWT Sessions',
-        'Email/Password Authentication',
-        'Google OAuth (when database is connected)',
+        "JWT Sessions",
+        "Email/Password Authentication",
+        "Google OAuth (when database is connected)",
       ],
     };
   }
 
-  @Get('debug-user')
+  @Get("debug-user")
   @UseGuards(AuthGuard)
   async debugUser(@Request() req: any) {
     const sessionUserId = req.user?.id;
@@ -67,7 +67,9 @@ export class TestController {
       userFoundById: userInDb,
       userFoundByEmail: userByEmail,
       allUsersInDatabase: allUsers,
-      issue: userInDb ? 'No issue - user exists' : 'USER ID MISMATCH - Session user ID not found in database',
+      issue: userInDb
+        ? "No issue - user exists"
+        : "USER ID MISMATCH - Session user ID not found in database",
     };
   }
 }

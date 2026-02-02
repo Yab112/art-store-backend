@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { SettingsController } from './settings.controller';
-import { SettingsService } from './settings.service';
-import { PrismaModule } from '../../core/database';
+import { Module } from "@nestjs/common";
+import { SettingsController } from "./settings.controller";
+import { SettingsService } from "./settings.service";
+import { PrismaModule } from "../../core/database";
 
 @Module({
   imports: [PrismaModule],
@@ -10,4 +10,3 @@ import { PrismaModule } from '../../core/database';
   exports: [SettingsService],
 })
 export class SettingsModule {}
-

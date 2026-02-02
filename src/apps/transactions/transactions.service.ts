@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { PaymentStatus } from '@prisma/client';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { PaymentStatus } from "@prisma/client";
 
 @Injectable()
 export class TransactionsService {
@@ -34,10 +34,10 @@ export class TransactionsService {
       // Search by buyer email (from order) or transaction ID
       if (search) {
         where.OR = [
-          { id: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: "insensitive" } },
           {
             order: {
-              buyerEmail: { contains: search, mode: 'insensitive' },
+              buyerEmail: { contains: search, mode: "insensitive" },
             },
           },
         ];
@@ -46,7 +46,7 @@ export class TransactionsService {
       // First, get all transactions matching status and search
       const allTransactions = await this.prisma.transaction.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           order: {
             select: {
@@ -72,7 +72,8 @@ export class TransactionsService {
       if (provider) {
         filteredTransactions = allTransactions.filter((tx) => {
           const metadata = tx.metadata as any;
-          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          const txProvider =
+            metadata?.paymentProvider || metadata?.provider || "";
           return txProvider.toLowerCase() === provider.toLowerCase();
         });
       }
@@ -93,7 +94,7 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to fetch transactions:', error);
+      this.logger.error("Failed to fetch transactions:", error);
       throw error;
     }
   }
@@ -134,7 +135,7 @@ export class TransactionsService {
     });
 
     if (!transaction) {
-      throw new Error('Transaction not found');
+      throw new Error("Transaction not found");
     }
 
     return transaction;
@@ -154,7 +155,9 @@ export class TransactionsService {
     try {
       const skip = (page - 1) * limit;
 
-      this.logger.log(`Fetching transactions for userId: ${userId}, page: ${page}, limit: ${limit}`);
+      this.logger.log(
+        `Fetching transactions for userId: ${userId}, page: ${page}, limit: ${limit}`,
+      );
 
       // Get all orders for this user
       const userOrders = await this.prisma.order.findMany({
@@ -194,7 +197,7 @@ export class TransactionsService {
       // Get all transactions for user's orders
       const allTransactions = await this.prisma.transaction.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           order: {
             select: {
@@ -235,7 +238,8 @@ export class TransactionsService {
       if (provider) {
         filteredTransactions = allTransactions.filter((tx) => {
           const metadata = tx.metadata as any;
-          const txProvider = metadata?.paymentProvider || metadata?.provider || '';
+          const txProvider =
+            metadata?.paymentProvider || metadata?.provider || "";
           return txProvider.toLowerCase() === provider.toLowerCase();
         });
       }
@@ -258,7 +262,10 @@ export class TransactionsService {
         order: tx.order,
         paymentGateway: tx.paymentGateway,
         // Extract payment provider from metadata
-        provider: (tx.metadata as any)?.paymentProvider || (tx.metadata as any)?.provider || null,
+        provider:
+          (tx.metadata as any)?.paymentProvider ||
+          (tx.metadata as any)?.provider ||
+          null,
       }));
 
       return {
@@ -271,7 +278,10 @@ export class TransactionsService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch transactions for userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch transactions for userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -280,9 +290,14 @@ export class TransactionsService {
    * Get user's transaction statistics for charts
    * Returns aggregated data by date, status, and provider
    */
-  async getUserTransactionStats(userId: string, period: 'week' | 'month' | 'year' = 'month') {
+  async getUserTransactionStats(
+    userId: string,
+    period: "week" | "month" | "year" = "month",
+  ) {
     try {
-      this.logger.log(`Fetching transaction statistics for userId: ${userId}, period: ${period}`);
+      this.logger.log(
+        `Fetching transaction statistics for userId: ${userId}, period: ${period}`,
+      );
 
       // Get all orders for this user
       const userOrders = await this.prisma.order.findMany({
@@ -309,15 +324,15 @@ export class TransactionsService {
       // Calculate date range based on period
       const now = new Date();
       const startDate = new Date();
-      
+
       switch (period) {
-        case 'week':
+        case "week":
           startDate.setDate(now.getDate() - 7);
           break;
-        case 'month':
+        case "month":
           startDate.setMonth(now.getMonth() - 1);
           break;
-        case 'year':
+        case "year":
           startDate.setFullYear(now.getFullYear() - 1);
           break;
       }
@@ -340,44 +355,62 @@ export class TransactionsService {
           metadata: true,
         },
         orderBy: {
-          createdAt: 'asc',
+          createdAt: "asc",
         },
       });
 
       // Group by date with proper sorting
-      const byDateMap = new Map<string, { date: string; dateValue: Date; amount: number; count: number }>();
-      
+      const byDateMap = new Map<
+        string,
+        { date: string; dateValue: Date; amount: number; count: number }
+      >();
+
       transactions.forEach((tx) => {
         const date = new Date(tx.createdAt);
         let dateKey: string;
         let dateValue: Date;
-        
+
         // Normalize date to start of period for grouping
         switch (period) {
-          case 'week':
+          case "week":
             // Group by day of week
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
             break;
-          case 'month':
+          case "month":
             // Group by day
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
             break;
-          case 'year':
+          case "year":
             // Group by month
             dateValue = new Date(date.getFullYear(), date.getMonth(), 1);
-            dateKey = dateValue.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            dateKey = dateValue.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            });
             break;
           default:
             dateValue = new Date(date);
             dateValue.setHours(0, 0, 0, 0);
-            dateKey = dateValue.toLocaleDateString('en-US');
+            dateKey = dateValue.toLocaleDateString("en-US");
         }
 
-        const existing = byDateMap.get(dateKey) || { date: dateKey, dateValue, amount: 0, count: 0 };
+        const existing = byDateMap.get(dateKey) || {
+          date: dateKey,
+          dateValue,
+          amount: 0,
+          count: 0,
+        };
         existing.amount += Number(tx.amount);
         existing.count += 1;
         byDateMap.set(dateKey, existing);
@@ -385,7 +418,11 @@ export class TransactionsService {
 
       // Sort by actual date value, not string
       const byDate = Array.from(byDateMap.values())
-        .map(item => ({ date: item.date, amount: item.amount, count: item.count }))
+        .map((item) => ({
+          date: item.date,
+          amount: item.amount,
+          count: item.count,
+        }))
         .sort((a, b) => {
           const dateA = byDateMap.get(a.date)?.dateValue || new Date(0);
           const dateB = byDateMap.get(b.date)?.dateValue || new Date(0);
@@ -407,7 +444,8 @@ export class TransactionsService {
       const byProvider: Record<string, { count: number; amount: number }> = {};
       transactions.forEach((tx) => {
         const metadata = tx.metadata as any;
-        const provider = metadata?.paymentProvider || metadata?.provider || 'unknown';
+        const provider =
+          metadata?.paymentProvider || metadata?.provider || "unknown";
         if (!byProvider[provider]) {
           byProvider[provider] = { count: 0, amount: 0 };
         }
@@ -415,7 +453,10 @@ export class TransactionsService {
         byProvider[provider].amount += Number(tx.amount);
       });
 
-      const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const totalAmount = transactions.reduce(
+        (sum, tx) => sum + Number(tx.amount),
+        0,
+      );
       const totalCount = transactions.length;
 
       return {
@@ -426,9 +467,11 @@ export class TransactionsService {
         totalCount,
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch transaction statistics for userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to fetch transaction statistics for userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
 }
-

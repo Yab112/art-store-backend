@@ -1,12 +1,12 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsNumber, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { IsOptional, IsNumber, Min, Max } from "class-validator";
+import { Type } from "class-transformer";
 
 export class UpdateCollectionSettingsDto {
   @ApiPropertyOptional({
-    description: 'Maximum collections per user',
+    description: "Maximum collections per user",
     example: 50,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -15,9 +15,9 @@ export class UpdateCollectionSettingsDto {
   maxCollectionsPerUser?: number;
 
   @ApiPropertyOptional({
-    description: 'Maximum artworks per collection',
+    description: "Maximum artworks per collection",
     example: 100,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -26,9 +26,9 @@ export class UpdateCollectionSettingsDto {
   maxArtworksPerCollection?: number;
 
   @ApiPropertyOptional({
-    description: 'Minimum artworks required to publish a collection',
+    description: "Minimum artworks required to publish a collection",
     example: 3,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -36,4 +36,3 @@ export class UpdateCollectionSettingsDto {
   @Min(1)
   minArtworksForPublish?: number;
 }
-

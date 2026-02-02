@@ -270,11 +270,11 @@ export const auth = betterAuth({
 
           if (!dbUser) {
             console.error(
-              `WARNING: User ${user.id} created by Better Auth but not found in database!`
+              `WARNING: User ${user.id} created by Better Auth but not found in database!`,
             );
           } else {
             console.log(
-              `User ${user.id} verified in database: ${dbUser.email}`
+              `User ${user.id} verified in database: ${dbUser.email}`,
             );
           }
         },
@@ -338,7 +338,7 @@ export const auth = betterAuth({
 
   // Disable telemetry for cleaner logs
   telemetry: {
-    enabled: false, 
+    enabled: false,
   },
 
   // Logger configuration for debugging session issues
@@ -441,7 +441,7 @@ export const auth = betterAuth({
         isHTTPS,
         "(baseURL:",
         baseURL,
-        ")"
+        ")",
       );
       return isHTTPS;
     })(),

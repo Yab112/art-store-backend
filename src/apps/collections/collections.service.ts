@@ -4,17 +4,17 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { EventService } from '../../libraries/event';
-import { ConfigurationService } from '../../core/configuration';
-import { SettingsService } from '../settings/settings.service';
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { EventService } from "../../libraries/event";
+import { ConfigurationService } from "../../core/configuration";
+import { SettingsService } from "../settings/settings.service";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,
   AddArtworkDto,
   AddArtworksDto,
-} from './dto';
+} from "./dto";
 import {
   COLLECTION_EVENTS,
   CollectionCreatedEvent,
@@ -25,8 +25,8 @@ import {
   ArtworkAddedToCollectionEvent,
   ArtworkRemovedFromCollectionEvent,
   ArtworksBulkAddedEvent,
-} from './events';
-import { COLLECTION_CONSTANTS, COLLECTION_MESSAGES } from './constants';
+} from "./events";
+import { COLLECTION_CONSTANTS, COLLECTION_MESSAGES } from "./constants";
 
 @Injectable()
 export class CollectionsService {
@@ -45,14 +45,13 @@ export class CollectionsService {
   async create(createCollectionDto: CreateCollectionDto, userId: string) {
     try {
       // Check if user has reached max collections
-      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
+      const collectionSettings =
+        await this.settingsService.getCollectionSettingsValues();
       const userCollectionsCount = await this.prisma.collection.count({
         where: { createdBy: userId },
       });
 
-      if (
-        userCollectionsCount >= collectionSettings.maxCollectionsPerUser
-      ) {
+      if (userCollectionsCount >= collectionSettings.maxCollectionsPerUser) {
         throw new BadRequestException(
           COLLECTION_MESSAGES.ERROR.MAX_COLLECTIONS_REACHED,
         );
@@ -82,8 +81,8 @@ export class CollectionsService {
         {
           collectionId: collection.id,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           name: collection.name,
           description: collection.description,
           visibility:
@@ -95,7 +94,7 @@ export class CollectionsService {
       this.logger.log(`Collection created: ${collection.id}`);
       return collection;
     } catch (error) {
-      this.logger.error('Failed to create collection:', error);
+      this.logger.error("Failed to create collection:", error);
       throw error;
     }
   }
@@ -118,7 +117,7 @@ export class CollectionsService {
       const where: any = {};
 
       // Determine visibility filter behavior
-      const includeAll = visibility === 'all';
+      const includeAll = visibility === "all";
 
       // Build visibility filter
       if (includeAll) {
@@ -127,14 +126,12 @@ export class CollectionsService {
         // (No filter needed - Prisma will return all collections)
       } else {
         // Specific visibility requested or default to 'public'
-        const visibilityFilter = visibility || COLLECTION_CONSTANTS.VISIBILITY.PUBLIC;
-        
+        const visibilityFilter =
+          visibility || COLLECTION_CONSTANTS.VISIBILITY.PUBLIC;
+
         if (userId) {
           // Include user's own collections + collections matching the visibility filter
-          where.OR = [
-              { createdBy: userId },
-            { visibility: visibilityFilter },
-          ];
+          where.OR = [{ createdBy: userId }, { visibility: visibilityFilter }];
         } else {
           // Only show collections matching the visibility filter
           where.visibility = visibilityFilter;
@@ -145,31 +142,31 @@ export class CollectionsService {
       if (search) {
         const searchFilter = {
           OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { description: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
           ],
         };
 
         // Combine filters using AND
         const filters: any[] = [];
-        
+
         // Add visibility filter if it exists
         if (where.OR) {
           filters.push({ OR: where.OR });
         } else if (where.visibility) {
           filters.push({ visibility: where.visibility });
         }
-        
+
         // Add search filter
         filters.push(searchFilter);
-        
+
         // Apply combined filters
         if (filters.length > 0) {
           where.AND = filters;
           // Clean up individual filters
           delete where.OR;
           delete where.visibility;
-      } else {
+        } else {
           // Only search, no visibility filter
           Object.assign(where, searchFilter);
         }
@@ -217,7 +214,7 @@ export class CollectionsService {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         }),
         this.prisma.collection.count({ where }),
@@ -235,10 +232,10 @@ export class CollectionsService {
           const artwork = ca.artwork;
           // Count interactions by type (case-insensitive)
           const views = artwork.interactions.filter(
-            (i) => i.type?.toUpperCase() === 'VIEW'
+            (i) => i.type?.toUpperCase() === "VIEW",
           ).length;
           const likes = artwork.interactions.filter(
-            (i) => i.type?.toUpperCase() === 'LIKE'
+            (i) => i.type?.toUpperCase() === "LIKE",
           ).length;
           const comments = artwork.comments.length;
           const favorites = artwork.favorites.length;
@@ -252,7 +249,10 @@ export class CollectionsService {
         // Calculate engagement score (weighted formula similar to trending artworks)
         // views (1x) + likes (3x) + comments (2x) + favorites (2.5x)
         const engagementScore =
-          totalViews * 1 + totalLikes * 3 + totalComments * 2 + totalFavorites * 2.5;
+          totalViews * 1 +
+          totalLikes * 3 +
+          totalComments * 2 +
+          totalFavorites * 2.5;
 
         return {
           ...collection,
@@ -275,7 +275,7 @@ export class CollectionsService {
         },
       };
     } catch (error) {
-      this.logger.error('Failed to fetch collections:', error);
+      this.logger.error("Failed to fetch collections:", error);
       throw error;
     }
   }
@@ -341,10 +341,10 @@ export class CollectionsService {
         collection.artworks.forEach((ca) => {
           const artwork = ca.artwork;
           const views = artwork.interactions.filter(
-            (i) => i.type?.toUpperCase() === 'VIEW'
+            (i) => i.type?.toUpperCase() === "VIEW",
           ).length;
           const likes = artwork.interactions.filter(
-            (i) => i.type?.toUpperCase() === 'LIKE'
+            (i) => i.type?.toUpperCase() === "LIKE",
           ).length;
           const comments = artwork.comments.length;
           const favorites = artwork.favorites.length;
@@ -357,7 +357,10 @@ export class CollectionsService {
 
         // Calculate engagement score (weighted formula)
         const engagementScore =
-          totalViews * 1 + totalLikes * 3 + totalComments * 2 + totalFavorites * 2.5;
+          totalViews * 1 +
+          totalLikes * 3 +
+          totalComments * 2 +
+          totalFavorites * 2.5;
 
         return {
           ...collection,
@@ -378,7 +381,7 @@ export class CollectionsService {
 
       return hotCollections;
     } catch (error) {
-      this.logger.error('Failed to fetch hot collections:', error);
+      this.logger.error("Failed to fetch hot collections:", error);
       throw error;
     }
   }
@@ -489,7 +492,7 @@ export class CollectionsService {
           },
           orderBy: {
             artwork: {
-              createdAt: 'desc',
+              createdAt: "desc",
             },
           },
         }),
@@ -568,8 +571,8 @@ export class CollectionsService {
         {
           collectionId: collection.id,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           changes,
           updatedAt: new Date(),
         },
@@ -619,8 +622,8 @@ export class CollectionsService {
         {
           collectionId: id,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           name: collection.name,
           artworkCount: collection.artworks.length,
           deletedAt: new Date(),
@@ -651,7 +654,7 @@ export class CollectionsService {
             artworks: true,
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         }),
         this.prisma.collection.count({
@@ -713,7 +716,8 @@ export class CollectionsService {
       }
 
       // Check max artworks limit
-      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
+      const collectionSettings =
+        await this.settingsService.getCollectionSettingsValues();
       if (
         collection.artworks.length >=
         collectionSettings.maxArtworksPerCollection
@@ -758,8 +762,8 @@ export class CollectionsService {
           collectionId,
           collectionName: collection.name,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           artworkId,
           artworkTitle: artwork.title,
           artworkArtist: artwork.artist,
@@ -773,7 +777,7 @@ export class CollectionsService {
       );
       return { message: COLLECTION_MESSAGES.SUCCESS.ARTWORK_ADDED };
     } catch (error) {
-      this.logger.error('Failed to add artwork to collection:', error);
+      this.logger.error("Failed to add artwork to collection:", error);
       throw error;
     }
   }
@@ -836,7 +840,7 @@ export class CollectionsService {
       );
       return { message: COLLECTION_MESSAGES.SUCCESS.ARTWORK_REMOVED };
     } catch (error) {
-      this.logger.error('Failed to remove artwork from collection:', error);
+      this.logger.error("Failed to remove artwork from collection:", error);
       throw error;
     }
   }
@@ -860,10 +864,10 @@ export class CollectionsService {
       }
 
       // Check minimum artworks requirement
-      const collectionSettings = await this.settingsService.getCollectionSettingsValues();
+      const collectionSettings =
+        await this.settingsService.getCollectionSettingsValues();
       if (
-        collection.artworks.length <
-        collectionSettings.minArtworksForPublish
+        collection.artworks.length < collectionSettings.minArtworksForPublish
       ) {
         throw new BadRequestException(COLLECTION_MESSAGES.ERROR.CANNOT_PUBLISH);
       }
@@ -885,8 +889,8 @@ export class CollectionsService {
         {
           collectionId,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           name: collection.name,
           description: collection.description,
           artworkCount: collection.artworks.length,
@@ -902,7 +906,7 @@ export class CollectionsService {
         collection: updated,
       };
     } catch (error) {
-      this.logger.error('Failed to publish collection:', error);
+      this.logger.error("Failed to publish collection:", error);
       throw error;
     }
   }
@@ -941,8 +945,8 @@ export class CollectionsService {
         {
           collectionId,
           userId,
-          userName: user?.name || 'Unknown',
-          userEmail: user?.email || '',
+          userName: user?.name || "Unknown",
+          userEmail: user?.email || "",
           name: collection.name,
           unpublishedAt: new Date(),
         },
@@ -954,7 +958,7 @@ export class CollectionsService {
         collection: updated,
       };
     } catch (error) {
-      this.logger.error('Failed to unpublish collection:', error);
+      this.logger.error("Failed to unpublish collection:", error);
       throw error;
     }
   }

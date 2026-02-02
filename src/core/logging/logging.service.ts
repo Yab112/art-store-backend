@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { Request } from 'express';
-import { RequestHelper } from '../../common/util/request';
-import { Logger, LoggerService } from '../../libraries/logger';
+import { Injectable } from "@nestjs/common";
+import { Request } from "express";
+import { RequestHelper } from "../../common/util/request";
+import { Logger, LoggerService } from "../../libraries/logger";
 
 // TODO change user service
 @Injectable()
@@ -11,7 +11,7 @@ export class LoggingService {
     private loggerService: LoggerService,
     // private userService: any
   ) {
-    this.logger = this.loggerService.create({ name: 'LoggingInterceptor' });
+    this.logger = this.loggerService.create({ name: "LoggingInterceptor" });
   }
 
   logOnStart(request: Request): void {
@@ -23,8 +23,8 @@ export class LoggingService {
     // const email = authenticationPayload?.user?.email ?? '???@???.com'
     // const name = authenticationPayload?.user?.name ?? '???'
 
-    const email = '???@???.com';
-    const name = '???';
+    const email = "???@???.com";
+    const name = "???";
 
     this.logger.log(`[START] ${name} - ${email} | ${method} ${path}`);
   }
@@ -32,8 +32,8 @@ export class LoggingService {
   logOnStop(request: Request): void {
     const path = RequestHelper.getPath(request);
     const method = RequestHelper.getMethod(request);
-    const email = '???@???.com';
-    const name = '???';
+    const email = "???@???.com";
+    const name = "???";
 
     this.logger.log(`[STOP] ${name} - ${email} | ${method} ${path}`);
   }
