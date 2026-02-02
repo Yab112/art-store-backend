@@ -3,10 +3,10 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { CART_CONSTANTS, CART_MESSAGES } from './constants';
-import { AddToCartDto, UpdateCartItemDto } from './dto';
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { CART_CONSTANTS, CART_MESSAGES } from "./constants";
+import { AddToCartDto, UpdateCartItemDto } from "./dto";
 
 @Injectable()
 export class CartService {
@@ -39,12 +39,16 @@ export class CartService {
 
       // Prevent users from adding their own artwork to cart
       if (artwork.userId === userId) {
-        throw new BadRequestException('You cannot add your own artwork to the cart');
+        throw new BadRequestException(
+          "You cannot add your own artwork to the cart",
+        );
       }
 
       // Prevent adding sold artworks to cart
-      if (artwork.status === 'SOLD') {
-        throw new BadRequestException('This artwork has been sold and is no longer available');
+      if (artwork.status === "SOLD") {
+        throw new BadRequestException(
+          "This artwork has been sold and is no longer available",
+        );
       }
 
       // Check if user has reached max cart items
@@ -71,9 +75,11 @@ export class CartService {
       if (existingCartItem) {
         // Update quantity if item exists
         const newQuantity = existingCartItem.quantity + quantity;
-        
+
         if (newQuantity > CART_CONSTANTS.MAX_QUANTITY_PER_ITEM) {
-          throw new BadRequestException(CART_MESSAGES.ERROR.MAX_QUANTITY_REACHED);
+          throw new BadRequestException(
+            CART_MESSAGES.ERROR.MAX_QUANTITY_REACHED,
+          );
         }
 
         const updatedItem = await this.prisma.cartItem.update({
@@ -122,7 +128,9 @@ export class CartService {
         },
       });
 
-      this.logger.log(`✅ Artwork ${artworkId} added to cart for user ${userId}`);
+      this.logger.log(
+        `✅ Artwork ${artworkId} added to cart for user ${userId}`,
+      );
       return cartItem;
     } catch (error) {
       this.logger.error(`❌ Failed to add to cart:`, error);
@@ -150,7 +158,7 @@ export class CartService {
             userId,
             artwork: {
               status: {
-                not: 'SOLD',
+                not: "SOLD",
               },
             },
           },
@@ -170,7 +178,7 @@ export class CartService {
                 _count: {
                   select: {
                     interactions: {
-                      where: { type: 'LIKE' },
+                      where: { type: "LIKE" },
                     },
                     comments: true,
                   },
@@ -179,7 +187,7 @@ export class CartService {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         }),
         this.prisma.cartItem.count({
@@ -187,7 +195,7 @@ export class CartService {
             userId,
             artwork: {
               status: {
-                not: 'SOLD',
+                not: "SOLD",
               },
             },
           },
@@ -200,7 +208,7 @@ export class CartService {
           userId,
           artwork: {
             status: {
-              not: 'SOLD',
+              not: "SOLD",
             },
           },
         },
@@ -305,7 +313,9 @@ export class CartService {
    */
   async removeFromCart(userId: string, artworkId: string) {
     try {
-      this.logger.log(`Attempting to remove artwork ${artworkId} from cart for user ${userId}`);
+      this.logger.log(
+        `Attempting to remove artwork ${artworkId} from cart for user ${userId}`,
+      );
 
       // Check if cart item exists
       const cartItem = await this.prisma.cartItem.findUnique({
@@ -318,7 +328,9 @@ export class CartService {
       });
 
       if (!cartItem) {
-        this.logger.warn(`Cart item not found for userId: ${userId}, artworkId: ${artworkId}`);
+        this.logger.warn(
+          `Cart item not found for userId: ${userId}, artworkId: ${artworkId}`,
+        );
         throw new NotFoundException(CART_MESSAGES.ERROR.NOT_FOUND);
       }
 
@@ -329,7 +341,9 @@ export class CartService {
         },
       });
 
-      this.logger.log(`✅ Artwork ${artworkId} removed from cart for user ${userId}`);
+      this.logger.log(
+        `✅ Artwork ${artworkId} removed from cart for user ${userId}`,
+      );
       return { success: true, message: CART_MESSAGES.SUCCESS.REMOVED };
     } catch (error) {
       this.logger.error(`❌ Failed to remove from cart:`, error);
@@ -370,7 +384,7 @@ export class CartService {
           userId,
           artwork: {
             status: {
-              not: 'SOLD',
+              not: "SOLD",
             },
           },
         },
@@ -410,13 +424,15 @@ export class CartService {
         where: {
           userId,
           artwork: {
-            status: 'SOLD',
+            status: "SOLD",
           },
         },
       });
 
       if (result.count > 0) {
-        this.logger.log(`✅ Cleaned up ${result.count} sold artwork(s) from cart for user ${userId}`);
+        this.logger.log(
+          `✅ Cleaned up ${result.count} sold artwork(s) from cart for user ${userId}`,
+        );
       }
 
       return {
@@ -428,4 +444,3 @@ export class CartService {
     }
   }
 }
-

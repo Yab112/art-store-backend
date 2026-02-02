@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { CorsService } from './cors.service';
+import { Module } from "@nestjs/common";
+import { CorsService } from "./cors.service";
 
 @Module({
   imports: [],

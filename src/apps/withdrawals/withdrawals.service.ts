@@ -1,10 +1,17 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { WithdrawalsQueryDto } from './dto/withdrawals-query.dto';
-import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
-import { PaymentStatus } from '@prisma/client';
-import { ArtistService } from '../artist/artist.service';
-import { PaypalService } from '../payment/paypal.service';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database/prisma.service";
+import { WithdrawalsQueryDto } from "./dto/withdrawals-query.dto";
+import { UpdateWithdrawalStatusDto } from "./dto/update-withdrawal-status.dto";
+import { PaymentStatus } from "@prisma/client";
+import { ArtistService } from "../artist/artist.service";
+import { PaypalService } from "../payment/paypal.service";
 
 @Injectable()
 export class WithdrawalsService {
@@ -31,18 +38,18 @@ export class WithdrawalsService {
 
     if (search) {
       where.OR = [
-        { payoutAccount: { contains: search, mode: 'insensitive' } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
-        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { payoutAccount: { contains: search, mode: "insensitive" } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
       ];
     }
 
-    const withdrawals = await this.prisma.withdrawal.findMany({
+    const withdrawals = (await this.prisma.withdrawal.findMany({
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
-    }) as any[];
+      orderBy: { createdAt: "desc" },
+    })) as any[];
 
     const total = await this.prisma.withdrawal.count({ where });
 
@@ -50,13 +57,14 @@ export class WithdrawalsService {
     const userIds = withdrawals
       .map((w) => (w as any).userId)
       .filter((id): id is string => id !== null && id !== undefined);
-    
-    const users = userIds.length > 0
-      ? await this.prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, email: true },
-        })
-      : [];
+
+    const users =
+      userIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
 
     const userMap = new Map(users.map((u) => [u.id, u]));
 
@@ -64,13 +72,14 @@ export class WithdrawalsService {
       withdrawals: withdrawals.map((w: any) => ({
         id: w.id,
         userId: w.userId || null,
-        user: w.userId && userMap.has(w.userId)
-          ? {
-              id: userMap.get(w.userId)!.id,
-              name: userMap.get(w.userId)!.name,
-              email: userMap.get(w.userId)!.email,
-            }
-          : null,
+        user:
+          w.userId && userMap.has(w.userId)
+            ? {
+                id: userMap.get(w.userId)!.id,
+                name: userMap.get(w.userId)!.name,
+                email: userMap.get(w.userId)!.email,
+              }
+            : null,
         payoutAccount: w.payoutAccount,
         amount: Number(w.amount),
         status: w.status,
@@ -93,7 +102,7 @@ export class WithdrawalsService {
     const [total, byStatus] = await Promise.all([
       this.prisma.withdrawal.count(),
       this.prisma.withdrawal.groupBy({
-        by: ['status'],
+        by: ["status"],
         _count: { status: true },
         _sum: { amount: true },
       }),
@@ -149,10 +158,15 @@ export class WithdrawalsService {
     let earningsStats = null;
     if (withdrawal.userId) {
       try {
-        const stats = await this.artistService.getEarningsStats(withdrawal.userId);
+        const stats = await this.artistService.getEarningsStats(
+          withdrawal.userId,
+        );
         earningsStats = stats.data;
       } catch (error) {
-        this.logger.warn(`Failed to get earnings stats for user ${withdrawal.userId}:`, error);
+        this.logger.warn(
+          `Failed to get earnings stats for user ${withdrawal.userId}:`,
+          error,
+        );
       }
     }
 
@@ -169,26 +183,28 @@ export class WithdrawalsService {
       // Check email verification
       if (!user.emailVerified) {
         validationStatus.canApprove = false;
-        validationStatus.issues.push('Email not verified');
+        validationStatus.issues.push("Email not verified");
       }
 
       // Check if user is banned
       if (user.banned) {
         validationStatus.canApprove = false;
-        validationStatus.issues.push('User account is banned');
+        validationStatus.issues.push("User account is banned");
       }
 
       // Check for active disputes
       const activeDisputes = await this.prisma.dispute.findMany({
         where: {
           targetUserId: withdrawal.userId,
-          status: 'IN_PROGRESS',
+          status: "IN_PROGRESS",
         },
       });
 
       if (activeDisputes.length > 0) {
         validationStatus.canApprove = false;
-        validationStatus.issues.push(`${activeDisputes.length} active dispute(s)`);
+        validationStatus.issues.push(
+          `${activeDisputes.length} active dispute(s)`,
+        );
       }
 
       // Check balance
@@ -211,13 +227,17 @@ export class WithdrawalsService {
 
       if (!artwork) {
         validationStatus.canApprove = false;
-        validationStatus.issues.push('IBAN does not belong to this artist');
+        validationStatus.issues.push("IBAN does not belong to this artist");
       }
     }
 
     // Extract rejection reason from metadata if status is REJECTED or FAILED
     let rejectionReason = null;
-    if ((withdrawal.status === PaymentStatus.REJECTED || withdrawal.status === PaymentStatus.FAILED) && withdrawal.metadata) {
+    if (
+      (withdrawal.status === PaymentStatus.REJECTED ||
+        withdrawal.status === PaymentStatus.FAILED) &&
+      withdrawal.metadata
+    ) {
       const metadata = withdrawal.metadata as any;
       rejectionReason = metadata.rejectionReason || null;
     }
@@ -260,10 +280,19 @@ export class WithdrawalsService {
 
     // Validate status transition
     const validTransitions: Record<PaymentStatus, PaymentStatus[]> = {
-      [PaymentStatus.INITIATED]: [PaymentStatus.PROCESSING, PaymentStatus.REJECTED],
-      [PaymentStatus.PROCESSING]: [PaymentStatus.COMPLETED, PaymentStatus.REJECTED],
+      [PaymentStatus.INITIATED]: [
+        PaymentStatus.PROCESSING,
+        PaymentStatus.REJECTED,
+      ],
+      [PaymentStatus.PROCESSING]: [
+        PaymentStatus.COMPLETED,
+        PaymentStatus.REJECTED,
+      ],
       [PaymentStatus.COMPLETED]: [], // Cannot change from completed
-      [PaymentStatus.FAILED]: [PaymentStatus.INITIATED, PaymentStatus.PROCESSING], // Can retry (for payment failures)
+      [PaymentStatus.FAILED]: [
+        PaymentStatus.INITIATED,
+        PaymentStatus.PROCESSING,
+      ], // Can retry (for payment failures)
       [PaymentStatus.REJECTED]: [], // Cannot change from rejected
       [PaymentStatus.REFUNDED]: [], // Cannot change from refunded
     };
@@ -279,7 +308,9 @@ export class WithdrawalsService {
     if (updateDto.status === PaymentStatus.PROCESSING && withdrawal.userId) {
       try {
         // Verify balance is sufficient before processing
-        const stats = await this.artistService.getEarningsStats(withdrawal.userId);
+        const stats = await this.artistService.getEarningsStats(
+          withdrawal.userId,
+        );
         const availableBalance = stats.data.availableBalance;
         const requestedAmount = Number(withdrawal.amount);
 
@@ -296,7 +327,9 @@ export class WithdrawalsService {
         });
 
         if (!user || !user.email) {
-          throw new BadRequestException('User email not found. Cannot process PayPal payout.');
+          throw new BadRequestException(
+            "User email not found. Cannot process PayPal payout.",
+          );
         }
 
         // Process PayPal Payout
@@ -309,33 +342,41 @@ export class WithdrawalsService {
           payoutResult = await this.paypalService.processPayout(
             user.email,
             requestedAmount,
-            'USD',
+            "USD",
             `Withdrawal payout for withdrawal request ${id}`,
           );
 
           if (!payoutResult || !payoutResult.success) {
-            const errorMessage = payoutResult?.message || 'PayPal payout failed';
+            const errorMessage =
+              payoutResult?.message || "PayPal payout failed";
             this.logger.error(`PayPal payout error: ${errorMessage}`);
-            
+
             // Check if it's a configuration issue
-            if (errorMessage.includes('credentials') || errorMessage.includes('not configured')) {
+            if (
+              errorMessage.includes("credentials") ||
+              errorMessage.includes("not configured")
+            ) {
               throw new BadRequestException(
                 `PayPal is not properly configured. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables. Error: ${errorMessage}`,
               );
             }
-            
-            throw new BadRequestException(`PayPal payout failed: ${errorMessage}`);
+
+            throw new BadRequestException(
+              `PayPal payout failed: ${errorMessage}`,
+            );
           }
         } catch (error: any) {
-          this.logger.error(`PayPal payout processing error: ${error.message || error}`);
-          
+          this.logger.error(
+            `PayPal payout processing error: ${error.message || error}`,
+          );
+
           // Re-throw with more context
           if (error instanceof HttpException) {
             throw error; // Re-throw HttpExceptions as-is
           }
-          
+
           throw new BadRequestException(
-            `Failed to process PayPal payout: ${error.message || 'Unknown error'}`,
+            `Failed to process PayPal payout: ${error.message || "Unknown error"}`,
           );
         }
 
@@ -343,7 +384,7 @@ export class WithdrawalsService {
         this.logger.log(
           `PayPal payout initiated - Batch ID: ${payoutResult.payoutBatchId}, Initial Status: ${payoutResult.status}`,
         );
-        
+
         // Store payout batch ID in metadata for webhook matching
         // Using raw query to avoid Prisma type errors if migration not run
         try {
@@ -380,7 +421,10 @@ export class WithdrawalsService {
           `Withdrawal ${id} remains in PROCESSING status. Final status will be updated via PayPal webhook.`,
         );
       } catch (error: any) {
-        this.logger.error(`Failed to process payout for withdrawal ${id}:`, error);
+        this.logger.error(
+          `Failed to process payout for withdrawal ${id}:`,
+          error,
+        );
         // Mark as FAILED if payout processing fails
         updateDto.status = PaymentStatus.FAILED;
         throw error;
@@ -394,8 +438,9 @@ export class WithdrawalsService {
         select: { email: true, name: true },
       });
 
-      const rejectionReason = updateDto.reason || 'Withdrawal request rejected by admin';
-      
+      const rejectionReason =
+        updateDto.reason || "Withdrawal request rejected by admin";
+
       this.logger.log(
         `Withdrawal ${id} rejected. Reason: ${rejectionReason}. Funds remain in available balance.`,
       );
@@ -428,7 +473,9 @@ export class WithdrawalsService {
     // If directly setting to COMPLETED (for manual completion or retry), verify balance
     if (updateDto.status === PaymentStatus.COMPLETED && withdrawal.userId) {
       try {
-        const stats = await this.artistService.getEarningsStats(withdrawal.userId);
+        const stats = await this.artistService.getEarningsStats(
+          withdrawal.userId,
+        );
         const availableBalance = stats.data.availableBalance;
         const requestedAmount = Number(withdrawal.amount);
 
@@ -438,12 +485,12 @@ export class WithdrawalsService {
           );
         }
       } catch (error) {
-        this.logger.error('Failed to verify balance:', error);
+        this.logger.error("Failed to verify balance:", error);
         throw error;
       }
     }
 
-    const updated = await this.prisma.withdrawal.update({
+    const updated = (await this.prisma.withdrawal.update({
       where: { id },
       data: {
         status: updateDto.status,
@@ -459,7 +506,7 @@ export class WithdrawalsService {
           },
         },
       },
-    }) as any;
+    })) as any;
 
     this.logger.log(
       `Withdrawal ${id} status updated from ${withdrawal.status} to ${updateDto.status}`,
@@ -484,4 +531,3 @@ export class WithdrawalsService {
     };
   }
 }
-

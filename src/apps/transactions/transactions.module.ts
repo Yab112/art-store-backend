@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { TransactionsController } from './transactions.controller';
-import { TransactionsService } from './transactions.service';
-import { PrismaModule } from '../../core/database';
+import { Module } from "@nestjs/common";
+import { TransactionsController } from "./transactions.controller";
+import { TransactionsService } from "./transactions.service";
+import { PrismaModule } from "../../core/database";
 
 @Module({
   imports: [PrismaModule],
@@ -10,4 +10,3 @@ import { PrismaModule } from '../../core/database';
   exports: [TransactionsService],
 })
 export class TransactionsModule {}
-

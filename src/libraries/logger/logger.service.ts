@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { WinstonLogger, WinstonService } from './internal/winston.service';
-import { Logger } from './logger';
+import { Injectable } from "@nestjs/common";
+import { WinstonLogger, WinstonService } from "./internal/winston.service";
+import { Logger } from "./logger";
 
 type CreateOptions = {
   name?: string;
@@ -19,22 +19,22 @@ export class LoggerService {
   }
 
   log(message: string, context?: string): void {
-    this.instance.log(message, context);
+    this.instance.info(message, { context });
   }
 
   error(message: string, trace?: string, context?: string): void {
-    this.instance.error(message, trace, context);
+    this.instance.error(message, { trace, context });
   }
 
   warn(message: string, context?: string): void {
-    this.instance.warn(message, context);
+    this.instance.warn(message, { context });
   }
 
   debug(message: string, context?: string): void {
-    this.instance.debug(message, context);
+    this.instance.debug(message, { context });
   }
 
   verbose(message: string, context?: string): void {
-    this.instance.verbose(message, context);
+    this.instance.verbose(message, { context });
   }
 }

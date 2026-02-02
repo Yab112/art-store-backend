@@ -1,18 +1,21 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { ChapaService } from './chapa.service';
-import { PaypalService } from './paypal.service';
-import { InitializePaymentDto, PaymentProvider } from './dto/initialize-payment.dto';
-import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { Injectable, BadRequestException, Logger } from "@nestjs/common";
+import { ChapaService } from "./chapa.service";
+import { PaypalService } from "./paypal.service";
+import {
+  InitializePaymentDto,
+  PaymentProvider,
+} from "./dto/initialize-payment.dto";
+import { VerifyPaymentDto } from "./dto/verify-payment.dto";
 import {
   PaymentInitializeResponse,
   PaymentVerifyResponse,
-} from './interfaces/payment-response.interface';
-import { PrismaService } from '../../core/database/prisma.service';
-import { OrderService } from '../order/order.service';
-import { CartService } from '../cart/cart.service';
-import { PaymentStatus } from '@prisma/client';
+} from "./interfaces/payment-response.interface";
+import { PrismaService } from "../../core/database/prisma.service";
+import { OrderService } from "../order/order.service";
+import { CartService } from "../cart/cart.service";
+import { PaymentStatus } from "@prisma/client";
 
-@Injectable() 
+@Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
@@ -34,9 +37,13 @@ export class PaymentService {
       let initializeResponse: PaymentInitializeResponse;
       switch (paymentData.provider) {
         case PaymentProvider.CHAPA:
-          initializeResponse = await this.chapaService.initializePayment(paymentData);
+          initializeResponse =
+            await this.chapaService.initializePayment(paymentData);
           // If Chapa returned a shortened txRef, store it in transaction metadata
-          if (paymentData.orderId && (initializeResponse.data as any).chapaTxRef) {
+          if (
+            paymentData.orderId &&
+            (initializeResponse.data as any).chapaTxRef
+          ) {
             try {
               const order = await this.prisma.order.findUnique({
                 where: { id: paymentData.orderId },
@@ -54,7 +61,9 @@ export class PaymentService {
                     },
                   },
                 });
-                this.logger.log(`Stored Chapa txRef mapping for order ${paymentData.orderId}`);
+                this.logger.log(
+                  `Stored Chapa txRef mapping for order ${paymentData.orderId}`,
+                );
               }
             } catch (error) {
               // Log but don't fail - this is just for optimization
@@ -72,7 +81,7 @@ export class PaymentService {
           );
       }
     } catch (error) {
-      this.logger.error('Payment initialization failed:', error);
+      this.logger.error("Payment initialization failed:", error);
       throw error;
     }
   }
@@ -91,19 +100,26 @@ export class PaymentService {
           // Extract orderId from txRef BEFORE calling verifyPayment
           // This allows ChapaService to look up the stored shortened txRef from metadata
           let chapaOrderId: string | undefined;
-          if (verifyData.txRef.startsWith('TX-')) {
+          if (verifyData.txRef.startsWith("TX-")) {
             const withoutPrefix = verifyData.txRef.substring(3);
-            const lastDashIndex = withoutPrefix.lastIndexOf('-');
+            const lastDashIndex = withoutPrefix.lastIndexOf("-");
             if (lastDashIndex > 0) {
               chapaOrderId = withoutPrefix.substring(0, lastDashIndex);
-              this.logger.log(`Extracted orderId for Chapa verification: ${chapaOrderId}`);
+              this.logger.log(
+                `Extracted orderId for Chapa verification: ${chapaOrderId}`,
+              );
             }
           }
-          verifyResponse = await this.chapaService.verifyPayment(verifyData.txRef, chapaOrderId);
+          verifyResponse = await this.chapaService.verifyPayment(
+            verifyData.txRef,
+            chapaOrderId,
+          );
           break;
 
         case PaymentProvider.PAYPAL:
-          verifyResponse = await this.paypalService.verifyPayment(verifyData.txRef);
+          verifyResponse = await this.paypalService.verifyPayment(
+            verifyData.txRef,
+          );
           break;
 
         default:
@@ -113,32 +129,36 @@ export class PaymentService {
       }
 
       // If payment successful, complete the order
-      if (verifyResponse.success && verifyResponse.data.status === 'success') {
+      if (verifyResponse.success && verifyResponse.data.status === "success") {
         let orderId: string | null = null;
 
         // Extract orderId from txRef
         // For Chapa: format is TX-{orderId}-{timestamp}
         // For PayPal: use originalTxRef if available, otherwise try to extract from txRef
-        if (verifyData.provider === 'paypal') {
+        if (verifyData.provider === "paypal") {
           // For PayPal, check if originalTxRef is available in the response
           const originalTxRef = (verifyResponse.data as any).originalTxRef;
           if (originalTxRef) {
             // Extract orderId from original txRef format: TX-{orderId}-{timestamp}
             // OrderId is a UUID (with dashes), so we need to extract it properly
             // Format: TX-{uuid}-{timestamp}
-            if (originalTxRef.startsWith('TX-')) {
+            if (originalTxRef.startsWith("TX-")) {
               // Remove 'TX-' prefix
               const withoutPrefix = originalTxRef.substring(3);
               // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
               // Find the last occurrence of '-' before the timestamp (which is numeric)
               // Timestamp is at the end, so we can split by last dash
-              const lastDashIndex = withoutPrefix.lastIndexOf('-');
+              const lastDashIndex = withoutPrefix.lastIndexOf("-");
               if (lastDashIndex > 0) {
                 // Everything before the last dash is the UUID (orderId)
                 orderId = withoutPrefix.substring(0, lastDashIndex);
-                this.logger.log(`Extracted orderId from originalTxRef: ${orderId}`);
+                this.logger.log(
+                  `Extracted orderId from originalTxRef: ${orderId}`,
+                );
               } else {
-                this.logger.warn(`Could not parse originalTxRef format: ${originalTxRef}`);
+                this.logger.warn(
+                  `Could not parse originalTxRef format: ${originalTxRef}`,
+                );
               }
             }
           } else {
@@ -147,7 +167,7 @@ export class PaymentService {
               const transactions = await this.prisma.transaction.findMany({
                 where: {
                   metadata: {
-                    path: ['paypalOrderId'],
+                    path: ["paypalOrderId"],
                     equals: verifyData.txRef,
                   },
                 },
@@ -157,26 +177,33 @@ export class PaymentService {
               if (transactions.length > 0 && transactions[0]?.orderId) {
                 orderId = transactions[0].orderId;
               } else {
-                this.logger.warn(`Could not find order for PayPal order ID: ${verifyData.txRef}. Original txRef not available.`);
+                this.logger.warn(
+                  `Could not find order for PayPal order ID: ${verifyData.txRef}. Original txRef not available.`,
+                );
               }
             } catch (lookupError) {
-              this.logger.error(`Failed to find order for PayPal txRef ${verifyData.txRef}:`, lookupError);
+              this.logger.error(
+                `Failed to find order for PayPal txRef ${verifyData.txRef}:`,
+                lookupError,
+              );
             }
           }
         } else {
           // For Chapa, extract from txRef format: TX-{orderId}-{timestamp}
           // OrderId is a UUID (with dashes), so we need to extract it properly
-          if (verifyData.txRef.startsWith('TX-')) {
+          if (verifyData.txRef.startsWith("TX-")) {
             // Remove 'TX-' prefix
             const withoutPrefix = verifyData.txRef.substring(3);
             // Find the last occurrence of '-' before the timestamp (which is numeric)
-            const lastDashIndex = withoutPrefix.lastIndexOf('-');
+            const lastDashIndex = withoutPrefix.lastIndexOf("-");
             if (lastDashIndex > 0) {
               // Everything before the last dash is the UUID (orderId)
               orderId = withoutPrefix.substring(0, lastDashIndex);
               this.logger.log(`Extracted orderId from Chapa txRef: ${orderId}`);
             } else {
-              this.logger.warn(`Could not parse Chapa txRef format: ${verifyData.txRef}`);
+              this.logger.warn(
+                `Could not parse Chapa txRef format: ${verifyData.txRef}`,
+              );
             }
           }
         }
@@ -202,7 +229,7 @@ export class PaymentService {
 
             // Use customer information from the order (checkout form), not from payment provider
             let userId: string | null = null;
-            
+
             if (order) {
               // Get email from order
               paymentMetadata.customerEmail = order.buyerEmail;
@@ -211,7 +238,8 @@ export class PaymentService {
               if (order.transaction?.metadata) {
                 const metadata = order.transaction.metadata as any;
                 if (metadata.shippingAddress?.fullName) {
-                  paymentMetadata.customerName = metadata.shippingAddress.fullName;
+                  paymentMetadata.customerName =
+                    metadata.shippingAddress.fullName;
                 }
               }
 
@@ -233,9 +261,12 @@ export class PaymentService {
               );
             } else {
               // Fallback to payment provider info if order not found
-              this.logger.warn(`Order ${orderId} not found, using payment provider customer info`);
+              this.logger.warn(
+                `Order ${orderId} not found, using payment provider customer info`,
+              );
               if (verifyResponse.data.customerEmail) {
-                paymentMetadata.customerEmail = verifyResponse.data.customerEmail;
+                paymentMetadata.customerEmail =
+                  verifyResponse.data.customerEmail;
               }
               if (verifyResponse.data.customerName) {
                 paymentMetadata.customerName = verifyResponse.data.customerName;
@@ -243,7 +274,7 @@ export class PaymentService {
             }
 
             // Add userId to verifyResponse
-            if (userId && userId !== 'guest') {
+            if (userId && userId !== "guest") {
               (verifyResponse.data as any).userId = userId;
             }
 
@@ -251,11 +282,18 @@ export class PaymentService {
             // For PayPal: originalTxRef is in the response
             // For Chapa: if we used a shortened txRef, store the original one
             if ((verifyResponse.data as any).originalTxRef) {
-              paymentMetadata.originalTxRef = (verifyResponse.data as any).originalTxRef;
-            } else if (verifyData.provider === 'chapa' && verifyData.txRef !== verifyResponse.data.txRef) {
+              paymentMetadata.originalTxRef = (
+                verifyResponse.data as any
+              ).originalTxRef;
+            } else if (
+              verifyData.provider === "chapa" &&
+              verifyData.txRef !== verifyResponse.data.txRef
+            ) {
               // Chapa: Store original txRef if we used a shortened one
               paymentMetadata.originalTxRef = verifyData.txRef;
-              this.logger.log(`Chapa: Storing original txRef ${verifyData.txRef} in metadata (Chapa used ${verifyResponse.data.txRef})`);
+              this.logger.log(
+                `Chapa: Storing original txRef ${verifyData.txRef} in metadata (Chapa used ${verifyResponse.data.txRef})`,
+              );
             }
 
             // Override the verification response with order's customer information
@@ -272,7 +310,8 @@ export class PaymentService {
             // Use the txRef from the verification response (what the payment provider actually knows about)
             // For Chapa: this is the shortened txRef if it was shortened, or the original
             // For PayPal: this is the PayPal order ID
-            const txRefForCompletion = verifyResponse.data.txRef || verifyData.txRef;
+            const txRefForCompletion =
+              verifyResponse.data.txRef || verifyData.txRef;
             const completedOrder = await this.orderService.completeOrder(
               orderId,
               txRefForCompletion,
@@ -284,44 +323,69 @@ export class PaymentService {
             const userIdForCart = (verifyResponse.data as any).userId;
 
             // Remove purchased artworks from user's cart after successful payment
-            if (userIdForCart && userIdForCart !== 'guest') {
-                try {
-                  // Use the completed order that was just returned to get artwork IDs
-                  // This avoids an extra database query
-                  if (completedOrder && completedOrder.items && completedOrder.items.length > 0) {
-                    // Remove each purchased artwork from the cart
-                    const artworkIds = completedOrder.items.map((item: any) => item.artworkId);
-                    let removedCount = 0;
-                    
-                    for (const artworkId of artworkIds) {
-                      try {
-                        await this.cartService.removeFromCart(userIdForCart, artworkId);
-                        removedCount++;
-                        this.logger.log(`Removed artwork ${artworkId} from cart for user ${userIdForCart}`);
-                      } catch (removeError: any) {
-                        // If artwork not in cart (already removed or never added), that's okay
-                        if (removeError.message?.includes('not found') || removeError.message?.includes('Cart item not found')) {
-                          this.logger.log(`Artwork ${artworkId} not in cart for user ${userIdForCart} (may have been removed already)`);
-                        } else {
-                          this.logger.warn(`Failed to remove artwork ${artworkId} from cart:`, removeError.message);
-                        }
+            if (userIdForCart && userIdForCart !== "guest") {
+              try {
+                // Use the completed order that was just returned to get artwork IDs
+                // This avoids an extra database query
+                if (
+                  completedOrder &&
+                  completedOrder.items &&
+                  completedOrder.items.length > 0
+                ) {
+                  // Remove each purchased artwork from the cart
+                  const artworkIds = completedOrder.items.map(
+                    (item: any) => item.artworkId,
+                  );
+                  let removedCount = 0;
+
+                  for (const artworkId of artworkIds) {
+                    try {
+                      await this.cartService.removeFromCart(
+                        userIdForCart,
+                        artworkId,
+                      );
+                      removedCount++;
+                      this.logger.log(
+                        `Removed artwork ${artworkId} from cart for user ${userIdForCart}`,
+                      );
+                    } catch (removeError: any) {
+                      // If artwork not in cart (already removed or never added), that's okay
+                      if (
+                        removeError.message?.includes("not found") ||
+                        removeError.message?.includes("Cart item not found")
+                      ) {
+                        this.logger.log(
+                          `Artwork ${artworkId} not in cart for user ${userIdForCart} (may have been removed already)`,
+                        );
+                      } else {
+                        this.logger.warn(
+                          `Failed to remove artwork ${artworkId} from cart:`,
+                          removeError.message,
+                        );
                       }
                     }
-                    
-                    this.logger.log(`Removed ${removedCount} of ${artworkIds.length} purchased artwork(s) from cart for user ${userIdForCart} after order ${orderId} completion`);
-                  } else {
-                    this.logger.warn(`Completed order ${orderId} has no items to remove from cart`);
                   }
-                } catch (cartError) {
-                  // Log error but don't fail the payment verification
-                  // Cart removal is not critical - order is already completed
-                  this.logger.error(
-                    `Failed to remove artworks from cart for user ${userIdForCart} after order ${orderId}:`,
-                    cartError,
+
+                  this.logger.log(
+                    `Removed ${removedCount} of ${artworkIds.length} purchased artwork(s) from cart for user ${userIdForCart} after order ${orderId} completion`,
+                  );
+                } else {
+                  this.logger.warn(
+                    `Completed order ${orderId} has no items to remove from cart`,
                   );
                 }
+              } catch (cartError) {
+                // Log error but don't fail the payment verification
+                // Cart removal is not critical - order is already completed
+                this.logger.error(
+                  `Failed to remove artworks from cart for user ${userIdForCart} after order ${orderId}:`,
+                  cartError,
+                );
+              }
             } else {
-              this.logger.warn(`Could not remove artworks from cart: userId not found or is guest for order ${orderId}`);
+              this.logger.warn(
+                `Could not remove artworks from cart: userId not found or is guest for order ${orderId}`,
+              );
             }
 
             this.logger.log(
@@ -333,7 +397,7 @@ export class PaymentService {
             this.logger.error(
               `Payment verified but failed to complete order ${orderId}:`,
               orderError,
-            ); 
+            );
             // Note: We still return success because payment was verified
             // The order completion failure should be investigated separately
           }
@@ -345,25 +409,27 @@ export class PaymentService {
       }
 
       // Handle payment verification failure
-      if (!verifyResponse.success || verifyResponse.data.status !== 'success') {
-        this.logger.warn(`Payment verification returned failure for txRef: ${verifyData.txRef}`);
-        
+      if (!verifyResponse.success || verifyResponse.data.status !== "success") {
+        this.logger.warn(
+          `Payment verification returned failure for txRef: ${verifyData.txRef}`,
+        );
+
         // Try to find and cancel the associated order
         let orderId: string | null = null;
-        
+
         // Extract orderId from txRef (same logic as success case)
-        if (verifyData.provider === 'paypal') {
+        if (verifyData.provider === "paypal") {
           const originalTxRef = (verifyResponse.data as any).originalTxRef;
-          if (originalTxRef && originalTxRef.startsWith('TX-')) {
+          if (originalTxRef && originalTxRef.startsWith("TX-")) {
             const withoutPrefix = originalTxRef.substring(3);
-            const lastDashIndex = withoutPrefix.lastIndexOf('-');
+            const lastDashIndex = withoutPrefix.lastIndexOf("-");
             if (lastDashIndex > 0) {
               orderId = withoutPrefix.substring(0, lastDashIndex);
             }
           }
-        } else if (verifyData.txRef.startsWith('TX-')) {
+        } else if (verifyData.txRef.startsWith("TX-")) {
           const withoutPrefix = verifyData.txRef.substring(3);
-          const lastDashIndex = withoutPrefix.lastIndexOf('-');
+          const lastDashIndex = withoutPrefix.lastIndexOf("-");
           if (lastDashIndex > 0) {
             orderId = withoutPrefix.substring(0, lastDashIndex);
           }
@@ -374,27 +440,32 @@ export class PaymentService {
           try {
             await this.orderService.cancelOrder(
               orderId,
-              `Payment verification failed: ${verifyResponse.message || 'Unknown error'}`,
+              `Payment verification failed: ${verifyResponse.message || "Unknown error"}`,
             );
-            this.logger.log(`Cancelled order ${orderId} due to payment failure`);
+            this.logger.log(
+              `Cancelled order ${orderId} due to payment failure`,
+            );
           } catch (cancelError) {
-            this.logger.error(`Failed to cancel order ${orderId} after payment failure:`, cancelError);
+            this.logger.error(
+              `Failed to cancel order ${orderId} after payment failure:`,
+              cancelError,
+            );
           }
         }
       }
 
       return verifyResponse;
     } catch (error: any) {
-      this.logger.error('Payment verification failed:', error);
-      
+      this.logger.error("Payment verification failed:", error);
+
       // If verification throws an error (e.g., capture failed), try to cancel the order
       // Extract orderId from txRef if possible
       let orderId: string | null = null;
-      
+
       try {
-        if (verifyData.txRef.startsWith('TX-')) {
+        if (verifyData.txRef.startsWith("TX-")) {
           const withoutPrefix = verifyData.txRef.substring(3);
-          const lastDashIndex = withoutPrefix.lastIndexOf('-');
+          const lastDashIndex = withoutPrefix.lastIndexOf("-");
           if (lastDashIndex > 0) {
             orderId = withoutPrefix.substring(0, lastDashIndex);
           }
@@ -404,17 +475,25 @@ export class PaymentService {
           try {
             await this.orderService.cancelOrder(
               orderId,
-              `Payment verification error: ${error.message || 'Unknown error'}`,
+              `Payment verification error: ${error.message || "Unknown error"}`,
             );
-            this.logger.log(`Cancelled order ${orderId} due to verification error`);
+            this.logger.log(
+              `Cancelled order ${orderId} due to verification error`,
+            );
           } catch (cancelError) {
-            this.logger.error(`Failed to cancel order ${orderId} after verification error:`, cancelError);
+            this.logger.error(
+              `Failed to cancel order ${orderId} after verification error:`,
+              cancelError,
+            );
           }
         }
       } catch (extractError) {
-        this.logger.error('Failed to extract orderId for cancellation:', extractError);
+        this.logger.error(
+          "Failed to extract orderId for cancellation:",
+          extractError,
+        );
       }
-      
+
       throw error;
     }
   }
@@ -432,26 +511,31 @@ export class PaymentService {
    */
   async handlePaypalWebhook(payload: any, headers?: any): Promise<any> {
     try {
-      const webhookResult = await this.paypalService.handleWebhook(payload, headers);
-      
+      const webhookResult = await this.paypalService.handleWebhook(
+        payload,
+        headers,
+      );
+
       // Handle payout batch webhooks
-      if (webhookResult.eventType === 'PAYOUT_BATCH') {
+      if (webhookResult.eventType === "PAYOUT_BATCH") {
         await this.handlePayoutBatchWebhook(webhookResult);
       }
-      
+
       // Handle payout item webhooks (individual payout status)
-      if (webhookResult.eventType === 'PAYOUT_ITEM') {
+      if (webhookResult.eventType === "PAYOUT_ITEM") {
         await this.handlePayoutItemWebhook(webhookResult);
       }
 
       return webhookResult;
     } catch (error: any) {
       // Log error but don't throw - always return success to PayPal
-      this.logger.error(`PayPal webhook processing error: ${error.message || error}`);
+      this.logger.error(
+        `PayPal webhook processing error: ${error.message || error}`,
+      );
       return {
         success: false,
-        message: 'Webhook received but processing failed',
-        error: error.message || 'Unknown error',
+        message: "Webhook received but processing failed",
+        error: error.message || "Unknown error",
       };
     }
   }
@@ -481,7 +565,7 @@ export class PaymentService {
         const withdrawals = await this.prisma.withdrawal.findMany({
           where: {
             status: {
-              in: ['PROCESSING', 'INITIATED'] as any,
+              in: ["PROCESSING", "INITIATED"] as any,
             },
           } as any,
         });
@@ -496,41 +580,47 @@ export class PaymentService {
         // Determine system status from PayPal batch status
         let newStatus = withdrawal.status;
         const statusUpper = status?.toUpperCase();
-        
-        if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
-          newStatus = 'COMPLETED';
-        } else if (statusUpper === 'DENIED' || statusUpper === 'FAILED') {
-          newStatus = 'FAILED';
-        } else if (statusUpper === 'PENDING') {
-          newStatus = 'PROCESSING';
+
+        if (statusUpper === "SUCCESS" || statusUpper === "COMPLETED") {
+          newStatus = "COMPLETED";
+        } else if (statusUpper === "DENIED" || statusUpper === "FAILED") {
+          newStatus = "FAILED";
+        } else if (statusUpper === "PENDING") {
+          newStatus = "PROCESSING";
         }
-        
+
         // Store batch status in metadata and update system status
         const withdrawalWithMetadata = withdrawal as any;
         const updateData: any = {
           metadata: {
-            ...((withdrawalWithMetadata.metadata || {})),
+            ...(withdrawalWithMetadata.metadata || {}),
             batchWebhookStatus: status,
             payoutBatchId: payoutBatchId,
             batchWebhookProcessedAt: new Date().toISOString(),
           } as any,
         };
-        
+
         // Update status if it changed
         if (newStatus !== withdrawal.status) {
           updateData.status = newStatus;
-          this.logger.log(`Withdrawal ${withdrawal.id} status updated to ${newStatus} via batch webhook`);
+          this.logger.log(
+            `Withdrawal ${withdrawal.id} status updated to ${newStatus} via batch webhook`,
+          );
         }
-        
+
         await this.prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: updateData as any,
         });
       } else {
-        this.logger.warn(`No withdrawal found for payout batch ID: ${payoutBatchId}`);
+        this.logger.warn(
+          `No withdrawal found for payout batch ID: ${payoutBatchId}`,
+        );
       }
     } catch (error: any) {
-      this.logger.error(`Failed to handle payout batch webhook: ${error.message || error}`);
+      this.logger.error(
+        `Failed to handle payout batch webhook: ${error.message || error}`,
+      );
     }
   }
 
@@ -541,7 +631,8 @@ export class PaymentService {
    */
   private async handlePayoutItemWebhook(webhookResult: any): Promise<void> {
     try {
-      const { payoutItemId, transactionId, transactionStatus, payoutBatchId } = webhookResult;
+      const { payoutItemId, transactionId, transactionStatus, payoutBatchId } =
+        webhookResult;
 
       if (!transactionId && !payoutItemId) {
         this.logger.error(`Payout item webhook missing transaction/item ID`);
@@ -565,7 +656,7 @@ export class PaymentService {
         const withdrawals = await this.prisma.withdrawal.findMany({
           where: {
             status: {
-              in: ['PROCESSING', 'INITIATED'] as any,
+              in: ["PROCESSING", "INITIATED"] as any,
             },
           } as any,
         });
@@ -577,32 +668,44 @@ export class PaymentService {
       }
 
       if (!withdrawal) {
-        this.logger.warn(`No withdrawal found for payout batch ID: ${payoutBatchId}`);
+        this.logger.warn(
+          `No withdrawal found for payout batch ID: ${payoutBatchId}`,
+        );
         return;
       }
 
       // Determine system status from PayPal transaction status
       let newStatus = withdrawal.status;
       const transactionStatusUpper = transactionStatus?.toUpperCase();
-      
-      if (transactionStatusUpper === 'SUCCESS') {
-        newStatus = 'COMPLETED';
-      } else if (transactionStatusUpper === 'FAILED' || transactionStatusUpper === 'DENIED' || transactionStatusUpper === 'BLOCKED') {
-        newStatus = 'FAILED';
-      } else if (transactionStatusUpper === 'UNCLAIMED') {
+
+      if (transactionStatusUpper === "SUCCESS") {
+        newStatus = "COMPLETED";
+      } else if (
+        transactionStatusUpper === "FAILED" ||
+        transactionStatusUpper === "DENIED" ||
+        transactionStatusUpper === "BLOCKED"
+      ) {
+        newStatus = "FAILED";
+      } else if (transactionStatusUpper === "UNCLAIMED") {
         // UNCLAIMED means payout was sent but recipient hasn't claimed it
         // This is still a success from our perspective
-        newStatus = 'COMPLETED';
-      } else if (transactionStatusUpper === 'RETURNED' || transactionStatusUpper === 'REFUNDED') {
-        newStatus = 'REFUNDED';
-      } else if (transactionStatusUpper === 'PENDING' || transactionStatusUpper === 'ONHOLD') {
-        newStatus = 'PROCESSING';
+        newStatus = "COMPLETED";
+      } else if (
+        transactionStatusUpper === "RETURNED" ||
+        transactionStatusUpper === "REFUNDED"
+      ) {
+        newStatus = "REFUNDED";
+      } else if (
+        transactionStatusUpper === "PENDING" ||
+        transactionStatusUpper === "ONHOLD"
+      ) {
+        newStatus = "PROCESSING";
       }
 
       // Store PayPal transaction status in metadata
       const withdrawalWithMetadata = withdrawal as any;
       const metadataUpdate: any = {
-        ...((withdrawalWithMetadata.metadata || {})),
+        ...(withdrawalWithMetadata.metadata || {}),
         webhookTransactionId: transactionId,
         webhookTransactionStatus: transactionStatus,
         payoutBatchId: payoutBatchId,
@@ -610,27 +713,31 @@ export class PaymentService {
       };
 
       // Add note for UNCLAIMED transaction status
-      if (transactionStatusUpper === 'UNCLAIMED') {
-        metadataUpdate.paypalNote = 'Payout sent successfully. Recipient needs to claim it in their PayPal account.';
+      if (transactionStatusUpper === "UNCLAIMED") {
+        metadataUpdate.paypalNote =
+          "Payout sent successfully. Recipient needs to claim it in their PayPal account.";
       }
 
       const updateData: any = {
         metadata: metadataUpdate,
       };
-      
+
       // Update status if it changed
       if (newStatus !== withdrawal.status) {
         updateData.status = newStatus;
-        this.logger.log(`Withdrawal ${withdrawal.id} status updated to ${newStatus} via webhook`);
+        this.logger.log(
+          `Withdrawal ${withdrawal.id} status updated to ${newStatus} via webhook`,
+        );
       }
 
       await this.prisma.withdrawal.update({
         where: { id: withdrawal.id },
         data: updateData as any,
       });
-      
     } catch (error: any) {
-      this.logger.error(`Failed to handle payout item webhook: ${error.message || error}`);
+      this.logger.error(
+        `Failed to handle payout item webhook: ${error.message || error}`,
+      );
     }
   }
 

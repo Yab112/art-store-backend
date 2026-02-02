@@ -16,7 +16,7 @@ export class OrderService {
 
   constructor(
     private prisma: PrismaService,
-    private settingsService: SettingsService
+    private settingsService: SettingsService,
   ) {}
 
   /**
@@ -35,10 +35,12 @@ export class OrderService {
   async createOrder(userId: string, createOrderDto: CreateOrderDto) {
     try {
       this.logger.log(`Creating order for authenticated user: ${userId}`);
-      
+
       // Validate userId is provided (should never be 'guest' since we require authentication)
-      if (!userId || userId === 'guest') {
-        throw new BadRequestException('Valid user ID is required to create an order');
+      if (!userId || userId === "guest") {
+        throw new BadRequestException(
+          "Valid user ID is required to create an order",
+        );
       }
 
       // Validate artworks exist and are available (only APPROVED artworks can be purchased)
@@ -65,14 +67,14 @@ export class OrderService {
 
       // Prevent users from purchasing their own artwork
       const ownArtworks = artworks.filter(
-        (artwork) => artwork.userId === userId
-      ); 
+        (artwork) => artwork.userId === userId,
+      );
       if (ownArtworks.length > 0) {
         const artworkTitles = ownArtworks
           .map((a) => a.title || a.id)
           .join(", ");
         throw new BadRequestException(
-          `You cannot purchase your own artwork: ${artworkTitles}`
+          `You cannot purchase your own artwork: ${artworkTitles}`,
         );
       }
 
@@ -124,7 +126,7 @@ export class OrderService {
                   shippingAddress: createOrderDto.shippingAddress,
                   paymentMethod: createOrderDto.paymentMethod,
                   userId, // Keep in metadata for backward compatibility
-                })
+                }),
               ),
             },
           },
@@ -190,7 +192,9 @@ export class OrderService {
     },
   ) {
     try {
-      this.logger.log(`Completing order: ${orderId} with provider: ${paymentProvider}`);
+      this.logger.log(
+        `Completing order: ${orderId} with provider: ${paymentProvider}`,
+      );
 
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
@@ -214,7 +218,9 @@ export class OrderService {
 
       // Idempotency check: If order is already PAID, return early
       if (order.status === "PAID") {
-        this.logger.warn(`Order ${orderId} already paid - skipping completion (idempotency)`);
+        this.logger.warn(
+          `Order ${orderId} already paid - skipping completion (idempotency)`,
+        );
         return order;
       }
 
@@ -227,27 +233,37 @@ export class OrderService {
         verifiedAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
         // Add PayPal-specific metadata if provided
-        ...(paymentProvider === 'paypal' && {
+        ...(paymentProvider === "paypal" && {
           paypalOrderId: txRef,
-          ...(paymentMetadata?.originalTxRef && { originalTxRef: paymentMetadata.originalTxRef }),
-          ...(paymentMetadata?.customerEmail && { customerEmail: paymentMetadata.customerEmail }),
-          ...(paymentMetadata?.customerName && { customerName: paymentMetadata.customerName }),
+          ...(paymentMetadata?.originalTxRef && {
+            originalTxRef: paymentMetadata.originalTxRef,
+          }),
+          ...(paymentMetadata?.customerEmail && {
+            customerEmail: paymentMetadata.customerEmail,
+          }),
+          ...(paymentMetadata?.customerName && {
+            customerName: paymentMetadata.customerName,
+          }),
         }),
         // Add Chapa-specific metadata if provided
-        ...(paymentProvider === 'chapa' && paymentMetadata?.customerEmail && {
-          customerEmail: paymentMetadata.customerEmail,
-        }),
-        ...(paymentProvider === 'chapa' && paymentMetadata?.customerName && {
-          customerName: paymentMetadata.customerName,
-        }),
+        ...(paymentProvider === "chapa" &&
+          paymentMetadata?.customerEmail && {
+            customerEmail: paymentMetadata.customerEmail,
+          }),
+        ...(paymentProvider === "chapa" &&
+          paymentMetadata?.customerName && {
+            customerName: paymentMetadata.customerName,
+          }),
       };
 
       // Update order and transaction atomically
       // If transaction doesn't exist, create it; otherwise update it
       if (!order.transaction) {
-        this.logger.warn(`Order ${orderId} has no transaction - creating new transaction record`);
+        this.logger.warn(
+          `Order ${orderId} has no transaction - creating new transaction record`,
+        );
       }
-      
+
       const updatedOrder = await this.prisma.order.update({
         where: { id: orderId },
         data: {
@@ -287,14 +303,16 @@ export class OrderService {
       });
 
       this.logger.log(
-        `Marked ${artworkUpdateResult.count} artwork(s) as SOLD for order ${orderId}`
+        `Marked ${artworkUpdateResult.count} artwork(s) as SOLD for order ${orderId}`,
       );
 
       // Note: Withdrawals are no longer automatically created
       // Artists must manually request withdrawals from their earnings
       // Earnings are tracked and available for withdrawal via getEarningsStats()
 
-      this.logger.log(`Order ${orderId} completed successfully with ${order.items.length} items`);
+      this.logger.log(
+        `Order ${orderId} completed successfully with ${order.items.length} items`,
+      );
 
       return updatedOrder;
     } catch (error) {
@@ -308,12 +326,11 @@ export class OrderService {
    * @param orderId - Order ID to cancel
    * @param reason - Reason for cancellation (e.g., payment failed)
    */
-  async cancelOrder(
-    orderId: string,
-    reason?: string,
-  ) {
+  async cancelOrder(orderId: string, reason?: string) {
     try {
-      this.logger.log(`Cancelling order: ${orderId}, reason: ${reason || 'Payment failed'}`);
+      this.logger.log(
+        `Cancelling order: ${orderId}, reason: ${reason || "Payment failed"}`,
+      );
 
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
@@ -349,7 +366,7 @@ export class OrderService {
                   status: "FAILED",
                   metadata: {
                     ...((order.transaction.metadata as any) || {}),
-                    cancellationReason: reason || 'Payment failed',
+                    cancellationReason: reason || "Payment failed",
                     cancelledAt: new Date().toISOString(),
                   },
                 },
@@ -370,7 +387,10 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      this.logger.error(`Order cancellation failed for order ${orderId}:`, error);
+      this.logger.error(
+        `Order cancellation failed for order ${orderId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -415,7 +435,7 @@ export class OrderService {
     page: number = 1,
     limit: number = 20,
     search?: string,
-    status?: OrderStatus
+    status?: OrderStatus,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -514,7 +534,7 @@ export class OrderService {
           },
           transaction: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       this.logger.log(`Found ${orders.length} orders for userId: ${userId}`);

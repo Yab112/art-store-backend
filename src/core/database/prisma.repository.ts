@@ -1,8 +1,8 @@
 import {
   PaginatedResponse,
   PaginationInputs,
-} from '@/common/dto/pagination.dto';
-import { PrismaClient } from '@prisma/client';
+} from "@/common/dto/pagination.dto";
+import { PrismaClient } from "@prisma/client";
 
 export class PrismaGenericRepository<T> {
   private _repository: any;
@@ -20,15 +20,15 @@ export class PrismaGenericRepository<T> {
     const {
       page = 1,
       limit = 10,
-      sort = 'id',
-      sortOrder = 'asc',
-      searchText = '',
+      sort = "id",
+      sortOrder = "asc",
+      searchText = "",
     } = pagination;
 
     const mainQuery: Record<string, any> = { ...filter };
     if (searchText) {
       mainQuery.OR = fieldsToSearch.map((field) => ({
-        [field]: { contains: searchText, mode: 'insensitive' },
+        [field]: { contains: searchText, mode: "insensitive" },
       }));
     }
     const data = await this._repository.findMany({

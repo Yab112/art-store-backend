@@ -1,5 +1,5 @@
-import { IsBoolean, IsOptional, IsString, IsIn } from 'class-validator';
-import { PROFILE_CONSTANTS } from '../constants';
+import { IsBoolean, IsOptional, IsString, IsIn } from "class-validator";
+import { PROFILE_CONSTANTS } from "../constants";
 
 export class NotificationPreferencesDto {
   @IsOptional()

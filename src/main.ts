@@ -46,7 +46,7 @@ async function bootstrap() {
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
-    })
+    }),
   );
   // Mount Better Auth handler - it handles all routes under /api/auth/*
   server.use("/api/auth", toNodeHandler(auth));
@@ -58,7 +58,7 @@ async function bootstrap() {
     new ExpressAdapter(server),
     {
       bodyParser: false,
-    }
+    },
   );
   app.useStaticAssets(join(__dirname, "..", "public"));
   const configurationService = app.get(ConfigurationService);
@@ -73,7 +73,7 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
       contentSecurityPolicy: false,
       originAgentCluster: false,
-    })
+    }),
   );
   // app.enableCors(corsService.getOptions());
   app.useGlobalPipes(
@@ -85,7 +85,7 @@ async function bootstrap() {
       skipMissingProperties: false,
       skipNullProperties: false,
       skipUndefinedProperties: false,
-    })
+    }),
   );
   app.use(cookieParser());
 
@@ -103,11 +103,11 @@ async function bootstrap() {
     .addServer("http://13.48.104.231:3000", "EC2 Production (Root)")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
-      "Render Production URL"
+      "Render Production URL",
     )
     .addServer(
       "https://art-store-backend-latest.onrender.com/api",
-      "Render Production API URL"
+      "Render Production API URL",
     )
     .build();
 
@@ -135,7 +135,7 @@ async function bootstrap() {
       Object.entries(openAPISchema.paths).map(([path, schema]) => [
         `/auth${path}`, // e.g. /auth/sign-up/email
         schema,
-      ])
+      ]),
     );
 
     // merge into Nest Swagger doc
@@ -184,13 +184,13 @@ async function bootstrap() {
       logger.warn(`Received ${signal}, starting graceful shutdown`);
       await app.close();
       process.exit(0);
-    }); 
+    });
   });
 
   await app.listen(port);
   logger.success(`🚀 Application started on port ${port}`);
   logger.log(
-    `📚 API Documentation available at http://localhost:${port}/swagger`
+    `📚 API Documentation available at http://localhost:${port}/swagger`,
   );
   logger.log(`🌍 Environment: ${configurationService.getEnvironment()}`);
 }

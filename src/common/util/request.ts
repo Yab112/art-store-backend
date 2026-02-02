@@ -1,11 +1,11 @@
-import { Request } from 'express';
+import { Request } from "express";
 
 export const getRequestIp = (req: Request): string => {
-  return req.ip || req.connection.remoteAddress || 'unknown';
+  return req.ip || req.connection.remoteAddress || "unknown";
 };
 
 export const getRequestUserAgent = (req: Request): string => {
-  return req.get('User-Agent') || 'unknown';
+  return req.get("User-Agent") || "unknown";
 };
 
 export class RequestHelper {

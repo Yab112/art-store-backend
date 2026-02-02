@@ -1,11 +1,11 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import axios from "axios";
 import {
   PaymentInitializeResponse,
   PaymentVerifyResponse,
-} from './interfaces/payment-response.interface';
-import { InitializePaymentDto } from './dto/initialize-payment.dto';
+} from "./interfaces/payment-response.interface";
+import { InitializePaymentDto } from "./dto/initialize-payment.dto";
 
 export interface PayPalPayoutResponse {
   success: boolean;
@@ -28,19 +28,23 @@ export class PaypalService {
   private readonly clientSecret: string;
 
   constructor(private configService: ConfigService) {
-    this.clientId = this.configService.get<string>('PAYPAL_CLIENT_ID');
-    this.clientSecret = this.configService.get<string>('PAYPAL_CLIENT_SECRET');
-    const mode = this.configService.get<string>('PAYPAL_MODE') || 'sandbox';
+    this.clientId = this.configService.get<string>("PAYPAL_CLIENT_ID");
+    this.clientSecret = this.configService.get<string>("PAYPAL_CLIENT_SECRET");
+    const mode = this.configService.get<string>("PAYPAL_MODE") || "sandbox";
 
     this.baseUrl =
-      mode === 'live'
-        ? 'https://api-m.paypal.com'
-        : 'https://api-m.sandbox.paypal.com';
+      mode === "live"
+        ? "https://api-m.paypal.com"
+        : "https://api-m.sandbox.paypal.com";
 
     if (!this.clientId || !this.clientSecret) {
-      this.logger.warn('PayPal credentials not configured');
-      this.logger.warn(`PAYPAL_CLIENT_ID: ${this.clientId ? 'Set (hidden)' : 'NOT SET'}`);
-      this.logger.warn(`PAYPAL_CLIENT_SECRET: ${this.clientSecret ? 'Set (hidden)' : 'NOT SET'}`);
+      this.logger.warn("PayPal credentials not configured");
+      this.logger.warn(
+        `PAYPAL_CLIENT_ID: ${this.clientId ? "Set (hidden)" : "NOT SET"}`,
+      );
+      this.logger.warn(
+        `PAYPAL_CLIENT_SECRET: ${this.clientSecret ? "Set (hidden)" : "NOT SET"}`,
+      );
     } else {
       this.logger.log(`PayPal configured for ${mode} mode`);
     }
@@ -51,27 +55,36 @@ export class PaypalService {
    */
   private async getAccessToken(): Promise<string> {
     try {
-      const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      const auth = Buffer.from(
+        `${this.clientId}:${this.clientSecret}`,
+      ).toString("base64");
 
       const response = await axios.post(
         `${this.baseUrl}/v1/oauth2/token`,
-        'grant_type=client_credentials',
+        "grant_type=client_credentials",
         {
           headers: {
             Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
+            "Content-Type": "application/x-www-form-urlencoded",
           },
         },
       );
-      
+
       return response.data.access_token;
     } catch (error) {
-      this.logger.error('Failed to get PayPal access token');
+      this.logger.error("Failed to get PayPal access token");
       if (axios.isAxiosError(error)) {
-        const errorMessage = error.response?.data?.error_description || error.response?.data?.error || error.message;
-        throw new BadRequestException(`PayPal authentication failed: ${errorMessage}. Check your CLIENT_ID and CLIENT_SECRET.`);
+        const errorMessage =
+          error.response?.data?.error_description ||
+          error.response?.data?.error ||
+          error.message;
+        throw new BadRequestException(
+          `PayPal authentication failed: ${errorMessage}. Check your CLIENT_ID and CLIENT_SECRET.`,
+        );
       }
-      throw new BadRequestException('PayPal authentication failed. Please check your credentials.');
+      throw new BadRequestException(
+        "PayPal authentication failed. Please check your credentials.",
+      );
     }
   }
 
@@ -84,27 +97,29 @@ export class PaypalService {
     try {
       const accessToken = await this.getAccessToken();
 
-      const frontendUrl = this.configService.get('FRONTEND_URL');
-      const baseReturnUrl = paymentData.returnUrl || `${frontendUrl}/payment/success`;
-      
+      const frontendUrl = this.configService.get("FRONTEND_URL");
+      const baseReturnUrl =
+        paymentData.returnUrl || `${frontendUrl}/payment/success`;
+
       const payload = {
-        intent: 'CAPTURE',
+        intent: "CAPTURE",
         purchase_units: [
           {
             reference_id: paymentData.txRef,
             description: `Art Gallery Order ${paymentData.orderId || paymentData.txRef}`,
             amount: {
-              currency_code: paymentData.currency || 'USD',
+              currency_code: paymentData.currency || "USD",
               value: paymentData.amount.toFixed(2),
             },
           },
         ],
         application_context: {
-          brand_name: 'Art Gallery',
-          landing_page: 'BILLING',
-          user_action: 'PAY_NOW',
+          brand_name: "Art Gallery",
+          landing_page: "BILLING",
+          user_action: "PAY_NOW",
           return_url: `${baseReturnUrl}?provider=paypal`,
-          cancel_url: paymentData.callbackUrl || `${frontendUrl}/payment/cancel`,
+          cancel_url:
+            paymentData.callbackUrl || `${frontendUrl}/payment/cancel`,
         },
       };
 
@@ -115,33 +130,33 @@ export class PaypalService {
         payload,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
         },
       );
 
       const approvalUrl = response.data.links.find(
-        (link: any) => link.rel === 'approve',
+        (link: any) => link.rel === "approve",
       )?.href;
 
       if (!approvalUrl) {
-        throw new BadRequestException('PayPal approval URL not found');
+        throw new BadRequestException("PayPal approval URL not found");
       }
 
       // PayPal will return with token parameter (order ID) in the return URL
       // We return the PayPal order ID as txRef for verification
       return {
         success: true,
-        message: 'Payment initialized successfully',
+        message: "Payment initialized successfully",
         data: {
           checkoutUrl: approvalUrl,
           txRef: response.data.id, // PayPal order ID
-          provider: 'paypal',
+          provider: "paypal",
         },
       };
     } catch (error) {
-      this.logger.error('PayPal payment initialization failed:', error);
+      this.logger.error("PayPal payment initialization failed:", error);
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message;
         throw new BadRequestException(`PayPal payment failed: ${message}`);
@@ -164,7 +179,7 @@ export class PaypalService {
         {},
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
         },
@@ -172,7 +187,7 @@ export class PaypalService {
 
       return response.data;
     } catch (error) {
-      this.logger.error('PayPal payment capture failed:', error);
+      this.logger.error("PayPal payment capture failed:", error);
       throw error;
     }
   }
@@ -202,7 +217,7 @@ export class PaypalService {
       const purchaseUnit = order.purchase_units[0];
 
       // If order is APPROVED, capture it to complete the payment
-      if (status === 'APPROVED') {
+      if (status === "APPROVED") {
         this.logger.log(`Capturing approved PayPal order: ${orderId}`);
         try {
           const captureResponse = await axios.post(
@@ -210,63 +225,77 @@ export class PaypalService {
             {},
             {
               headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
                 Authorization: `Bearer ${accessToken}`,
               },
             },
           );
-          
+
           // Verify capture was successful
           const captureStatus = captureResponse.data.status;
-          const captureDetails = captureResponse.data.purchase_units?.[0]?.payments?.captures?.[0];
-          
-          if (captureStatus === 'COMPLETED' && captureDetails?.status === 'COMPLETED') {
-            status = 'COMPLETED';
+          const captureDetails =
+            captureResponse.data.purchase_units?.[0]?.payments?.captures?.[0];
+
+          if (
+            captureStatus === "COMPLETED" &&
+            captureDetails?.status === "COMPLETED"
+          ) {
+            status = "COMPLETED";
             this.logger.log(`PayPal order captured successfully: ${orderId}`);
           } else {
-            status = 'FAILED';
-            this.logger.error(`PayPal capture failed with status: ${captureStatus}`);
+            status = "FAILED";
+            this.logger.error(
+              `PayPal capture failed with status: ${captureStatus}`,
+            );
             throw new BadRequestException(
-              `PayPal payment capture failed: ${captureDetails?.status_details?.reason || 'Insufficient funds or payment declined'}.`
+              `PayPal payment capture failed: ${captureDetails?.status_details?.reason || "Insufficient funds or payment declined"}.`,
             );
           }
         } catch (captureError: any) {
-          status = 'FAILED';
-          this.logger.error(`Failed to capture PayPal order ${orderId}:`, captureError);
-          const errorMessage = captureError?.response?.data?.message || 
-                              captureError?.response?.data?.details?.[0]?.description ||
-                              captureError?.message || 
-                              'Unknown error';
-          throw new BadRequestException(`PayPal payment capture failed: ${errorMessage}`);
+          status = "FAILED";
+          this.logger.error(
+            `Failed to capture PayPal order ${orderId}:`,
+            captureError,
+          );
+          const errorMessage =
+            captureError?.response?.data?.message ||
+            captureError?.response?.data?.details?.[0]?.description ||
+            captureError?.message ||
+            "Unknown error";
+          throw new BadRequestException(
+            `PayPal payment capture failed: ${errorMessage}`,
+          );
         }
-      } else if (status === 'COMPLETED') {
+      } else if (status === "COMPLETED") {
         this.logger.log(`PayPal order already completed: ${orderId}`);
       }
 
       // Only treat COMPLETED as success, not APPROVED
-      const isSuccess = status === 'COMPLETED';
-      
+      const isSuccess = status === "COMPLETED";
+
       // Get the original txRef from reference_id (stored when order was created)
       const originalTxRef = purchaseUnit.reference_id || orderId;
 
       return {
         success: isSuccess,
-        message: isSuccess ? 'Payment verified successfully' : 'Payment not completed',
+        message: isSuccess
+          ? "Payment verified successfully"
+          : "Payment not completed",
         data: {
-          status: isSuccess ? 'success' : status.toLowerCase(),
+          status: isSuccess ? "success" : status.toLowerCase(),
           userId: order.userId,
           amount: parseFloat(purchaseUnit.amount.value),
           currency: purchaseUnit.amount.currency_code,
           txRef: orderId, // PayPal order ID
           originalTxRef: originalTxRef, // Original TX-{orderId}-{timestamp} format
-          provider: 'paypal',
+          provider: "paypal",
           chargeResponseMessage: status,
           customerEmail: order.payer?.email_address,
-          customerName: `${order.payer?.name?.given_name || ''} ${order.payer?.name?.surname || ''}`,
+          customerName: `${order.payer?.name?.given_name || ""} ${order.payer?.name?.surname || ""}`,
         },
       };
     } catch (error) {
-      this.logger.error('PayPal payment verification failed:', error);
+      this.logger.error("PayPal payment verification failed:", error);
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message;
         throw new BadRequestException(`PayPal verification failed: ${message}`);
@@ -285,32 +314,36 @@ export class PaypalService {
   async processPayout(
     email: string,
     amount: number,
-    currency: string = 'USD',
+    currency: string = "USD",
     note?: string,
   ): Promise<PayPalPayoutResponse> {
     try {
-      this.logger.log(`Processing PayPal payout: ${currency} ${amount.toFixed(2)} to ${email}`);
+      this.logger.log(
+        `Processing PayPal payout: ${currency} ${amount.toFixed(2)} to ${email}`,
+      );
 
       const accessToken = await this.getAccessToken();
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        throw new BadRequestException('Invalid PayPal email address');
+        throw new BadRequestException("Invalid PayPal email address");
       }
 
       const senderBatchId = `PAYOUT-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const senderItemId = `PAYOUT-ITEM-${Date.now()}`;
-      
+
       const payoutPayload = {
         sender_batch_header: {
           sender_batch_id: senderBatchId,
-          email_subject: 'You have received a payout from Art Gallery',
-          email_message: note || `You have received a payout of ${currency} ${amount.toFixed(2)} from Art Gallery.`,
+          email_subject: "You have received a payout from Art Gallery",
+          email_message:
+            note ||
+            `You have received a payout of ${currency} ${amount.toFixed(2)} from Art Gallery.`,
         },
         items: [
           {
-            recipient_type: 'EMAIL',
+            recipient_type: "EMAIL",
             amount: {
               value: amount.toFixed(2),
               currency: currency,
@@ -327,7 +360,7 @@ export class PaypalService {
         payoutPayload,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
         },
@@ -336,34 +369,38 @@ export class PaypalService {
       const payoutBatchId = response.data.batch_header?.payout_batch_id;
       const payoutStatus = response.data.batch_header?.batch_status;
 
-      this.logger.log(`PayPal payout successful - Batch ID: ${payoutBatchId}, Status: ${payoutStatus}`);
+      this.logger.log(
+        `PayPal payout successful - Batch ID: ${payoutBatchId}, Status: ${payoutStatus}`,
+      );
 
       return {
         success: true,
         payoutBatchId,
         status: payoutStatus,
-        message: 'Payout processed successfully',
+        message: "Payout processed successfully",
       };
     } catch (error: any) {
-      this.logger.error(`Failed to process PayPal payout: ${error.message || error}`);
-      
+      this.logger.error(
+        `Failed to process PayPal payout: ${error.message || error}`,
+      );
+
       if (axios.isAxiosError(error)) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.details?.[0]?.issue ||
-        error?.response?.data?.details?.[0]?.description ||
-        error?.message ||
-        'Failed to process payout';
+        const errorMessage =
+          error?.response?.data?.message ||
+          error?.response?.data?.details?.[0]?.issue ||
+          error?.response?.data?.details?.[0]?.description ||
+          error?.message ||
+          "Failed to process payout";
+
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
 
       return {
         success: false,
-        message: errorMessage,
-        };
-      }
-      
-      return {
-        success: false,
-        message: error?.message || 'Failed to process payout',
+        message: error?.message || "Failed to process payout",
       };
     }
   }
@@ -375,7 +412,7 @@ export class PaypalService {
   async getPayoutStatus(payoutBatchId: string): Promise<any> {
     try {
       const accessToken = await this.getAccessToken();
-      
+
       const response = await axios.get(
         `${this.baseUrl}/v1/payments/payouts/${payoutBatchId}`,
         {
@@ -390,9 +427,11 @@ export class PaypalService {
         data: response.data,
       };
     } catch (error: any) {
-      this.logger.error(`Failed to get payout status for Batch ID: ${payoutBatchId}`);
+      this.logger.error(
+        `Failed to get payout status for Batch ID: ${payoutBatchId}`,
+      );
       throw new BadRequestException(
-        error?.response?.data?.message || 'Failed to get payout status',
+        error?.response?.data?.message || "Failed to get payout status",
       );
     }
   }
@@ -405,41 +444,48 @@ export class PaypalService {
   async verifyWebhookSignature(headers: any, body: any): Promise<boolean> {
     try {
       const accessToken = await this.getAccessToken();
-      const webhookId = this.configService.get<string>('PAYPAL_WEBHOOK_ID');
+      const webhookId = this.configService.get<string>("PAYPAL_WEBHOOK_ID");
 
       if (!webhookId) {
-        this.logger.warn('PAYPAL_WEBHOOK_ID not configured. Skipping signature verification (allowed in sandbox/development).');
+        this.logger.warn(
+          "PAYPAL_WEBHOOK_ID not configured. Skipping signature verification (allowed in sandbox/development).",
+        );
         return true; // Allow in development/sandbox without webhook ID
       }
 
       const verifyUrl = `${this.baseUrl}/v1/notifications/verify-webhook-signature`;
 
       const verificationPayload = {
-        auth_algo: headers['paypal-auth-algo'],
-        cert_url: headers['paypal-cert-url'],
-        transmission_id: headers['paypal-transmission-id'],
-        transmission_sig: headers['paypal-transmission-sig'],
-        transmission_time: headers['paypal-transmission-time'],
+        auth_algo: headers["paypal-auth-algo"],
+        cert_url: headers["paypal-cert-url"],
+        transmission_id: headers["paypal-transmission-id"],
+        transmission_sig: headers["paypal-transmission-sig"],
+        transmission_time: headers["paypal-transmission-time"],
         webhook_id: webhookId,
         webhook_event: body,
       };
-      
+
       const response = await axios.post(verifyUrl, verificationPayload, {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
       });
 
-      const isValid = response.data.verification_status === 'SUCCESS';
-      
+      const isValid = response.data.verification_status === "SUCCESS";
+
       if (!isValid) {
-        this.logger.warn(`Webhook signature verification failed: ${response.data.verification_status}`);
+        this.logger.warn(
+          `Webhook signature verification failed: ${response.data.verification_status}`,
+        );
       }
 
       return isValid;
     } catch (error: any) {
-      this.logger.error('Webhook signature verification error:', error.message || error);
+      this.logger.error(
+        "Webhook signature verification error:",
+        error.message || error,
+      );
       // In sandbox, we might not have webhook ID configured, so allow it
       return true;
     }
@@ -451,71 +497,76 @@ export class PaypalService {
    */
   async handleWebhook(payload: any, headers?: any): Promise<any> {
     try {
-      const eventType = payload.event_type || 'unknown';
-      
+      const eventType = payload.event_type || "unknown";
+
       this.logger.log(`Processing PayPal webhook: ${eventType}`);
 
       // Verify webhook signature if headers provided
-      if (headers && headers['paypal-transmission-id']) {
+      if (headers && headers["paypal-transmission-id"]) {
         try {
           await this.verifyWebhookSignature(headers, payload);
         } catch (error: any) {
-          this.logger.warn(`Webhook signature verification error (allowing): ${error.message}`);
+          this.logger.warn(
+            `Webhook signature verification error (allowing): ${error.message}`,
+          );
         }
       }
 
       const resource = payload.resource;
 
       // Handle payout-related webhook events
-      if (eventType?.includes('PAYOUTSBATCH')) {
+      if (eventType?.includes("PAYOUTSBATCH")) {
         const batchId = resource?.batch_header?.payout_batch_id;
         const batchStatus = resource?.batch_header?.batch_status;
-        
+
         return {
           success: true,
-          eventType: 'PAYOUT_BATCH',
+          eventType: "PAYOUT_BATCH",
           payoutBatchId: batchId,
           status: batchStatus,
-          message: 'Payout batch webhook processed',
+          message: "Payout batch webhook processed",
         };
       }
 
       // Handle individual payout item events
-      if (eventType?.includes('PAYOUTS') && eventType?.includes('ITEM')) {
+      if (eventType?.includes("PAYOUTS") && eventType?.includes("ITEM")) {
         const payoutItemId = resource?.payout_item_id;
         const transactionId = resource?.transaction_id;
         const transactionStatus = resource?.transaction_status;
         const payoutBatchId = resource?.payout_batch_id;
-        
+
         return {
           success: true,
-          eventType: 'PAYOUT_ITEM',
+          eventType: "PAYOUT_ITEM",
           payoutItemId: payoutItemId,
           transactionId: transactionId,
           transactionStatus: transactionStatus,
           payoutBatchId: payoutBatchId,
-          message: 'Payout item webhook processed',
+          message: "Payout item webhook processed",
         };
       }
 
       // Handle payment-related webhooks (for orders)
-      if (eventType?.includes('PAYMENT')) {
+      if (eventType?.includes("PAYMENT")) {
         return {
           success: true,
-          eventType: 'PAYMENT',
-          message: 'Payment webhook processed',
+          eventType: "PAYMENT",
+          message: "Payment webhook processed",
         };
       }
 
       this.logger.warn(`Unhandled webhook event type: ${eventType}`);
-      
+
       return {
         success: true,
-        eventType: 'UNKNOWN',
-        message: 'Webhook received but not processed',
+        eventType: "UNKNOWN",
+        message: "Webhook received but not processed",
       };
     } catch (error: any) {
-      this.logger.error('PayPal webhook processing failed:', error.message || error);
+      this.logger.error(
+        "PayPal webhook processing failed:",
+        error.message || error,
+      );
       throw error;
     }
   }
