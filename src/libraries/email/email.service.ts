@@ -4,6 +4,7 @@ import { ConfigurationService } from "../../core/configuration";
 import * as nodemailer from "nodemailer";
 import * as ejs from "ejs";
 import * as path from "path";
+import * as fs from "fs";
 
 type SendOptions = {
   name: string;
@@ -17,13 +18,43 @@ type SendOptions = {
 export class EmailService {
   private logger: Logger;
   private transporter: nodemailer.Transporter;
+  private templateBasePath: string;
 
   constructor(
     private loggerService: LoggerService,
     private configurationService: ConfigurationService,
   ) {
     this.logger = this.loggerService.create({ name: "EmailService" });
+    this.templateBasePath = this.resolveTemplatesPath();
     this.initializeTransporter();
+  }
+
+  private resolveTemplatesPath(): string {
+    // Try multiple possible template locations
+    const possiblePaths = [
+      // Production Docker: templates at app root
+      path.join(process.cwd(), "templates"),
+      // Alternative: /app/templates directly
+      "/app/templates",
+      // Development: relative to project root
+      path.resolve(__dirname, "../../../templates"),
+      // Development: relative to dist folder
+      path.resolve(__dirname, "../../../../templates"),
+    ];
+
+    for (const templatePath of possiblePaths) {
+      if (fs.existsSync(templatePath)) {
+        this.logger.log(`Using template path: ${templatePath}`);
+        return templatePath;
+      }
+    }
+
+    // Fallback to default
+    const defaultPath = path.join(process.cwd(), "templates");
+    this.logger.warn(
+      `No template directory found, using default: ${defaultPath}`,
+    );
+    return defaultPath;
   }
 
   private initializeTransporter() {
@@ -70,14 +101,8 @@ export class EmailService {
 
   async send(options: SendOptions): Promise<void> {
     try {
-      // const templatePath = path.join(
-      //   __dirname,
-      //   './templates/',
-      //   `${options.template}.ejs`,
-      // );
       const templatePath = path.join(
-        process.cwd(),
-        "templates",
+        this.templateBasePath,
         `${options.template}.ejs`,
       );
       const html = await ejs.renderFile(templatePath, options.variables);

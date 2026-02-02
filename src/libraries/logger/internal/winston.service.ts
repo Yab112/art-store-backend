@@ -19,7 +19,6 @@ export class WinstonService {
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.colorize(),
-            winston.format.simple(),
             winston.format.printf(
               ({ timestamp, level, message, context, ...meta }) => {
                 const contextStr = context ? `[${context}]` : "";
