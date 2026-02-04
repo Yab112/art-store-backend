@@ -70,7 +70,7 @@ export class AuthGuard implements CanActivate {
       } catch (error) {
         // Ignore auth errors for public routes - they don't need authentication
         this.logger.debug(
-          `Public route - authentication optional, error ignored: ${error.message}`,
+          `Public route - authentication optional, error ignored: ${error?.message || error}`,
         );
       }
       // Always allow access to public routes, even if session retrieval fails
