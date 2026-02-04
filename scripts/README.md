@@ -2,9 +2,13 @@
 
 ## Overview
 
-This directory contains scripts for generating, exporting, and validating Swagger/OpenAPI documentation for the Art Gallery API.
+This directory contains scripts for:
+1. Generating, exporting, and validating Swagger/OpenAPI documentation
+2. Testing blog access permissions and authentication
 
 ## Available Scripts
+
+### Swagger Documentation Scripts
 
 ### Generate Swagger Documentation
 
@@ -103,3 +107,91 @@ If the script fails:
 2. Check that Prisma client is generated: `pnpm prisma:generate`
 3. Verify TypeScript compiles: `pnpm type-check`
 4. Check for missing Swagger decorators on controllers/DTOs
+
+---
+
+## Blog Access Test Script
+
+### `test-blog-access.sh`
+
+Tests that blog endpoints are properly configured for public and authenticated access.
+
+#### What it tests:
+- ✅ Public GET endpoints are accessible without authentication
+- ✅ Protected POST/PATCH/DELETE endpoints require authentication
+
+#### Usage:
+
+```bash
+# Test against local server (default: http://localhost:3099)
+./scripts/test-blog-access.sh
+
+# Test against custom URL
+BASE_URL=http://your-server:3099 ./scripts/test-blog-access.sh
+
+# Test against production
+BASE_URL=https://your-domain.com ./scripts/test-blog-access.sh
+```
+
+#### Expected Output:
+
+```
+======================================
+Blog Access Test Script
+======================================
+Base URL: http://localhost:3099
+API Base: http://localhost:3099/api/blog
+
+======================================
+Testing Public Endpoints (No Auth)
+======================================
+
+Test 1: GET /api/blog (list all blogs)... PASS (HTTP 200)
+Test 2: GET /api/blog/published (list published)... PASS (HTTP 200)
+
+======================================
+Testing Protected Endpoints (No Auth)
+======================================
+
+Test 3: POST /api/blog (create - should require auth)... PASS (HTTP 401)
+Test 4: PATCH /api/blog/:id (update - should require auth)... PASS (HTTP 401)
+Test 5: DELETE /api/blog/:id (delete - should require auth)... PASS (HTTP 401)
+Test 6: POST /api/blog/:id/vote (vote - should require auth)... PASS (HTTP 401)
+Test 7: POST /api/blog/:id/comments (comment - should require auth)... PASS (HTTP 401)
+Test 8: POST /api/blog/:id/share (share - should require auth)... PASS (HTTP 401)
+
+======================================
+Test Results
+======================================
+Total Tests: 8
+Passed: 8
+Failed: 0
+
+✓ All tests passed!
+
+Blog access is configured correctly:
+- Public endpoints are accessible without authentication
+- Protected endpoints require authentication
+```
+
+#### Prerequisites:
+
+- Server must be running
+- `curl` must be installed
+- Bash shell
+
+#### Troubleshooting:
+
+**Test fails with "Connection refused":**
+- Ensure server is running: `npm run start:dev`
+- Check the URL is correct
+
+**Public endpoint tests fail with 401:**
+- Check `@Public()` decorator is applied to GET endpoints
+- Verify AuthGuard respects public routes
+- Check server logs for errors
+
+**Protected endpoint tests fail with 200 instead of 401:**
+- Check `@UseGuards(AuthGuard)` is applied to action endpoints
+- Verify `@Public()` decorator is NOT on protected endpoints
+- This is a security issue - endpoints should require auth
