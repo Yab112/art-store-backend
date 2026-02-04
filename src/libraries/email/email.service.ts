@@ -35,6 +35,7 @@ export class EmailService {
       if (!fs.existsSync(templatesDir)) {
         this.logger.error(`Templates directory not found at: ${templatesDir}`);
         this.logger.error(`Current working directory: ${process.cwd()}`);
+        // Don't throw - allow app to start for diagnostics. Email sending will fail with detailed error.
         return;
       }
 

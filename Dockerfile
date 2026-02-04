@@ -35,6 +35,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/templates ./templates
 # Verify templates were copied to runtime image and fail build if not found
 RUN ls -la templates/ && echo "Templates available in runtime image"
-RUN ls -la templates/*.ejs | head -5 && echo "Template files are readable"
+# Verify at least some .ejs template files exist
+RUN test -n "$(ls -A templates/*.ejs 2>/dev/null)" && ls -la templates/*.ejs | head -5 && echo "Template files are readable"
 EXPOSE 3000
 CMD ["node", "dist/src/main"]
