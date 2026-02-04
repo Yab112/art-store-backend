@@ -70,7 +70,6 @@ export class BlogController {
 
   @Get()
   @Public()
-  @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Get all blog posts with pagination and filters" })
   @ApiResponse({
     status: 200,
@@ -78,22 +77,13 @@ export class BlogController {
     type: BlogPostListResponseDto,
   })
   async findAll(@Query() query: BlogPostQueryDto, @Request() req: any) {
-    // For public routes, AuthGuard sets req.user if authenticated, but doesn't throw if not
-    // Try to get user from request (set by AuthGuard for public routes with session)
+    // Public route - no auth guard, so req.user will be undefined for unauthenticated users
     const userId = req.user?.id;
 
-    // Explicit logging to see what's happening
-    console.log("[BlogController] req.user:", req.user);
-    console.log("[BlogController] req.user?.id:", req.user?.id);
-    console.log("[BlogController] query.authorId:", query.authorId);
-    console.log("[BlogController] query.status:", query.status);
     this.logger.debug(
       `Blog findAll - authorId: ${query.authorId}, userId: ${userId}, status: ${query.status}`,
     );
 
-    // If authorId is provided, this might be "My Blogs" - check if user is authenticated
-    // If user is authenticated and authorId matches, allow status filtering
-    // Otherwise, only show APPROVED and published posts
     return this.blogService.findAll(query, userId);
   }
 
