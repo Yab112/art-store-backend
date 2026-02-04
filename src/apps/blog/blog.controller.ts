@@ -36,7 +36,6 @@ import {
 } from "./dto";
 import { AuthGuard } from "../../core/guards/auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { Public } from "../../core/decorators/public.decorator";
 
 @ApiTags("Blog Posts")
 @Controller("blog")
@@ -69,36 +68,19 @@ export class BlogController {
   }
 
   @Get()
-  @Public()
-  @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Get all blog posts with pagination and filters" })
   @ApiResponse({
     status: 200,
     description: "Blog posts retrieved successfully",
     type: BlogPostListResponseDto,
   })
-  async findAll(@Query() query: BlogPostQueryDto, @Request() req: any) {
-    // For public routes, AuthGuard sets req.user if authenticated, but doesn't throw if not
-    // Try to get user from request (set by AuthGuard for public routes with session)
-    const userId = req.user?.id;
-
-    // Explicit logging to see what's happening
-    console.log("[BlogController] req.user:", req.user);
-    console.log("[BlogController] req.user?.id:", req.user?.id);
-    console.log("[BlogController] query.authorId:", query.authorId);
-    console.log("[BlogController] query.status:", query.status);
-    this.logger.debug(
-      `Blog findAll - authorId: ${query.authorId}, userId: ${userId}, status: ${query.status}`,
-    );
-
-    // If authorId is provided, this might be "My Blogs" - check if user is authenticated
-    // If user is authenticated and authorId matches, allow status filtering
-    // Otherwise, only show APPROVED and published posts
-    return this.blogService.findAll(query, userId);
+  async findAll(@Query() query: BlogPostQueryDto) {
+    // Public endpoint - no authentication required
+    // Only shows APPROVED and published posts
+    return this.blogService.findAll(query);
   }
 
   @Get("published")
-  @Public()
   @ApiOperation({ summary: "Get all published blog posts" })
   @ApiResponse({
     status: 200,
@@ -110,7 +92,6 @@ export class BlogController {
   }
 
   @Get(":id")
-  @Public()
   @ApiOperation({ summary: "Get a blog post by ID or slug" })
   @ApiResponse({
     status: 200,
@@ -245,7 +226,6 @@ export class BlogController {
   }
 
   @Get(":id/comments")
-  @Public()
   @ApiOperation({ summary: "Get all comments for a blog post" })
   @ApiResponse({ status: 200, description: "Comments retrieved successfully" })
   async getComments(
@@ -324,7 +304,6 @@ export class BlogController {
   }
 
   @Get(":id/share-stats")
-  @Public()
   @ApiOperation({ summary: "Get share statistics for a blog post" })
   @ApiResponse({ status: 200, description: "Share statistics retrieved" })
   async getShareStats(@Param("id") blogPostId: string) {
