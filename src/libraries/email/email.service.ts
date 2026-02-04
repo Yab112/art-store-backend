@@ -25,6 +25,27 @@ export class EmailService {
   ) {
     this.logger = this.loggerService.create({ name: "EmailService" });
     this.initializeTransporter();
+    this.verifyTemplatesDirectory();
+  }
+
+  private verifyTemplatesDirectory() {
+    try {
+      const templatesDir = path.join(process.cwd(), "templates");
+      
+      if (!fs.existsSync(templatesDir)) {
+        this.logger.error(`Templates directory not found at: ${templatesDir}`);
+        this.logger.error(`Current working directory: ${process.cwd()}`);
+        return;
+      }
+      
+      const files = fs.readdirSync(templatesDir);
+      const ejsFiles = files.filter(f => f.endsWith('.ejs'));
+      
+      this.logger.success(`Templates directory found with ${ejsFiles.length} templates`);
+      this.logger.debug(`Available templates: ${ejsFiles.join(", ")}`);
+    } catch (error) {
+      this.logger.error(`Error verifying templates directory: ${error.message}`);
+    }
   }
 
   private initializeTransporter() {
