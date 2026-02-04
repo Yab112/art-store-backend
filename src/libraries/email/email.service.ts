@@ -31,20 +31,24 @@ export class EmailService {
   private verifyTemplatesDirectory() {
     try {
       const templatesDir = path.join(process.cwd(), "templates");
-      
+
       if (!fs.existsSync(templatesDir)) {
         this.logger.error(`Templates directory not found at: ${templatesDir}`);
         this.logger.error(`Current working directory: ${process.cwd()}`);
         return;
       }
-      
+
       const files = fs.readdirSync(templatesDir);
-      const ejsFiles = files.filter(f => f.endsWith('.ejs'));
-      
-      this.logger.success(`Templates directory found with ${ejsFiles.length} templates`);
+      const ejsFiles = files.filter((f) => f.endsWith(".ejs"));
+
+      this.logger.success(
+        `Templates directory found with ${ejsFiles.length} templates`,
+      );
       this.logger.debug(`Available templates: ${ejsFiles.join(", ")}`);
     } catch (error) {
-      this.logger.error(`Error verifying templates directory: ${error.message}`);
+      this.logger.error(
+        `Error verifying templates directory: ${error.message}`,
+      );
     }
   }
 
@@ -97,25 +101,27 @@ export class EmailService {
         "templates",
         `${options.template}.ejs`,
       );
-      
+
       // Check if template exists and provide helpful error message if not
       if (!fs.existsSync(templatePath)) {
         const cwd = process.cwd();
         const templatesDir = path.join(cwd, "templates");
         const templatesDirExists = fs.existsSync(templatesDir);
-        
+
         this.logger.error(`Template not found at: ${templatePath}`);
         this.logger.error(`Current working directory: ${cwd}`);
         this.logger.error(`Templates directory exists: ${templatesDirExists}`);
-        
+
         if (templatesDirExists) {
           const files = fs.readdirSync(templatesDir);
           this.logger.error(`Available templates: ${files.join(", ")}`);
         }
-        
-        throw new Error(`Email template not found: ${options.template}.ejs at ${templatePath}`);
+
+        throw new Error(
+          `Email template not found: ${options.template}.ejs at ${templatePath}`,
+        );
       }
-      
+
       const html = await ejs.renderFile(templatePath, options.variables);
 
       const mailOptions = {

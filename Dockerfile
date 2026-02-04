@@ -33,8 +33,8 @@ RUN npx prisma@6 generate
 COPY --from=builder /app/dist ./dist
 # Copy email templates explicitly
 COPY --from=builder /app/templates ./templates
-# Verify templates were copied to runtime image and check permissions
-RUN ls -la templates/ && echo "Templates available in runtime image" || echo "ERROR: Templates not found!"
-RUN ls -la templates/*.ejs | head -5 && echo "Template files are readable" || echo "ERROR: Cannot read template files!"
+# Verify templates were copied to runtime image and fail build if not found
+RUN ls -la templates/ && echo "Templates available in runtime image"
+RUN ls -la templates/*.ejs | head -5 && echo "Template files are readable"
 EXPOSE 3000
 CMD ["node", "dist/src/main"]
