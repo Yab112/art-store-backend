@@ -11,6 +11,8 @@ COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 # Copy rest of the application
 COPY . .
+# Verify templates directory exists in builder
+RUN ls -la templates/ && echo "Templates copied successfully"
 RUN pnpm run build
 
 # Stage 2: runtime
@@ -29,7 +31,9 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 RUN npx prisma@6 generate
 # Copy built application
 COPY --from=builder /app/dist ./dist
-# Copy email templates
+# Copy email templates explicitly
 COPY --from=builder /app/templates ./templates
+# Verify templates were copied to runtime image
+RUN ls -la templates/ && echo "Templates available in runtime image" || echo "ERROR: Templates not found!"
 EXPOSE 3000
 CMD ["node", "dist/src/main"]

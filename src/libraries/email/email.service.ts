@@ -4,6 +4,7 @@ import { ConfigurationService } from "../../core/configuration";
 import * as nodemailer from "nodemailer";
 import * as ejs from "ejs";
 import * as path from "path";
+import * as fs from "fs";
 
 type SendOptions = {
   name: string;
@@ -70,16 +71,30 @@ export class EmailService {
 
   async send(options: SendOptions): Promise<void> {
     try {
-      // const templatePath = path.join(
-      //   __dirname,
-      //   './templates/',
-      //   `${options.template}.ejs`,
-      // );
       const templatePath = path.join(
         process.cwd(),
         "templates",
         `${options.template}.ejs`,
       );
+      
+      // Check if template exists and provide helpful error message if not
+      if (!fs.existsSync(templatePath)) {
+        const cwd = process.cwd();
+        const templatesDir = path.join(cwd, "templates");
+        const templatesDirExists = fs.existsSync(templatesDir);
+        
+        this.logger.error(`Template not found at: ${templatePath}`);
+        this.logger.error(`Current working directory: ${cwd}`);
+        this.logger.error(`Templates directory exists: ${templatesDirExists}`);
+        
+        if (templatesDirExists) {
+          const files = fs.readdirSync(templatesDir);
+          this.logger.error(`Available templates: ${files.join(", ")}`);
+        }
+        
+        throw new Error(`Email template not found: ${options.template}.ejs at ${templatePath}`);
+      }
+      
       const html = await ejs.renderFile(templatePath, options.variables);
 
       const mailOptions = {
