@@ -69,6 +69,7 @@ export class BlogController {
   }
 
   @Get()
+  @Public()
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Get all blog posts with pagination and filters" })
   @ApiResponse({
@@ -97,6 +98,7 @@ export class BlogController {
   }
 
   @Get("published")
+  @Public()
   @ApiOperation({ summary: "Get all published blog posts" })
   @ApiResponse({
     status: 200,
@@ -108,6 +110,7 @@ export class BlogController {
   }
 
   @Get(":id")
+  @Public()
   @ApiOperation({ summary: "Get a blog post by ID or slug" })
   @ApiResponse({
     status: 200,
@@ -242,6 +245,7 @@ export class BlogController {
   }
 
   @Get(":id/comments")
+  @Public()
   @ApiOperation({ summary: "Get all comments for a blog post" })
   @ApiResponse({ status: 200, description: "Comments retrieved successfully" })
   async getComments(
@@ -320,6 +324,7 @@ export class BlogController {
   }
 
   @Get(":id/share-stats")
+  @Public()
   @ApiOperation({ summary: "Get share statistics for a blog post" })
   @ApiResponse({ status: 200, description: "Share statistics retrieved" })
   async getShareStats(@Param("id") blogPostId: string) {
