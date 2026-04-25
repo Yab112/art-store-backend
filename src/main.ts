@@ -17,25 +17,75 @@ const express = require("express");
 import * as cors from "cors";
 import { join } from "path";
 
+const normalizeOrigin = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+
+  return value.trim().replace(/\/+$/, "");
+};
+
+const appendDomainVariants = (
+  origins: string[],
+  baseOrigin: string | undefined,
+) => {
+  if (!baseOrigin) {
+    return;
+  }
+
+  origins.push(baseOrigin);
+
+  try {
+    const parsed = new URL(baseOrigin);
+    if (parsed.hostname.startsWith("www.")) {
+      origins.push(`${parsed.protocol}//${parsed.hostname.replace(/^www\./, "")}`);
+    } else {
+      origins.push(`${parsed.protocol}//www.${parsed.hostname}`);
+    }
+  } catch {
+    // Ignore malformed env values and only use explicitly provided origin.
+  }
+};
+
 async function bootstrap() {
   const server = express();
+  const configuredFrontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
+  const configuredAdminFrontendUrl = normalizeOrigin(process.env.ADMIN_FRONTEND_URL);
+  const allowlistedOrigins: string[] = [
+    "http://localhost:5173", // Vite dev server (frontend)
+    "http://localhost:3000", // Backend (legacy)
+    "http://localhost:3099", // Backend (current)
+    "http://localhost:3001", // Admin dashboard (Next.js default)
+    "http://localhost:3002", // Admin dashboard (alternative port)
+    "http://13.48.104.231:3000", // EC2 Production
+    "https://art-store-backend-latest.onrender.com",
+    "https://art-store-frontend-flame.vercel.app",
+    "http://51.20.54.47:3100",
+    "http://51.20.54.47:3000",
+    "https://www.arthopia.com.et",
+    "https://arthopia.com.et",
+  ];
+
+  appendDomainVariants(allowlistedOrigins, configuredFrontendUrl);
+  appendDomainVariants(allowlistedOrigins, configuredAdminFrontendUrl);
+
+  const allowedOrigins = new Set(
+    allowlistedOrigins.map((origin) => normalizeOrigin(origin)).filter(Boolean),
+  );
 
   server.use(
     cors({
-      origin: [
-        "http://localhost:5173", // Vite dev server (frontend)
-        "http://localhost:3000", // Backend (legacy)
-        "http://localhost:3099", // Backend (current)
-        "http://localhost:3001", // Admin dashboard (Next.js default)
-        "http://localhost:3002", // Admin dashboard (alternative port)
-        "http://13.48.104.231:3000", // EC2 Production
-        "https://art-store-backend-latest.onrender.com",
-        "https://art-store-frontend-flame.vercel.app",
-        "http://51.20.54.47:3100",
-        "http://51.20.54.47:3000",
-        process.env.FRONTEND_URL || "https://www.arthopia.com.et",
-        process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
-      ].filter(Boolean), // Remove undefined values
+      origin: (origin, callback) => {
+        const requestOrigin = normalizeOrigin(origin);
+
+        // Allow non-browser clients (no Origin header) and known frontend domains.
+        if (!requestOrigin || allowedOrigins.has(requestOrigin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",

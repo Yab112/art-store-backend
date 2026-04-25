@@ -15,22 +15,38 @@ import {
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
-const prisma = new PrismaClient();
+// Seeding requires a direct (non-pooled) connection.
+// PgBouncer (pooler) drops idle connections during long-running seed operations → P1017.
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+});
+
 
 // S3 Base URL
-const S3_BASE_URL = "https://art-gallery-s3-bucket.s3.eu-north-1.amazonaws.com/images";
+const S3_BASE_URL = "https://fam-art-gallery-media.s3.eu-north-1.amazonaws.com/images";
 
 // Real S3 images available
 const S3_IMAGES = [
-  "05cee9bf-0c12-4e23-b22c-7da905c2a12f.jpg",
-  "05f10c53-4016-4ddf-bbaa-2211d13d17c6.webp",
-  "06cc265b-8a9b-4c48-a0d4-22a4d39101b3.jpg",
-  "081d31bf-10f4-47f0-8b25-705a7b8bfb27.png",
-  "0c57e5c8-2031-4d3d-a9d5-11d282adfaaf.jpg",
-  "0ea1e2b3-f87a-4d41-b23f-dca1f13780a2.png",
-  "10b35a8c-17a3-4c09-a3fd-1cf9cd1ed961.png",
-  "23b77d70-3bc4-480e-a288-e4a21adaa68f.jpg",
-  "2c18227f-83a1-4be9-a13d-eb6fd286e349.jpg",
+  "7404a234-a4d2-49b1-9070-5592558bccbe.webp",
+  "875427a8-49c9-4f16-82bd-5146ad4d1c66.jpg",
+  "20ae2568-d15a-4fa2-b583-dcf9ed13b1c3.jpg",
+  "41b7ea88-94a4-4338-9037-61c613aab19e.jpg",
+  "86095bac-1b7e-4699-945a-1873e758db97.jpg",
+  "1d810f79-9386-4a9e-9ca9-fef7df6139cc.jpg",
+  "fc445bbe-751d-425f-a655-a4fd75d78e3d.jpg",
+  "f4af1ba7-8d51-43d7-9d3e-dffd1d8fa9fb.png",
+  "134f72fa-6c78-4512-98cd-b73172bb95d1.jpg",
+  "42513167-5564-4cdf-b26b-01b7000fee97.webp",
+  "21ea634b-f16f-45b8-a9df-f030675c6119.jpg",
+  "12d34e14-a610-4ca1-aeb2-08fe8d7478d1.jpg",
+  "ddc7314d-9878-4398-a4da-65f4c76c92e7.jpg",
+  "eb9b879d-9f69-43b9-9c14-43564be7e7ec.jpg",
+  "9837b6eb-f802-4795-89e6-0a067ac68748.jpg",
+  "e0cbfa35-9046-4246-bce6-9b9f74e21f27.jpg",
+  "3eed1de1-1017-4a8f-b6cc-3282853099ab.jpg",
+  "7ebbee1e-c8f8-40bf-ab27-0480c20a77c1.png",
+  "f80e0cb6-9ac4-4e20-9806-b8dc530d7623.png",
+  "173737fe-788f-4270-9993-ba92c9c636ee.png"
 ];
 
 // Helper to get S3 image URL
@@ -385,10 +401,10 @@ async function main() {
       const userIndex = artworkIndex % users.length;
       const user = users[userIndex];
       const title = artworkTitles[artworkIndex % artworkTitles.length] || `Artwork ${artworkIndex + 1}`;
-      
+
       try {
         const artwork = await prisma.artwork.create({
-        data: {
+          data: {
             title: `${title} - ${category.name}`,
             artist: user.name,
             support: ["Canvas", "Paper", "Wood", "Metal", "Fabric"][i % 5],
@@ -402,7 +418,7 @@ async function main() {
             },
             isFramed: artworkIndex % 2 === 0,
             weight: `${0.5 + (artworkIndex % 5) * 0.3}kg`,
-          handDeliveryAccepted: true,
+            handDeliveryAccepted: true,
             origin: user.location || "Unknown",
             yearOfAcquisition: String(2020 + (artworkIndex % 5)),
             description: `A beautiful ${category.name.toLowerCase()} artwork by ${user.name}. This piece represents the artist's unique style and vision.`,
@@ -411,19 +427,19 @@ async function main() {
             accountHolder: user.name,
             iban: `ET${String(artworkIndex).padStart(22, "0")}`,
             bicCode: `ETBIC${artworkIndex}`,
-          acceptTermsOfSale: true,
-          giveSalesMandate: true,
+            acceptTermsOfSale: true,
+            giveSalesMandate: true,
             photos: [getRandomImage(), getRandomImage()], // Multiple photos
             status: "APPROVED",
             isApproved: true,
             userId: user.id,
-        } as any,
-      });
-      artworks.push(artwork);
+          } as any,
+        });
+        artworks.push(artwork);
         artworkIndex++;
         console.log(`✅ Created artwork: ${artwork.title} (Category: ${category.name})`);
-    } catch (error: any) {
-      if (error.code === "P2002") {
+      } catch (error: any) {
+        if (error.code === "P2002") {
           console.log(`⏭️  Artwork ${artworkIndex + 1} already exists, skipping...`);
           artworkIndex++;
         } else {
@@ -441,7 +457,7 @@ async function main() {
     // Assign this category to 5 artworks (the ones we just created for this category)
     for (let i = 0; i < 5; i++) {
       const artwork = artworks[categoryArtworkIndex];
-    if (artwork) {
+      if (artwork) {
         try {
           await prisma.artworkOnCategory.upsert({
             where: {
@@ -460,25 +476,25 @@ async function main() {
           if (i < 2 && Math.random() > 0.5) {
             const randomCategory = categories[Math.floor(Math.random() * categories.length)];
             if (randomCategory.id !== category.id) {
-          try {
-            await prisma.artworkOnCategory.upsert({
-              where: {
-                artworkId_categoryId: {
-                  artworkId: artwork.id,
-                  categoryId: randomCategory.id,
-                },
-              },
-              update: {},
-              create: {
-                artworkId: artwork.id,
-                categoryId: randomCategory.id,
-              },
+              try {
+                await prisma.artworkOnCategory.upsert({
+                  where: {
+                    artworkId_categoryId: {
+                      artworkId: artwork.id,
+                      categoryId: randomCategory.id,
+                    },
+                  },
+                  update: {},
+                  create: {
+                    artworkId: artwork.id,
+                    categoryId: randomCategory.id,
+                  },
                 });
-          } catch (error: any) {
-            if (error.code !== "P2002") throw error;
+              } catch (error: any) {
+                if (error.code !== "P2002") throw error;
+              }
+            }
           }
-        }
-      }
         } catch (error: any) {
           if (error.code !== "P2002") throw error;
         }
@@ -502,26 +518,26 @@ async function main() {
     const numCollections = 2 + (i % 2); // 2 or 3 collections per artist
     for (let j = 0; j < numCollections; j++) {
       const collectionName = collectionNames[(i * 2 + j) % collectionNames.length] || `Collection ${i + 1}-${j + 1}`;
-    try {
-      const collection = await prisma.collection.create({
-        data: {
+      try {
+        const collection = await prisma.collection.create({
+          data: {
             name: `${collectionName} - ${users[i].name}`,
             description: `A curated collection of artworks by ${users[i].name}`,
             coverImage: getRandomImage(),
             visibility: j % 2 === 0 ? "public" : "private",
-          createdBy: users[i].id,
-        },
-      });
-      collections.push(collection);
+            createdBy: users[i].id,
+          },
+        });
+        collections.push(collection);
         console.log(`✅ Created collection: ${collection.name}`);
-    } catch (error: any) {
-      if (error.code === "P2002") {
+      } catch (error: any) {
+        if (error.code === "P2002") {
           console.log(`⏭️  Collection ${i + 1}-${j + 1} already exists, skipping...`);
-      } else {
-        throw error;
+        } else {
+          throw error;
+        }
       }
     }
-  }
   }
 
   // 7. Add Artworks to Collections
@@ -531,29 +547,29 @@ async function main() {
     // Add 3-5 artworks to each collection
     const numArtworks = 3 + Math.floor(Math.random() * 3);
     const userArtworks = artworks.filter(a => a.userId === collection.createdBy);
-    
+
     for (let i = 0; i < numArtworks && i < userArtworks.length; i++) {
       const artwork = userArtworks[i];
       if (artwork) {
-    try {
-      await prisma.collectionOnArtwork.upsert({
-        where: {
-          collectionId_artworkId: {
+        try {
+          await prisma.collectionOnArtwork.upsert({
+            where: {
+              collectionId_artworkId: {
                 collectionId: collection.id,
                 artworkId: artwork.id,
-          },
-        },
-        update: {},
-        create: {
+              },
+            },
+            update: {},
+            create: {
               collectionId: collection.id,
               artworkId: artwork.id,
-        },
-      });
+            },
+          });
           console.log(`✅ Added artwork "${artwork.title}" to collection "${collection.name}"`);
-    } catch (error: any) {
-      if (error.code !== "P2002") throw error;
-    }
-  }
+        } catch (error: any) {
+          if (error.code !== "P2002") throw error;
+        }
+      }
     }
     collectionIndex++;
   }
@@ -567,31 +583,31 @@ async function main() {
     // Add some views
     for (let j = 0; j < 5 + Math.floor(Math.random() * 10); j++) {
       const randomUser = users[Math.floor(Math.random() * users.length)];
-    try {
+      try {
         await prisma.interaction.create({
-        data: {
+          data: {
             artworkId: artwork.id,
             userId: randomUser.id,
             type: "view",
-        },
-      });
-    } catch (error: any) {
+          },
+        });
+      } catch (error: any) {
         // Ignore duplicates
+      }
     }
-  }
 
     // Add some likes
     for (let j = 0; j < 2 + Math.floor(Math.random() * 5); j++) {
       const randomUser = users[Math.floor(Math.random() * users.length)];
-    try {
-      await prisma.interaction.create({
-        data: {
+      try {
+        await prisma.interaction.create({
+          data: {
             artworkId: artwork.id,
             userId: randomUser.id,
             type: "LIKE",
-        },
-      });
-    } catch (error: any) {
+          },
+        });
+      } catch (error: any) {
         // Ignore duplicates
       }
     }
@@ -625,13 +641,122 @@ async function main() {
     }
   }
 
+  // 10. Seed Blog Posts
+  console.log("\n📝 Seeding Blog Posts...");
+  const blogPosts = [];
+  const blogTopics = [
+    {
+      title: "The Evolution of Digital Art",
+      content: "Digital art has come a long way since its inception. From early pixel art to modern complex 3D renders, technology has expanded the horizons of creative expression. In this post, we explore the key milestones that shaped the digital art landscape we see today, from the first computer-generated images in the 1960s to the current boom in generative AI and immersive VR installations. We analyze how artists like Vera Molnár paved the way for today's digital pioneers.",
+    },
+    {
+      title: "Sustainable Practices in Contemporary Sculpture",
+      content: "As the world becomes more environmentally conscious, artists are also shifting towards sustainable materials. Using recycled metal, biodegradable polymers, and found objects, sculptors are creating meaningful art that respects our planet. This movement, often termed 'Eco-Art' or 'Environmental Art', challenges the traditional notion of permanent, resource-heavy monuments. We look at artists who use plastic waste from the ocean to create large-scale installations that serve as both art and activism.",
+    },
+    {
+      title: "Photography: Capturing the Soul of the City",
+      content: "Street photography is more than just taking pictures of buildings. It's about capturing the fleeting moments of human interaction, the play of light in narrow alleys, and the raw emotion of urban life. Through the lens of street photography, we see the unvarnished reality of the human condition. In this article, we provide 10 essential tips for budding street photographers, from mastering the 'decisive moment' to choosing the right prime lens for discreet shooting in crowded markets.",
+    },
+    {
+      title: "Color Theory for Beginners: Beyond the Rainbow",
+      content: "Understanding color is fundamental for any artist. Whether you are a painter or a graphic designer, knowing how colors interact can significantly impact the mood and clarity of your work. We move beyond the primary and secondary colors to explore tertiary hues, complementary harmonies, and the psychological impact of warm versus cool tones. Learn how a simple shift in saturation can change a piece from energetic and vibrant to somber and reflective.",
+    },
+    {
+      title: "Behind the Canvas: An Interview with Alexandra Monet",
+      content: "We sat down with one of our most popular artists to discuss her inspiration, her daily routine, and her upcoming collection. Alexandra shares how her upbringing in France influenced her impressionist style and why she prefers working with palette knives over brushes. 'Art is a conversation with the subconscious,' she says. She discusses her creative block during the pandemic and how she rediscovered her passion through abstract expressionism.",
+    },
+    {
+      title: "The Rise of AI-Generated Art: Threat or Tool?",
+      content: "Artificial Intelligence is shaking the foundation of the art world. With tools like Midjourney and DALL-E, anyone can generate complex images from simple text prompts. But what does this mean for human artists? We explore the ethical implications of copyright, the 'soul' of machine-made art, and how professional illustrators are integrating AI into their workflows to speed up conceptualization without losing their unique touch.",
+    },
+    {
+      title: "How to Build an Art Collection on a Budget",
+      content: "Collecting art isn't just for millionaires. With the rise of online galleries and local art fairs, anyone can start their own collection. This guide covers how to spot rising talent, the benefits of buying limited edition prints, and why visiting MFA graduate shows is a secret weapon for savvy collectors. We also discuss the importance of framing and lighting to make even the most affordable pieces look like museum-quality acquisitions.",
+    },
+    {
+      title: "The Silent Language of Abstract Expressionism",
+      content: "Abstract art often leaves viewers asking, 'What does it mean?' Abstract Expressionism, which emerged in post-WWII New York, isn't about representing objects but about expressing raw emotion through gesture, color, and texture. From Jackson Pollock's drip paintings to Mark Rothko's color fields, we decode the visual language of the movement and explain why these works continue to command record prices at auction today.",
+    },
+    {
+      title: "The Art of Curation: Telling a Story in a Gallery",
+      content: "What makes a gallery show successful? It's not just about hanging beautiful pictures on a wall. Curation is the art of storytelling. A good curator creates a narrative flow, considers the dialogue between different pieces, and uses white space as a breathing room for the viewer. We interview a leading curator from the Tate Modern to learn the secrets of layout, lighting, and cataloging for a world-class exhibition.",
+    },
+    {
+      title: "Restoration: Saving Masterpieces from the Brackets of Time",
+      content: "Art restoration is a delicate balance of science and craftsmanship. When a centuries-old oil painting begins to flake or a marble statue loses its luster, restorers step in. Using infrared reflectography and chemical analysis, they identify original pigments and carefully remove layers of dirt and non-original varnish. We take a look inside a world-renowned restoration lab to see how they are currently working on a 17th-century masterpiece.",
+    },
+    {
+      title: "Urban Art: From Vandalism to Mainstream Museum Pieces",
+      content: "Street art has undergone a radical transformation. Once dismissed as graffiti or vandalism, it is now celebrated in major museums and sold for millions at Sotheby's. Artists like Banksy and Shepard Fairey have blurred the lines between high and low culture. We investigate how urban art has become a powerful voice for social justice and how cities are now commissioning murals to revitalize neglected neighborhoods.",
+    },
+    {
+      title: "The Psychology of Surrealism: Dreaming with Open Eyes",
+      content: "Surrealism was more than an art style; it was a revolution of the mind. Influenced by Freud's theories of the subconscious, artists like Salvador Dalí and René Magritte sought to liberate the imagination from the constraints of logic. We explore the symbolism of melting clocks, floating apples, and disjointed landscapes, and how these dreamlike images continue to influence modern cinema and fashion design.",
+    }
+  ];
+
+  for (let i = 0; i < blogTopics.length; i++) {
+    const author = users[i % users.length];
+    const topic = blogTopics[i];
+    const slug = topic.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+
+    try {
+      const post = await prisma.blogPost.create({
+        data: {
+          title: topic.title,
+          slug: `${slug}-${Date.now()}`,
+          content: topic.content,
+          excerpt: topic.content.substring(0, 100) + "...",
+          featuredImage: getRandomImage(),
+          status: "APPROVED",
+          published: true,
+          publishedAt: new Date(),
+          authorId: author.id,
+          views: Math.floor(Math.random() * 500),
+          likes: Math.floor(Math.random() * 50),
+          shares: Math.floor(Math.random() * 20),
+        },
+      });
+      blogPosts.push(post);
+      console.log(`✅ Created blog post: ${post.title}`);
+
+      // Seed some comments for this post
+      for (let j = 0; j < 3; j++) {
+        const commenter = users[(i + j + 5) % users.length];
+        await prisma.blogComment.create({
+          data: {
+            blogPostId: post.id,
+            userId: commenter.id,
+            content: `Great read! ${j === 0 ? "Very insightful." : j === 1 ? "I totally agree with these points." : "Thanks for sharing this."}`,
+          },
+        });
+      }
+
+      // Seed some votes
+      for (let j = 0; j < 5; j++) {
+        const voter = users[(i + j + 10) % users.length];
+        await prisma.blogVote.create({
+          data: {
+            blogPostId: post.id,
+            userId: voter.id,
+            type: j % 4 === 0 ? "DISLIKE" : "LIKE",
+          },
+        });
+      }
+    } catch (error: any) {
+      console.log(`⏭️  Blog post ${topic.title} failed or exists, skipping...`);
+    }
+  }
+
   console.log("\n✅ Seeding completed successfully!");
+
   console.log(`\n📊 Summary:`);
   console.log(`   - ${talentTypes.length} Talent Types`);
   console.log(`   - ${categories.length} Categories`);
   console.log(`   - ${users.length} Artists`);
   console.log(`   - ${artworks.length} Artworks (${Math.floor(artworks.length / categories.length)} per category)`);
   console.log(`   - ${collections.length} Collections`);
+  console.log(`   - ${blogPosts.length} Blog Posts with comments and votes`);
   console.log(`   - Artists with similar talent types for testing similar artists feature`);
   console.log(`   - Artworks with similar categories for testing similar artworks feature`);
 }
