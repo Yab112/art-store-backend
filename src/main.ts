@@ -57,11 +57,9 @@ async function bootstrap() {
     "http://localhost:3099", // Backend (current)
     "http://localhost:3001", // Admin dashboard (Next.js default)
     "http://localhost:3002", // Admin dashboard (alternative port)
-    "http://13.48.104.231:3000", // EC2 Production
-    "https://art-store-backend-latest.onrender.com",
+    "http://13.48.104.231:3000", // EC2 Production (legacy)
+    "https://art-store-backend-x1bi.onrender.com", // Render backend
     "https://art-store-frontend-flame.vercel.app",
-    "http://51.20.54.47:3100",
-    "http://51.20.54.47:3000",
     "https://www.arthopia.com.et",
     "https://arthopia.com.et",
   ];

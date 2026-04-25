@@ -446,16 +446,18 @@ export const auth = betterAuth({
   trustedOrigins: [
     process.env.FRONTEND_URL, // From environment
     process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
-    "http://localhost:3000", // Backend (legacy)
-    "http://localhost:3099", // Backend (current)
-    "http://localhost:3001", // Admin dashboard (Next.js default)
-    "http://localhost:3002", // Admin dashboard (alternative port)
-    "http://localhost:5173", // Vite dev server (frontend - art-gallery)
-    "http://localhost:5174", // Vite dev server (alternative)
-    "http://51.20.54.47:3099", // Production backend URL (EC2)
+    "http://localhost:3000",
+    "http://localhost:3099",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://13.48.104.231:3000", // EC2 (legacy)
+    "https://art-store-backend-x1bi.onrender.com", // ← Render backend (self)
     "https://art-store-frontend-flame.vercel.app",
-    "https://www.arthopia.com.et", // Production frontend URL
-  ].filter(Boolean), // Remove undefined values
+    "https://www.arthopia.com.et", // Production frontend
+    "https://arthopia.com.et",
+  ].filter(Boolean),
 
   // Rate limiting
   rateLimit: {
@@ -614,6 +616,7 @@ export const auth = betterAuth({
       "http://localhost:5174",
       "https://art-store-frontend-flame.vercel.app",
       "https://www.arthopia.com.et",
+      "https://arthopia.com.et",
     ].filter(Boolean),
     // Dynamically set cookie attributes based on baseURL protocol
     // CRITICAL: secure: true requires HTTPS, sameSite: "none" requires secure: true

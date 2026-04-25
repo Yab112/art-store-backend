@@ -22,38 +22,26 @@ const prisma = new PrismaClient({
 });
 
 
-// S3 Base URL
-const S3_BASE_URL = "https://fam-art-gallery-media.s3.eu-north-1.amazonaws.com/images";
+// S3 Base URL (kept for reference — migrated to Cloudinary)
+// const S3_BASE_URL = "https://fam-art-gallery-media.s3.eu-north-1.amazonaws.com/images";
 
-// Real S3 images available
-const S3_IMAGES = [
-  "7404a234-a4d2-49b1-9070-5592558bccbe.webp",
-  "875427a8-49c9-4f16-82bd-5146ad4d1c66.jpg",
-  "20ae2568-d15a-4fa2-b583-dcf9ed13b1c3.jpg",
-  "41b7ea88-94a4-4338-9037-61c613aab19e.jpg",
-  "86095bac-1b7e-4699-945a-1873e758db97.jpg",
-  "1d810f79-9386-4a9e-9ca9-fef7df6139cc.jpg",
-  "fc445bbe-751d-425f-a655-a4fd75d78e3d.jpg",
-  "f4af1ba7-8d51-43d7-9d3e-dffd1d8fa9fb.png",
-  "134f72fa-6c78-4512-98cd-b73172bb95d1.jpg",
-  "42513167-5564-4cdf-b26b-01b7000fee97.webp",
-  "21ea634b-f16f-45b8-a9df-f030675c6119.jpg",
-  "12d34e14-a610-4ca1-aeb2-08fe8d7478d1.jpg",
-  "ddc7314d-9878-4398-a4da-65f4c76c92e7.jpg",
-  "eb9b879d-9f69-43b9-9c14-43564be7e7ec.jpg",
-  "9837b6eb-f802-4795-89e6-0a067ac68748.jpg",
-  "e0cbfa35-9046-4246-bce6-9b9f74e21f27.jpg",
-  "3eed1de1-1017-4a8f-b6cc-3282853099ab.jpg",
-  "7ebbee1e-c8f8-40bf-ab27-0480c20a77c1.png",
-  "f80e0cb6-9ac4-4e20-9806-b8dc530d7623.png",
-  "173737fe-788f-4270-9993-ba92c9c636ee.png"
+// Use picsum.photos as seed image source — always-on, no account needed.
+// Format: https://picsum.photos/seed/<seed-string>/800/600
+const PICSUM_SEEDS = [
+  "art1", "art2", "art3", "art4", "art5",
+  "gallery1", "gallery2", "gallery3", "gallery4", "gallery5",
+  "paint1", "paint2", "paint3", "paint4", "paint5",
+  "photo1", "photo2", "photo3", "photo4", "photo5",
 ];
 
-// Helper to get S3 image URL
-const getImageUrl = (filename: string) => `${S3_BASE_URL}/${filename}`;
+// Helper to get a deterministic picsum image URL
+const getImageUrl = (seed: string) =>
+  `https://picsum.photos/seed/${seed}/800/600`;
 
-// Helper to get random S3 image
-const getRandomImage = () => getImageUrl(S3_IMAGES[Math.floor(Math.random() * S3_IMAGES.length)]);
+// Helper to get random picsum image
+const getRandomImage = () =>
+  getImageUrl(PICSUM_SEEDS[Math.floor(Math.random() * PICSUM_SEEDS.length)]);
+
 
 async function main() {
   console.log("🌱 Seeding database with comprehensive data...");
@@ -720,31 +708,39 @@ async function main() {
       blogPosts.push(post);
       console.log(`✅ Created blog post: ${post.title}`);
 
-      // Seed some comments for this post
+      // Seed some comments for this post — isolated so errors don't kill the post
       for (let j = 0; j < 3; j++) {
         const commenter = users[(i + j + 5) % users.length];
-        await prisma.blogComment.create({
-          data: {
-            blogPostId: post.id,
-            userId: commenter.id,
-            content: `Great read! ${j === 0 ? "Very insightful." : j === 1 ? "I totally agree with these points." : "Thanks for sharing this."}`,
-          },
-        });
+        try {
+          await prisma.blogComment.create({
+            data: {
+              blogPostId: post.id,
+              userId: commenter.id,
+              content: `Great read! ${j === 0 ? "Very insightful." : j === 1 ? "I totally agree with these points." : "Thanks for sharing this."}`,
+            },
+          });
+        } catch (_commentErr: any) {
+          console.log(`⚠️  Comment ${j + 1} for "${post.title}" skipped`);
+        }
       }
 
-      // Seed some votes
+      // Seed some votes — isolated so unique-constraint violations don't kill the post
       for (let j = 0; j < 5; j++) {
         const voter = users[(i + j + 10) % users.length];
-        await prisma.blogVote.create({
-          data: {
-            blogPostId: post.id,
-            userId: voter.id,
-            type: j % 4 === 0 ? "DISLIKE" : "LIKE",
-          },
-        });
+        try {
+          await prisma.blogVote.create({
+            data: {
+              blogPostId: post.id,
+              userId: voter.id,
+              type: j % 4 === 0 ? "DISLIKE" : "LIKE",
+            },
+          });
+        } catch (_voteErr: any) {
+          // Silently skip duplicate votes (unique constraint on blogPostId+userId)
+        }
       }
     } catch (error: any) {
-      console.log(`⏭️  Blog post ${topic.title} failed or exists, skipping...`);
+      console.log(`⏭️  Blog post "${topic.title}" failed: ${error.message}`);
     }
   }
 
