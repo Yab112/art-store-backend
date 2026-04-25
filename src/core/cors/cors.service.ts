@@ -27,7 +27,7 @@ export class CorsService {
       production: {
         origin: [
           clientBaseUrl,
-          "https://art-store-frontend-flame.vercel.app",
+          "https://www.arthopia.com.et/",
           process.env.FRONTEND_URL,
         ].filter(Boolean),
         credentials: true,

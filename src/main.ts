@@ -101,9 +101,7 @@ async function bootstrap() {
     }),
   );
 
-  // CRITICAL FIX: Clean duplicate better-auth.session_token cookies BEFORE Better Auth processes them
-  // When browser has multiple session cookies (old + new), Better Auth picks the first (stale) one
-  // This middleware ensures only the LAST (most recent) session token is sent to Better Auth
+  
   server.use((req, res, next) => {
     if (req.headers.cookie && typeof req.headers.cookie === "string") {
       const cookieHeader = req.headers.cookie;
