@@ -259,12 +259,14 @@ export class ArtworkService {
     categoryId?: string;
     categoryIds?: string[];
     technique?: string;
-    support?: string;
-    origin?: string;
+    support?: string | string[];
+    origin?: string | string[];
     yearOfArtwork?: string;
     minPrice?: number;
     maxPrice?: number;
+    isFramed?: boolean;
     isApproved?: boolean;
+    state?: string | string[];
     sortBy?: "createdAt" | "desiredPrice" | "title" | "artist" | "updatedAt";
     orderBy?: "asc" | "desc";
   }) {
@@ -284,7 +286,9 @@ export class ArtworkService {
         yearOfArtwork,
         minPrice,
         maxPrice,
+        isFramed,
         isApproved,
+        state,
         sortBy = "createdAt",
         orderBy = "desc",
       } = query;
@@ -341,21 +345,50 @@ export class ArtworkService {
       }
 
       if (supportFilter) {
-        where.support = {
-          contains: supportFilter,
-          mode: "insensitive",
-        };
+        if (Array.isArray(supportFilter)) {
+          where.support = {
+            in: supportFilter.flatMap(s => [s, s.toLowerCase(), s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()]),
+          };
+        } else {
+          where.support = {
+            contains: supportFilter,
+            mode: "insensitive",
+          };
+        }
       }
 
       if (origin) {
-        where.origin = {
-          contains: origin,
-          mode: "insensitive",
-        };
+        if (Array.isArray(origin)) {
+          where.origin = {
+            in: origin.flatMap(o => [o, o.toLowerCase(), o.toUpperCase()]),
+          };
+        } else {
+          where.origin = {
+            contains: origin,
+            mode: "insensitive",
+          };
+        }
       }
 
       if (yearOfArtwork) {
         where.yearOfArtwork = yearOfArtwork;
+      }
+
+      if (isFramed !== undefined) {
+        where.isFramed = isFramed;
+      }
+
+      if (state) {
+        if (Array.isArray(state)) {
+          where.state = {
+            in: state.flatMap(s => [s, s.toLowerCase(), s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()]),
+          };
+        } else {
+          where.state = {
+            contains: state,
+            mode: "insensitive",
+          };
+        }
       }
 
       if (minPrice !== undefined || maxPrice !== undefined) {

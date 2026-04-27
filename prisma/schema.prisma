@@ -271,6 +271,14 @@ model Artwork {
   cartItems              CartItem[]
   favorites              Favorite[]
 
+  @@index([status])
+  @@index([isApproved])
+  @@index([artist])
+  @@index([support])
+  @@index([state])
+  @@index([origin])
+  @@index([desiredPrice])
+  @@index([userId])
   @@map("artworks")
 }
 

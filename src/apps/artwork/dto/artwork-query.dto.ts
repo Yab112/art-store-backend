@@ -117,20 +117,34 @@ export class ArtworkQueryDto {
   technique?: string;
 
   @ApiPropertyOptional({
-    description: "Filter by support material",
-    example: "Canvas",
+    description: "Filter by support material (multi-select)",
+    example: ["Canvas", "Paper"],
+    type: [String],
   })
   @IsOptional()
-  @IsString()
-  support?: string;
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value;
+    return typeof value === 'string' ? value.split(',') : [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
+  support?: string[];
 
   @ApiPropertyOptional({
-    description: "Filter by origin country",
-    example: "France",
+    description: "Filter by origin (multi-select)",
+    example: ["Artist", "Gallery"],
+    type: [String],
   })
   @IsOptional()
-  @IsString()
-  origin?: string;
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value;
+    return typeof value === 'string' ? value.split(',') : [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
+  origin?: string[];
 
   @ApiPropertyOptional({
     description: "Filter by year of artwork creation",
@@ -170,6 +184,30 @@ export class ArtworkQueryDto {
   @Type(() => Boolean)
   @IsBoolean()
   isApproved?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Filter by if the artwork is framed",
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true) // Handle string 'true' from query params
+  @IsBoolean()
+  isFramed?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Filter by artwork state/condition (multi-select)",
+    example: ["excellent", "good"],
+    type: [String],
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value;
+    return typeof value === 'string' ? value.split(',') : [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
+  state?: string[];
 
   @ApiPropertyOptional({
     description: "Sort field",

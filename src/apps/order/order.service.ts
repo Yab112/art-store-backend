@@ -351,22 +351,42 @@ export class OrderService {
 
       // Update user earnings and create seller transactions for each artist
       for (const [artistUserId, earnings] of artistEarningsMap.entries()) {
-        // Update user earnings
-        await this.prisma.user.update({
-          where: { id: artistUserId },
-          data: {
-            earning: {
-              increment: new Decimal(earnings),
-            },
-          },
-        });
-        this.logger.log(
-          `[SELLER-EARNING] Updated earnings for artist ${artistUserId}: +${earnings} (Total earning updated)`
-        );
-
-        // Create seller transaction record
-        // This represents the seller receiving money from the sale
         try {
+          // Check if seller already received earnings for this order (idempotency)
+          this.logger.log(`[ORDER-COMPLETE] Checking if artist ${artistUserId} already paid for order ${orderId}...`);
+
+          const existingSellerTx = await this.prisma.transaction.findFirst({
+            where: {
+              sellerId: artistUserId,
+              metadata: {
+                path: ['orderId'],
+                equals: orderId,
+              },
+            },
+          });
+
+          if (existingSellerTx) {
+            this.logger.warn(
+              `[ORDER-COMPLETE] ⚠️ Artist ${artistUserId} already received earnings for order ${orderId} (Transaction: ${existingSellerTx.id}) - skipping duplicate earning.`
+            );
+            continue;
+          }
+
+          // Update user earnings
+          await this.prisma.user.update({
+            where: { id: artistUserId },
+            data: {
+              earning: {
+                increment: new Decimal(earnings),
+              },
+            },
+          });
+          this.logger.log(
+            `[SELLER-EARNING] Updated earnings for artist ${artistUserId}: +${earnings} (Total earning updated)`
+          );
+
+          // Create seller transaction record
+          // This represents the seller receiving money from the sale
           const sellerTransaction = await this.prisma.transaction.create({
             data: {
               sellerId: artistUserId,
@@ -389,11 +409,8 @@ export class OrderService {
         } catch (sellerTxError: any) {
           // Log error but don't fail order completion
           this.logger.error(
-            `[SELLER-TRANSACTION] ❌ Failed to create seller transaction for artist ${artistUserId}:`,
+            `[SELLER-TRANSACTION] ❌ Failed to process earnings/transaction for artist ${artistUserId}:`,
             sellerTxError
-          );
-          this.logger.error(
-            `[SELLER-TRANSACTION] Error: ${sellerTxError?.message || 'Unknown error'}`
           );
         }
       }
@@ -455,7 +472,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      this.logger.error(`Order cancellation failed for order ${orderId}:`, error);
+      this.logger.error(`Order completion failed for order ${orderId}:`, error);
       throw error;
     }
   }
