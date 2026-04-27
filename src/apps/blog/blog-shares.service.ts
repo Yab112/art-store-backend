@@ -45,7 +45,7 @@ export class BlogSharesService {
       });
 
       this.logger.log(
-        `Blog post shared: ${blogPostId} on ${shareDto.platform || "unknown"}`
+        `Blog post shared: ${blogPostId} on ${shareDto.platform || "unknown"}`,
       );
 
       return {
@@ -58,7 +58,7 @@ export class BlogSharesService {
     } catch (error) {
       this.logger.error(
         `Failed to share blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -89,7 +89,7 @@ export class BlogSharesService {
     } catch (error) {
       this.logger.error(
         `Failed to get share stats: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }

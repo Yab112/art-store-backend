@@ -5,9 +5,9 @@ import { Public } from "./core/decorators/public.decorator";
 
 @ApiTags("Health")
 @Controller("health")
-@Public()  
+@Public()
 export class HealthController {
-  private readonly startTime = Date.now(); 
+  private readonly startTime = Date.now();
 
   constructor(private readonly prisma: PrismaService) {}
 

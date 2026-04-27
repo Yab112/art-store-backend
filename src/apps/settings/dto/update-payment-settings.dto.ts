@@ -1,12 +1,12 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsNumber, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { IsOptional, IsNumber, Min, Max } from "class-validator";
+import { Type } from "class-transformer";
 
 export class UpdatePaymentSettingsDto {
   @ApiPropertyOptional({
-    description: 'Minimum withdrawal amount',
+    description: "Minimum withdrawal amount",
     example: 10,
-    minimum: 0
+    minimum: 0,
   })
   @IsOptional()
   @Type(() => Number)
@@ -15,9 +15,9 @@ export class UpdatePaymentSettingsDto {
   minWithdrawalAmount?: number;
 
   @ApiPropertyOptional({
-    description: 'Maximum withdrawal amount (0 = unlimited)',
+    description: "Maximum withdrawal amount (0 = unlimited)",
     example: 10000,
-    minimum: 0
+    minimum: 0,
   })
   @IsOptional()
   @Type(() => Number)
@@ -26,9 +26,9 @@ export class UpdatePaymentSettingsDto {
   maxWithdrawalAmount?: number;
 
   @ApiPropertyOptional({
-    description: 'Payment timeout in minutes',
+    description: "Payment timeout in minutes",
     example: 30,
-    minimum: 1
+    minimum: 1,
   })
   @IsOptional()
   @Type(() => Number)
@@ -36,4 +36,3 @@ export class UpdatePaymentSettingsDto {
   @Min(1)
   paymentTimeoutMinutes?: number;
 }
-

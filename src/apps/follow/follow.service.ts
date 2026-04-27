@@ -3,14 +3,14 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database';
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database";
 import {
   FollowListResponseDto,
   FollowCountsDto,
   FollowStatusDto,
   FollowUserDto,
-} from './dto';
+} from "./dto";
 
 @Injectable()
 export class FollowService {
@@ -25,7 +25,7 @@ export class FollowService {
     try {
       // Prevent users from following themselves
       if (followerId === followingId) {
-        throw new BadRequestException('Cannot follow yourself');
+        throw new BadRequestException("Cannot follow yourself");
       }
 
       // Check if target user exists
@@ -34,7 +34,7 @@ export class FollowService {
       });
 
       if (!targetUser) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       // Check if already following
@@ -48,7 +48,7 @@ export class FollowService {
       });
 
       if (existingFollow) {
-        throw new BadRequestException('Already following this user');
+        throw new BadRequestException("Already following this user");
       }
 
       // Create follow relationship
@@ -65,7 +65,7 @@ export class FollowService {
 
       return {
         success: true,
-        message: 'Successfully followed user',
+        message: "Successfully followed user",
         follow,
       };
     } catch (error) {
@@ -90,7 +90,7 @@ export class FollowService {
       });
 
       if (!existingFollow) {
-        throw new BadRequestException('Not following this user');
+        throw new BadRequestException("Not following this user");
       }
 
       // Delete follow relationship
@@ -103,13 +103,11 @@ export class FollowService {
         },
       });
 
-      this.logger.log(
-        `✅ User ${followerId} unfollowed user ${followingId}`,
-      );
+      this.logger.log(`✅ User ${followerId} unfollowed user ${followingId}`);
 
       return {
         success: true,
-        message: 'Successfully unfollowed user',
+        message: "Successfully unfollowed user",
       };
     } catch (error) {
       this.logger.error(
@@ -165,7 +163,7 @@ export class FollowService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       const skip = (page - 1) * limit;
@@ -189,7 +187,7 @@ export class FollowService {
           },
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         }),
         this.prisma.follow.count({
           where: { followingId: userId },
@@ -272,7 +270,7 @@ export class FollowService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       const skip = (page - 1) * limit;
@@ -296,7 +294,7 @@ export class FollowService {
           },
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         }),
         this.prisma.follow.count({
           where: { followerId: userId },
@@ -477,4 +475,3 @@ export class FollowService {
     }
   }
 }
-

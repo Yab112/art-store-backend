@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { EmailService } from '../../libraries/email';
-import { ConfigurationService } from '../../core/configuration';
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
+import { EmailService } from "../../libraries/email";
+import { ConfigurationService } from "../../core/configuration";
 import {
   PROFILE_EVENTS,
   ProfileUpdatedEvent,
@@ -11,7 +11,7 @@ import {
   EmailChangedEvent,
   PasswordChangedEvent,
   LanguageChangedEvent,
-} from './events';
+} from "./events";
 
 /**
  * Profile Event Subscriber
@@ -40,8 +40,8 @@ export class ProfileEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.email,
-        subject: 'Profile Updated Successfully',
-        template: 'profile-updated',
+        subject: "Profile Updated Successfully",
+        template: "profile-updated",
         variables: {
           userName: event.userName,
           changes: JSON.stringify(event.changes),
@@ -51,7 +51,7 @@ export class ProfileEventSubscriber {
 
       this.logger.log(`Profile update notification sent to ${event.email}`);
     } catch (error) {
-      this.logger.error('Failed to handle profile updated event:', error);
+      this.logger.error("Failed to handle profile updated event:", error);
     }
   }
 
@@ -68,12 +68,12 @@ export class ProfileEventSubscriber {
         await this.emailService.send({
           name: event.userName,
           email: event.email,
-          subject: 'Preferences Updated',
-          template: 'preferences-updated',
+          subject: "Preferences Updated",
+          template: "preferences-updated",
           variables: {
             userName: event.userName,
-            language: event.preferences.language || 'en',
-            timezone: event.preferences.timezone || 'UTC',
+            language: event.preferences.language || "en",
+            timezone: event.preferences.timezone || "UTC",
             updatedAt: event.updatedAt.toISOString(),
           },
         });
@@ -83,7 +83,7 @@ export class ProfileEventSubscriber {
         );
       }
     } catch (error) {
-      this.logger.error('Failed to handle preferences updated event:', error);
+      this.logger.error("Failed to handle preferences updated event:", error);
     }
   }
 
@@ -101,8 +101,8 @@ export class ProfileEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.email,
-        subject: 'Language Preference Updated',
-        template: 'language-changed',
+        subject: "Language Preference Updated",
+        template: "language-changed",
         variables: {
           userName: event.userName,
           newLanguage: event.newLanguage,
@@ -112,7 +112,7 @@ export class ProfileEventSubscriber {
 
       this.logger.log(`Language change notification sent to ${event.email}`);
     } catch (error) {
-      this.logger.error('Failed to handle language changed event:', error);
+      this.logger.error("Failed to handle language changed event:", error);
     }
   }
 
@@ -127,12 +127,12 @@ export class ProfileEventSubscriber {
       );
 
       // Send security alert for security-related changes
-      if (event.settingsType === 'security') {
+      if (event.settingsType === "security") {
         await this.emailService.send({
           name: event.userName,
           email: event.email,
-          subject: 'Security Settings Updated',
-          template: 'security-settings-updated',
+          subject: "Security Settings Updated",
+          template: "security-settings-updated",
           variables: {
             userName: event.userName,
             changes: JSON.stringify(event.changes),
@@ -145,7 +145,7 @@ export class ProfileEventSubscriber {
         );
       }
     } catch (error) {
-      this.logger.error('Failed to handle settings updated event:', error);
+      this.logger.error("Failed to handle settings updated event:", error);
     }
   }
 
@@ -163,8 +163,8 @@ export class ProfileEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.oldEmail,
-        subject: 'Email Address Changed',
-        template: 'email-changed-old',
+        subject: "Email Address Changed",
+        template: "email-changed-old",
         variables: {
           userName: event.userName,
           newEmail: event.newEmail,
@@ -177,8 +177,8 @@ export class ProfileEventSubscriber {
         await this.emailService.send({
           name: event.userName,
           email: event.newEmail,
-          subject: 'Verify Your New Email Address',
-          template: 'email-verification',
+          subject: "Verify Your New Email Address",
+          template: "email-verification",
           variables: {
             userName: event.userName,
             verificationLink: `${this.configurationService.getServerBaseUrl()}/verify-email/${event.userId}`,
@@ -188,7 +188,7 @@ export class ProfileEventSubscriber {
 
       this.logger.log(`Email change notifications sent`);
     } catch (error) {
-      this.logger.error('Failed to handle email changed event:', error);
+      this.logger.error("Failed to handle email changed event:", error);
     }
   }
 
@@ -204,8 +204,8 @@ export class ProfileEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.email,
-        subject: 'Password Changed Successfully',
-        template: 'password-changed',
+        subject: "Password Changed Successfully",
+        template: "password-changed",
         variables: {
           userName: event.userName,
           timestamp: event.timestamp.toISOString(),
@@ -216,7 +216,7 @@ export class ProfileEventSubscriber {
 
       this.logger.log(`Password change alert sent to ${event.email}`);
     } catch (error) {
-      this.logger.error('Failed to handle password changed event:', error);
+      this.logger.error("Failed to handle password changed event:", error);
     }
   }
 
@@ -232,12 +232,12 @@ export class ProfileEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.email,
-        subject: 'Account Deactivated',
-        template: 'account-deactivated',
+        subject: "Account Deactivated",
+        template: "account-deactivated",
         variables: {
           userName: event.userName,
-          reason: event.reason || 'User requested',
-          canReactivate: event.canReactivate ? 'Yes' : 'No',
+          reason: event.reason || "User requested",
+          canReactivate: event.canReactivate ? "Yes" : "No",
           deactivatedAt: event.deactivatedAt.toISOString(),
         },
       });
@@ -250,7 +250,7 @@ export class ProfileEventSubscriber {
       // TODO: Cancel any active subscriptions
       // TODO: Archive user data
     } catch (error) {
-      this.logger.error('Failed to handle account deactivated event:', error);
+      this.logger.error("Failed to handle account deactivated event:", error);
     }
   }
 
@@ -262,13 +262,13 @@ export class ProfileEventSubscriber {
     try {
       // Log analytics, increment view count, etc.
       this.logger.log(
-        `Profile ${event.profileUserId} viewed by ${event.viewerUserId || 'anonymous'}`,
+        `Profile ${event.profileUserId} viewed by ${event.viewerUserId || "anonymous"}`,
       );
 
       // TODO: Store in analytics database
       // TODO: Update profile view count
     } catch (error) {
-      this.logger.error('Failed to handle profile viewed event:', error);
+      this.logger.error("Failed to handle profile viewed event:", error);
     }
   }
 }

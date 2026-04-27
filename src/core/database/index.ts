@@ -1,3 +1,3 @@
-export * from './prisma.module';
-export * from './prisma.service';
-export * from './prisma.repository';
+export * from "./prisma.module";
+export * from "./prisma.service";
+export * from "./prisma.repository";

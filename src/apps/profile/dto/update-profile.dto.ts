@@ -1,10 +1,18 @@
-import { IsString, IsOptional, IsUrl, MaxLength, ValidateIf } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { PROFILE_VALIDATION } from '../constants';
+import {
+  IsString,
+  IsOptional,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from "class-validator";
+import { Transform } from "class-transformer";
+import { PROFILE_VALIDATION } from "../constants";
 
 // Helper to transform empty strings to undefined
 const TransformEmptyToUndefined = () =>
-  Transform(({ value }) => (value === '' || value === null ? undefined : value));
+  Transform(({ value }) =>
+    value === "" || value === null ? undefined : value,
+  );
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -29,12 +37,12 @@ export class UpdateProfileDto {
   @ValidateIf((o) => {
     // Only validate if website has a value (after transformation)
     const value = o.website;
-    return value !== undefined && value !== null && value !== '';
+    return value !== undefined && value !== null && value !== "";
   })
-  @IsUrl({ require_tld: false }, { message: 'Website must be a valid URL' })
+  @IsUrl({ require_tld: false }, { message: "Website must be a valid URL" })
   @ValidateIf((o) => {
     const value = o.website;
-    return value !== undefined && value !== null && value !== '';
+    return value !== undefined && value !== null && value !== "";
   })
   @MaxLength(PROFILE_VALIDATION.WEBSITE_MAX_LENGTH)
   website?: string;

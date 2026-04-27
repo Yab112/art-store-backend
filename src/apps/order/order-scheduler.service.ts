@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../../core/database/prisma.service';
-import { SettingsService } from '../settings/settings.service';
-import { OrderStatus } from '@prisma/client';
+import { Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { PrismaService } from "../../core/database/prisma.service";
+import { SettingsService } from "../settings/settings.service";
+import { OrderStatus } from "@prisma/client";
 
 @Injectable()
 export class OrderSchedulerService {
@@ -21,7 +21,7 @@ export class OrderSchedulerService {
   async cancelExpiredOrders() {
     try {
       const orderSettings = await this.settingsService.getOrderSettingsValues();
-      
+
       // If expiration is disabled (0), skip
       if (orderSettings.orderExpirationHours === 0) {
         return;
@@ -29,7 +29,7 @@ export class OrderSchedulerService {
 
       const expirationTime = new Date();
       expirationTime.setHours(
-        expirationTime.getHours() - orderSettings.orderExpirationHours
+        expirationTime.getHours() - orderSettings.orderExpirationHours,
       );
 
       const expiredOrders = await this.prisma.order.findMany({
@@ -52,12 +52,10 @@ export class OrderSchedulerService {
           },
         });
 
-        this.logger.log(
-          `Cancelled ${expiredOrders.length} expired orders`
-        );
+        this.logger.log(`Cancelled ${expiredOrders.length} expired orders`);
       }
     } catch (error) {
-      this.logger.error('Failed to cancel expired orders:', error);
+      this.logger.error("Failed to cancel expired orders:", error);
     }
   }
 
@@ -69,7 +67,7 @@ export class OrderSchedulerService {
   async autoCancelPendingOrders() {
     try {
       const orderSettings = await this.settingsService.getOrderSettingsValues();
-      
+
       // If auto-cancel is disabled (0), skip
       if (orderSettings.autoCancelPendingOrdersDays === 0) {
         return;
@@ -77,7 +75,7 @@ export class OrderSchedulerService {
 
       const cutoffDate = new Date();
       cutoffDate.setDate(
-        cutoffDate.getDate() - orderSettings.autoCancelPendingOrdersDays
+        cutoffDate.getDate() - orderSettings.autoCancelPendingOrdersDays,
       );
 
       const pendingOrders = await this.prisma.order.findMany({
@@ -101,12 +99,11 @@ export class OrderSchedulerService {
         });
 
         this.logger.log(
-          `Auto-cancelled ${pendingOrders.length} pending orders older than ${orderSettings.autoCancelPendingOrdersDays} days`
+          `Auto-cancelled ${pendingOrders.length} pending orders older than ${orderSettings.autoCancelPendingOrdersDays} days`,
         );
       }
     } catch (error) {
-      this.logger.error('Failed to auto-cancel pending orders:', error);
+      this.logger.error("Failed to auto-cancel pending orders:", error);
     }
   }
 }
-

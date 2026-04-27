@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class ConfigurationService {
@@ -9,12 +9,12 @@ export class ConfigurationService {
     return this.manager.get(key, valueDefault);
   }
 
-  getAccessSignToken() { 
-    return this.manager.get('JWT_ACCESS_SECRET');
+  getAccessSignToken() {
+    return this.manager.get("JWT_ACCESS_SECRET");
   }
 
   getPort(): number {
-    return this.manager.get('PORT', 3000);
+    return this.manager.get("PORT", 3000);
   }
 
   getNumber(key: string, valueDefault?: number): number {
@@ -26,22 +26,22 @@ export class ConfigurationService {
   }
 
   getEnvironment(): string {
-    const value = this.get('NODE_ENV', 'development');
+    const value = this.get("NODE_ENV", "development");
 
-    return value;  
+    return value;
   }
 
   getClientBaseUrl(): string {
-    const value = this.manager.get('CLIENT_BASE_URL');
-    const valueClean = value?.replace(/\/$/, '') || value;
+    const value = this.manager.get("CLIENT_BASE_URL");
+    const valueClean = value?.replace(/\/$/, "") || value;
     return valueClean;
   }
 
   getBaseUrl(): string {
     const port = this.getPort();
-    const value = this.manager.get('BASE_URL', `http://localhost:${port}`);
+    const value = this.manager.get("BASE_URL", `http://localhost:${port}`);
 
-    const valueClean = value?.replace(/\/$/, '') || value;
+    const valueClean = value?.replace(/\/$/, "") || value;
     return valueClean;
   }
 
@@ -50,22 +50,22 @@ export class ConfigurationService {
    * Uses SERVER_BASE_URL env var or falls back to BASE_URL or constructs from port
    */
   getServerBaseUrl(): string {
-    const serverUrl = this.manager.get('SERVER_BASE_URL');
+    const serverUrl = this.manager.get("SERVER_BASE_URL");
     if (serverUrl) {
-      return serverUrl.replace(/\/$/, '');
+      return serverUrl.replace(/\/$/, "");
     }
     return this.getBaseUrl();
   }
 
   isEnvironmentDevelopment(): boolean {
-    return this.getEnvironment() === 'development';
+    return this.getEnvironment() === "development";
   }
 
   isEnvironmentProduction(): boolean {
-    return this.getEnvironment() === 'production';
+    return this.getEnvironment() === "production";
   }
 
   isEnvironmentStaging(): boolean {
-    return this.getEnvironment() === 'staging';
+    return this.getEnvironment() === "staging";
   }
 }

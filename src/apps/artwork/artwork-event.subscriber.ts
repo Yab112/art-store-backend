@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { EmailService } from '../../libraries/email';
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
+import { EmailService } from "../../libraries/email";
 import {
   ARTWORK_EVENTS,
   ArtworkSubmittedEvent,
@@ -17,8 +17,8 @@ import {
   ArtworkCommentDeletedEvent,
   ArtworkLikedEvent,
   ArtworkUnlikedEvent,
-} from './events';
-import { ARTWORK_EMAIL_SUBJECTS } from './constants';
+} from "./events";
+import { ARTWORK_EMAIL_SUBJECTS } from "./constants";
 
 /**
  * Artwork Event Subscriber
@@ -42,40 +42,43 @@ export class ArtworkEventSubscriber {
       );
 
       // Prepare categories string for email template
-      let categoriesString = 'Not specified';
-      if (event.categories && Array.isArray(event.categories) && event.categories.length > 0) {
-        categoriesString = event.categories.map(cat => cat.name).join(', ');
+      let categoriesString = "Not specified";
+      if (
+        event.categories &&
+        Array.isArray(event.categories) &&
+        event.categories.length > 0
+      ) {
+        categoriesString = event.categories.map((cat) => cat.name).join(", ");
       }
-      
+
       this.logger.log(
-        `📧 Preparing email with categories: ${categoriesString}`
+        `📧 Preparing email with categories: ${categoriesString}`,
       );
 
       // Prepare all template variables
       const templateVariables: Record<string, string> = {
-        artistName: event.userName || 'Unknown',
-        artworkId: event.artworkId || '',
-        artist: event.artist || 'Unknown',
-        title: event.title || 'Untitled',
-        desiredPrice: event.desiredPrice?.toString() || '0',
-        photoCount: event.photos?.length?.toString() || '0',
+        artistName: event.userName || "Unknown",
+        artworkId: event.artworkId || "",
+        artist: event.artist || "Unknown",
+        title: event.title || "Untitled",
+        desiredPrice: event.desiredPrice?.toString() || "0",
+        photoCount: event.photos?.length?.toString() || "0",
         categories: categoriesString,
-        submittedAt: event.submittedAt?.toISOString() || new Date().toISOString(),
+        submittedAt:
+          event.submittedAt?.toISOString() || new Date().toISOString(),
       };
-      
+
       this.logger.log(
-        `📧 Template variables: ${JSON.stringify(Object.keys(templateVariables))}`
+        `📧 Template variables: ${JSON.stringify(Object.keys(templateVariables))}`,
       );
-      this.logger.log(
-        `📧 Categories value: "${templateVariables.categories}"`
-      );
+      this.logger.log(`📧 Categories value: "${templateVariables.categories}"`);
 
       // Send confirmation email to artist
       await this.emailService.send({
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.SUBMITTED,
-        template: 'artwork-submitted',
+        template: "artwork-submitted",
         variables: templateVariables,
       });
 
@@ -85,7 +88,7 @@ export class ArtworkEventSubscriber {
       // TODO: Log analytics event
       // TODO: Create notification in database
     } catch (error) {
-      this.logger.error('Failed to handle artwork submitted event:', error);
+      this.logger.error("Failed to handle artwork submitted event:", error);
     }
   }
 
@@ -102,7 +105,7 @@ export class ArtworkEventSubscriber {
 
       // Check if price was updated
       const priceChange = event.changes.find(
-        (change) => change.field === 'desiredPrice',
+        (change) => change.field === "desiredPrice",
       );
 
       if (priceChange) {
@@ -110,7 +113,7 @@ export class ArtworkEventSubscriber {
           name: event.userName,
           email: event.userEmail,
           subject: ARTWORK_EMAIL_SUBJECTS.PRICE_UPDATE,
-          template: 'artwork-price-updated',
+          template: "artwork-price-updated",
           variables: {
             artistName: event.userName,
             artworkId: event.artworkId,
@@ -124,7 +127,7 @@ export class ArtworkEventSubscriber {
       // TODO: Log activity
       // TODO: Notify followers if public artwork
     } catch (error) {
-      this.logger.error('Failed to handle artwork updated event:', error);
+      this.logger.error("Failed to handle artwork updated event:", error);
     }
   }
 
@@ -142,14 +145,14 @@ export class ArtworkEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.DELETED,
-        template: 'artwork-deleted',
+        template: "artwork-deleted",
         variables: {
           artistName: event.userName,
           artworkId: event.artworkId,
           artist: event.artist,
-          title: event.title || 'Untitled',
+          title: event.title || "Untitled",
           deletedAt: event.deletedAt.toISOString(),
-          reason: event.reason || 'User requested',
+          reason: event.reason || "User requested",
         },
       });
 
@@ -159,7 +162,7 @@ export class ArtworkEventSubscriber {
       // TODO: Cancel any pending orders
       // TODO: Archive artwork data
     } catch (error) {
-      this.logger.error('Failed to handle artwork deleted event:', error);
+      this.logger.error("Failed to handle artwork deleted event:", error);
     }
   }
 
@@ -179,12 +182,12 @@ export class ArtworkEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.APPROVED,
-        template: 'artwork-approved',
+        template: "artwork-approved",
         variables: {
           artistName: event.userName,
           artworkId: event.artworkId,
           artist: event.artist,
-          title: event.title || 'Untitled',
+          title: event.title || "Untitled",
           approvedAt: event.approvedAt.toISOString(),
           publicUrl:
             event.publicUrl ||
@@ -199,7 +202,7 @@ export class ArtworkEventSubscriber {
       // TODO: Add to recommendation engine
       // TODO: Create system notification
     } catch (error) {
-      this.logger.error('Failed to handle artwork approved event:', error);
+      this.logger.error("Failed to handle artwork approved event:", error);
     }
   }
 
@@ -219,14 +222,14 @@ export class ArtworkEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.REJECTED,
-        template: 'artwork-rejected',
+        template: "artwork-rejected",
         variables: {
           artistName: event.userName,
           artworkId: event.artworkId,
           artist: event.artist,
-          title: event.title || 'Untitled',
+          title: event.title || "Untitled",
           reason: event.reason,
-          canResubmit: event.canResubmit ? 'Yes' : 'No',
+          canResubmit: event.canResubmit ? "Yes" : "No",
           rejectedAt: event.rejectedAt.toISOString(),
         },
       });
@@ -236,7 +239,7 @@ export class ArtworkEventSubscriber {
       // TODO: Log moderation action
       // TODO: Create support ticket if dispute requested
     } catch (error) {
-      this.logger.error('Failed to handle artwork rejected event:', error);
+      this.logger.error("Failed to handle artwork rejected event:", error);
     }
   }
 
@@ -256,15 +259,15 @@ export class ArtworkEventSubscriber {
         name: event.userName,
         email: event.userEmail,
         subject: ARTWORK_EMAIL_SUBJECTS.SOLD,
-        template: 'artwork-sold',
+        template: "artwork-sold",
         variables: {
           artistName: event.userName,
           artworkId: event.artworkId,
           artist: event.artist,
-          title: event.title || 'Untitled',
+          title: event.title || "Untitled",
           salePrice: event.salePrice.toString(),
           soldAt: event.soldAt.toISOString(),
-          transactionId: event.transactionId || 'N/A',
+          transactionId: event.transactionId || "N/A",
         },
       });
 
@@ -276,7 +279,7 @@ export class ArtworkEventSubscriber {
       // TODO: Notify buyer
       // TODO: Update analytics
     } catch (error) {
-      this.logger.error('Failed to handle artwork sold event:', error);
+      this.logger.error("Failed to handle artwork sold event:", error);
     }
   }
 
@@ -293,15 +296,15 @@ export class ArtworkEventSubscriber {
       await this.emailService.send({
         name: event.userName,
         email: event.userEmail,
-        subject: 'Artwork Withdrawn',
-        template: 'artwork-withdrawn',
+        subject: "Artwork Withdrawn",
+        template: "artwork-withdrawn",
         variables: {
           artistName: event.userName,
           artworkId: event.artworkId,
           artist: event.artist,
-          title: event.title || 'Untitled',
+          title: event.title || "Untitled",
           withdrawnAt: event.withdrawnAt.toISOString(),
-          reason: event.reason || 'User requested',
+          reason: event.reason || "User requested",
         },
       });
 
@@ -311,7 +314,7 @@ export class ArtworkEventSubscriber {
       // TODO: Cancel pending negotiations
       // TODO: Update search index
     } catch (error) {
-      this.logger.error('Failed to handle artwork withdrawn event:', error);
+      this.logger.error("Failed to handle artwork withdrawn event:", error);
     }
   }
 
@@ -335,7 +338,7 @@ export class ArtworkEventSubscriber {
       // TODO: Update search index with new price
       // TODO: Update recommendation scores
     } catch (error) {
-      this.logger.error('Failed to handle price updated event:', error);
+      this.logger.error("Failed to handle price updated event:", error);
     }
   }
 
@@ -347,7 +350,7 @@ export class ArtworkEventSubscriber {
   async handleArtworkViewed(event: ArtworkViewedEvent) {
     try {
       this.logger.debug(
-        `Artwork viewed: ${event.artworkId} by ${event.viewerUserId || 'anonymous'}`,
+        `Artwork viewed: ${event.artworkId} by ${event.viewerUserId || "anonymous"}`,
       );
 
       // TODO: Log view in analytics database
@@ -355,7 +358,7 @@ export class ArtworkEventSubscriber {
       // TODO: Track user browsing history
       // TODO: Update recommendation engine
     } catch (error) {
-      this.logger.error('Failed to handle artwork viewed event:', error);
+      this.logger.error("Failed to handle artwork viewed event:", error);
     }
   }
 
@@ -379,13 +382,13 @@ export class ArtworkEventSubscriber {
           name: event.artworkOwnerName,
           email: event.artworkOwnerEmail,
           subject: ARTWORK_EMAIL_SUBJECTS.COMMENT_RECEIVED,
-          template: 'artwork-comment-received',
+          template: "artwork-comment-received",
           variables: {
             artworkOwnerName: event.artworkOwnerName,
             artworkId: event.artworkId,
-            artworkTitle: event.artworkTitle || 'Untitled',
+            artworkTitle: event.artworkTitle || "Untitled",
             commenterName: event.commenterName,
-            commenterAvatar: event.commenterAvatar || '',
+            commenterAvatar: event.commenterAvatar || "",
             comment: event.comment,
             commentedAt: event.createdAt.toISOString(),
             artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
@@ -401,7 +404,7 @@ export class ArtworkEventSubscriber {
       // TODO: Notify other commenters (thread watchers)
       // TODO: Check for spam/inappropriate content
     } catch (error) {
-      this.logger.error('Failed to handle comment added event:', error);
+      this.logger.error("Failed to handle comment added event:", error);
     }
   }
 
@@ -418,7 +421,7 @@ export class ArtworkEventSubscriber {
       // TODO: Check for spam/inappropriate content
       // TODO: Update moderation queue if needed
     } catch (error) {
-      this.logger.error('Failed to handle comment updated event:', error);
+      this.logger.error("Failed to handle comment updated event:", error);
     }
   }
 
@@ -435,7 +438,7 @@ export class ArtworkEventSubscriber {
       // TODO: Update comment count
       // TODO: Log moderation action if deleted by moderator
     } catch (error) {
-      this.logger.error('Failed to handle comment deleted event:', error);
+      this.logger.error("Failed to handle comment deleted event:", error);
     }
   }
 
@@ -459,13 +462,13 @@ export class ArtworkEventSubscriber {
           name: event.artworkOwnerName,
           email: event.artworkOwnerEmail,
           subject: ARTWORK_EMAIL_SUBJECTS.LIKE_RECEIVED,
-          template: 'artwork-like-received',
+          template: "artwork-like-received",
           variables: {
             artworkOwnerName: event.artworkOwnerName,
             artworkId: event.artworkId,
-            artworkTitle: event.artworkTitle || 'Untitled',
+            artworkTitle: event.artworkTitle || "Untitled",
             likerName: event.likerName,
-            likerAvatar: event.likerAvatar || '',
+            likerAvatar: event.likerAvatar || "",
             totalLikes: event.totalLikes.toString(),
             likedAt: event.likedAt.toISOString(),
             artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
@@ -479,7 +482,7 @@ export class ArtworkEventSubscriber {
       // TODO: Update artwork popularity score
       // TODO: Trigger milestone notifications (e.g., 10, 50, 100 likes)
     } catch (error) {
-      this.logger.error('Failed to handle artwork liked event:', error);
+      this.logger.error("Failed to handle artwork liked event:", error);
     }
   }
 
@@ -497,7 +500,7 @@ export class ArtworkEventSubscriber {
       // TODO: Update artwork popularity score
       // TODO: Log analytics
     } catch (error) {
-      this.logger.error('Failed to handle artwork unliked event:', error);
+      this.logger.error("Failed to handle artwork unliked event:", error);
     }
   }
 }

@@ -1,13 +1,19 @@
-import { IsString, IsNumber, IsEmail, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsEmail,
+  IsOptional,
+  IsEnum,
+} from "class-validator";
 
 export enum PaymentProvider {
-  CHAPA = 'chapa',
-  PAYPAL = 'paypal',
+  CHAPA = "chapa",
+  PAYPAL = "paypal",
 }
 
 export enum Currency {
-  ETB = 'ETB',
-  USD = 'USD',
+  ETB = "ETB",
+  USD = "USD",
 }
 
 export class InitializePaymentDto {

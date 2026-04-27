@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Account {
@@ -154,64 +155,63 @@ model Review {
 }
 
 model User {
-  id                                 String             @id @default(uuid())
+  id                                 String                   @id @default(uuid())
   name                               String
-  email                              String             @unique
-  emailVerified                      Boolean            @default(false)
+  email                              String                   @unique
+  emailVerified                      Boolean                  @default(false)
   image                              String?
   coverImage                         String?
   bio                                String?
   location                           String?
   website                            String?
-  emailSubscription                  Boolean            @default(true)
-  score                              Float              @default(0)
+  emailSubscription                  Boolean                  @default(true)
+  score                              Float                    @default(0)
   role                               String
-  banned                             Boolean            @default(false)
+  banned                             Boolean                  @default(false)
   banReason                          String?
   banExpires                         DateTime?
-  twoFactorEnabled                   Boolean            @default(false)
-  createdAt                          DateTime           @default(now())
+  twoFactorEnabled                   Boolean                  @default(false)
+  createdAt                          DateTime                 @default(now())
   updatedAt                          DateTime
   firstlogin                         Boolean?
   lastActiveAt                       DateTime?
-  profileViews                       Int                @default(0)
-  heatScore                          Float              @default(0)
-  themePreference                    String             @default("light")
-  languagePreference                 String             @default("en")
-  timezone                           String?            @default("UTC")
+  profileViews                       Int                      @default(0)
+  heatScore                          Float                    @default(0)
+  themePreference                    String                   @default("light")
+  languagePreference                 String                   @default("en")
+  timezone                           String?                  @default("UTC")
   messagingPreferences               Json?
-  earning                            Decimal            @default(0) @db.Decimal(10, 2)
-  paymentMethodPreference            PaymentMethodPreference?
+  earning                            Decimal                  @default(0) @db.Decimal(10, 2)
   accounts                           Account[]
-  Chat_Chat_clientIdToUser           Chat[]             @relation("Chat_clientIdToUser")
-  Chat_Chat_taskerIdToUser           Chat[]             @relation("Chat_taskerIdToUser")
-  collections                        Collection[]       @relation("Collection_createdBy")
-  Dispute_Dispute_assignedToIdToUser Dispute[]          @relation("Dispute_assignedToIdToUser")
-  Dispute_Dispute_raisedByIdToUser   Dispute[]          @relation("Dispute_raisedByIdToUser")
-  disputesAgainstUser                Dispute[]          @relation("Dispute_targetUser")
-  interactions                       Interaction[]      @relation("Interaction_user")
-  Message_Message_receiverIdToUser   Message[]          @relation("Message_receiverIdToUser")
-  Message_Message_senderIdToUser     Message[]          @relation("Message_senderIdToUser")
+  Chat_Chat_clientIdToUser           Chat[]                   @relation("Chat_clientIdToUser")
+  Chat_Chat_taskerIdToUser           Chat[]                   @relation("Chat_taskerIdToUser")
+  collections                        Collection[]             @relation("Collection_createdBy")
+  Dispute_Dispute_assignedToIdToUser Dispute[]                @relation("Dispute_assignedToIdToUser")
+  Dispute_Dispute_raisedByIdToUser   Dispute[]                @relation("Dispute_raisedByIdToUser")
+  disputesAgainstUser                Dispute[]                @relation("Dispute_targetUser")
+  interactions                       Interaction[]            @relation("Interaction_user")
+  Message_Message_receiverIdToUser   Message[]                @relation("Message_receiverIdToUser")
+  Message_Message_senderIdToUser     Message[]                @relation("Message_senderIdToUser")
   Notification                       Notification[]
-  orders                             Order[]            @relation("Order_buyer")
-  reportsFiled                       Report[]           @relation("Report_reporter")
-  reportsResolved                    Report[]           @relation("Report_resolvedBy")
+  orders                             Order[]                  @relation("Order_buyer")
+  reportsFiled                       Report[]                 @relation("Report_reporter")
+  reportsResolved                    Report[]                 @relation("Report_resolvedBy")
   reviews                            Review[]
   sessions                           Session[]
-  sellerTransactions                 Transaction[]      @relation("SellerTransaction")
+  sellerTransactions                 Transaction[]            @relation("SellerTransaction")
   twoFactors                         TwoFactor[]
   withdrawals                        Withdrawal[]
   artworks                           Artwork[]
-  blogComments                       BlogComment[]      @relation("BlogComment_user")
-  blogPosts                          BlogPost[]         @relation("BlogPost_author")
-  blogShares                         BlogShare[]        @relation("BlogShare_user")
-  blogVotes                          BlogVote[]         @relation("BlogVote_user")
+  blogComments                       BlogComment[]            @relation("BlogComment_user")
+  blogPosts                          BlogPost[]               @relation("BlogPost_author")
+  blogShares                         BlogShare[]              @relation("BlogShare_user")
+  blogVotes                          BlogVote[]               @relation("BlogVote_user")
   cartItems                          CartItem[]
   favorites                          Favorite[]
+  followers                          Follow[]                 @relation("UserFollowers")
+  following                          Follow[]                 @relation("UserFollowing")
+  paymentMethodPreference            PaymentMethodPreference?
   talentTypes                        UserOnTalentType[]
-  // Follow relations
-  followers                          Follow[]       @relation("UserFollowers")
-  following                          Follow[]       @relation("UserFollowing")
 
   @@map("users")
 }
@@ -221,9 +221,8 @@ model Follow {
   followerId  String
   followingId String
   createdAt   DateTime @default(now())
-
-  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
-  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
   @@index([followerId])
@@ -372,7 +371,7 @@ model Transaction {
   paymentGateway   PaymentGateway?   @relation(fields: [paymentGatewayId], references: [id])
   seller           User?             @relation("SellerTransaction", fields: [sellerId], references: [id], onDelete: Cascade)
   platformEarnings PlatformEarning[]
-  
+
   @@index([sellerId])
   @@index([orderId])
 }

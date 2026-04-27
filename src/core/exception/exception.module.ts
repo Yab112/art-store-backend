@@ -1,7 +1,7 @@
-import { Global, Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
-import { ExceptionFilter } from './exception.filter';
-import { ExceptionService } from './exception.service';
+import { Global, Module } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
+import { ExceptionFilter } from "./exception.filter";
+import { ExceptionService } from "./exception.service";
 
 @Global()
 @Module({

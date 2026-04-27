@@ -2,7 +2,7 @@ export const pick = (object, allowedKeys) => {
   //Iterates over the allowed keys only, much more effictive
   return allowedKeys.reduce((obj, key) => {
     if (object && Object.prototype.hasOwnProperty.call(object, key)) {
-      if (object[key] !== 'undefined') {
+      if (object[key] !== "undefined") {
         obj[key] = object[key];
       }
     }

@@ -17,7 +17,7 @@ export class BlogPostCreatedEvent {
     public readonly authorName: string,
     public readonly authorEmail: string,
     public readonly published: boolean,
-    public readonly createdAt: Date
+    public readonly createdAt: Date,
   ) {}
 }
 
@@ -28,7 +28,7 @@ export class BlogPostUpdatedEvent {
     public readonly slug: string,
     public readonly authorId: string,
     public readonly published: boolean,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
   ) {}
 }
 
@@ -37,7 +37,7 @@ export class BlogPostDeletedEvent {
     public readonly blogPostId: string,
     public readonly title: string,
     public readonly authorId: string,
-    public readonly deletedAt: Date
+    public readonly deletedAt: Date,
   ) {}
 }
 
@@ -48,7 +48,7 @@ export class BlogPostPublishedEvent {
     public readonly slug: string,
     public readonly publishedAt: Date,
     public readonly excerpt?: string,
-    public readonly featuredImage?: string
+    public readonly featuredImage?: string,
   ) {}
 }
 
@@ -60,7 +60,7 @@ export class BlogPostUnpublishedEvent {
     public readonly authorId: string,
     public readonly authorName: string,
     public readonly authorEmail: string,
-    public readonly unpublishedAt: Date
+    public readonly unpublishedAt: Date,
   ) {}
 }
 
@@ -73,7 +73,7 @@ export class BlogPostApprovedEvent {
     public readonly authorName: string,
     public readonly authorEmail: string,
     public readonly approvedAt: Date,
-    public readonly approvedBy: string
+    public readonly approvedBy: string,
   ) {}
 }
 
@@ -87,6 +87,6 @@ export class BlogPostRejectedEvent {
     public readonly authorEmail: string,
     public readonly rejectedAt: Date,
     public readonly rejectedBy: string,
-    public readonly reason?: string
+    public readonly reason?: string,
   ) {}
 }

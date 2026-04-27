@@ -1,6 +1,6 @@
-import { Global, Module } from '@nestjs/common';
-import { WinstonService } from './internal/winston.service';
-import { LoggerService } from './logger.service';
+import { Global, Module } from "@nestjs/common";
+import { WinstonService } from "./internal/winston.service";
+import { LoggerService } from "./logger.service";
 
 @Global()
 @Module({

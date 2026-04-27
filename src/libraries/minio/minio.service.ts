@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as Minio from 'minio';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import * as Minio from "minio";
 
 @Injectable()
 export class MinioService implements OnModuleInit {
@@ -11,19 +11,23 @@ export class MinioService implements OnModuleInit {
   private readonly publicUrl: string;
 
   // Default buckets
-  private readonly BUCKETS = ['images', 'documents'];
+  private readonly BUCKETS = ["images", "documents"];
 
   constructor() {
     // Get configuration from environment variables
-    this.endpoint = process.env.MINIO_ENDPOINT || 'localhost';
-    this.port = parseInt(process.env.MINIO_PORT || '9000', 10);
-    this.useSSL = process.env.MINIO_USE_SSL === 'true';
-    const protocol = this.useSSL ? 'https' : 'http';
-    const publicUrlBase = process.env.MINIO_PUBLIC_URL || `${protocol}://${this.endpoint}:${this.port}`;
-    this.publicUrl = publicUrlBase.endsWith('/') ? publicUrlBase.slice(0, -1) : publicUrlBase;
+    this.endpoint = process.env.MINIO_ENDPOINT || "localhost";
+    this.port = parseInt(process.env.MINIO_PORT || "9000", 10);
+    this.useSSL = process.env.MINIO_USE_SSL === "true";
+    const protocol = this.useSSL ? "https" : "http";
+    const publicUrlBase =
+      process.env.MINIO_PUBLIC_URL ||
+      `${protocol}://${this.endpoint}:${this.port}`;
+    this.publicUrl = publicUrlBase.endsWith("/")
+      ? publicUrlBase.slice(0, -1)
+      : publicUrlBase;
 
-    const accessKey = process.env.MINIO_ACCESS_KEY || 'admin';
-    const secretKey = process.env.MINIO_SECRET_KEY || 'admin123';
+    const accessKey = process.env.MINIO_ACCESS_KEY || "admin";
+    const secretKey = process.env.MINIO_SECRET_KEY || "admin123";
 
     this.client = new Minio.Client({
       endPoint: this.endpoint,
@@ -33,7 +37,9 @@ export class MinioService implements OnModuleInit {
       secretKey,
     });
 
-    this.logger.log(`✅ MinIO client initialized: ${protocol}://${this.endpoint}:${this.port}`);
+    this.logger.log(
+      `✅ MinIO client initialized: ${protocol}://${this.endpoint}:${this.port}`,
+    );
   }
 
   async onModuleInit() {
@@ -46,14 +52,14 @@ export class MinioService implements OnModuleInit {
    */
   private async initializeBuckets() {
     try {
-      this.logger.log('🔄 Initializing MinIO buckets...');
+      this.logger.log("🔄 Initializing MinIO buckets...");
 
       for (const bucketName of this.BUCKETS) {
         const exists = await this.client.bucketExists(bucketName);
 
         if (!exists) {
           this.logger.log(`📦 Creating bucket: ${bucketName}...`);
-          await this.client.makeBucket(bucketName, 'us-east-1');
+          await this.client.makeBucket(bucketName, "us-east-1");
           this.logger.log(`✅ Bucket created: ${bucketName}`);
         } else {
           this.logger.log(`✅ Bucket already exists: ${bucketName}`);
@@ -62,12 +68,12 @@ export class MinioService implements OnModuleInit {
         // Set public read policy for the bucket
         try {
           const policy = {
-            Version: '2012-10-17',
+            Version: "2012-10-17",
             Statement: [
               {
-                Effect: 'Allow',
-                Principal: { AWS: ['*'] },
-                Action: ['s3:GetObject'],
+                Effect: "Allow",
+                Principal: { AWS: ["*"] },
+                Action: ["s3:GetObject"],
                 Resource: [`arn:aws:s3:::${bucketName}/*`],
               },
             ],
@@ -83,9 +89,12 @@ export class MinioService implements OnModuleInit {
         }
       }
 
-      this.logger.log('✅ MinIO buckets initialized successfully');
+      this.logger.log("✅ MinIO buckets initialized successfully");
     } catch (error: any) {
-      this.logger.error('❌ Failed to initialize MinIO buckets:', error.message);
+      this.logger.error(
+        "❌ Failed to initialize MinIO buckets:",
+        error.message,
+      );
       throw error;
     }
   }
@@ -95,7 +104,7 @@ export class MinioService implements OnModuleInit {
       // Ensure bucket exists
       const bucketExists = await this.client.bucketExists(bucketName);
       if (!bucketExists) {
-        await this.client.makeBucket(bucketName, 'us-east-1');
+        await this.client.makeBucket(bucketName, "us-east-1");
         this.logger.log(`📦 Created bucket: ${bucketName}`);
       }
 
@@ -121,7 +130,7 @@ export class MinioService implements OnModuleInit {
       // Ensure bucket exists
       const bucketExists = await this.client.bucketExists(bucketName);
       if (!bucketExists) {
-        await this.client.makeBucket(bucketName, 'us-east-1');
+        await this.client.makeBucket(bucketName, "us-east-1");
         this.logger.log(`📦 Created bucket: ${bucketName}`);
       }
 
@@ -131,7 +140,7 @@ export class MinioService implements OnModuleInit {
         buffer,
         buffer.length,
         {
-          'Content-Type': contentType,
+          "Content-Type": contentType,
         },
       );
       this.logger.log(`✅ Buffer uploaded successfully: ${objectName}`);
@@ -140,7 +149,10 @@ export class MinioService implements OnModuleInit {
         url: this.getPublicUrl(bucketName, objectName),
       };
     } catch (error: any) {
-      this.logger.error(`❌ Buffer upload failed for ${objectName}:`, error.message);
+      this.logger.error(
+        `❌ Buffer upload failed for ${objectName}:`,
+        error.message,
+      );
       throw new Error(`Failed to upload buffer: ${error.message}`);
     }
   }
@@ -150,7 +162,9 @@ export class MinioService implements OnModuleInit {
    */
   private getPublicUrl(bucketName: string, objectName: string): string {
     // Ensure objectName doesn't start with /
-    const cleanObjectName = objectName.startsWith('/') ? objectName.slice(1) : objectName;
+    const cleanObjectName = objectName.startsWith("/")
+      ? objectName.slice(1)
+      : objectName;
     return `${this.publicUrl}/${bucketName}/${cleanObjectName}`;
   }
 

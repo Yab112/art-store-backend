@@ -1,13 +1,13 @@
-import { Controller, Get, Request, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@/core/guards/auth.guard';
-import { PrismaService } from '@/core/database/prisma.service';
-import { auth } from '../../auth';
+import { Controller, Get, Request, UseGuards } from "@nestjs/common";
+import { AuthGuard } from "@/core/guards/auth.guard";
+import { PrismaService } from "@/core/database/prisma.service";
+import { auth } from "../../auth";
 
-@Controller('test')
+@Controller("test")
 export class TestController {
   constructor(private readonly prisma: PrismaService) {}
 
-  @Get('debug-user')
+  @Get("debug-user")
   @UseGuards(AuthGuard)
   async debugUser(@Request() req: any) {
     try {
@@ -39,7 +39,7 @@ export class TestController {
       const allUsers = await this.prisma.user.findMany({
         select: { id: true, email: true, name: true, createdAt: true },
         take: 20,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       // Get user from request (from AuthGuard)
@@ -101,9 +101,9 @@ export class TestController {
                 : { mismatch: false },
             recommendation: !userById
               ? userByEmail
-                ? 'User exists with same email but different ID. Session user ID does not exist in database.'
-                : 'User does not exist in database at all. Please sign up again.'
-              : 'User exists in database. Foreign key constraint issue may be due to ID format mismatch.',
+                ? "User exists with same email but different ID. Session user ID does not exist in database."
+                : "User does not exist in database at all. Please sign up again."
+              : "User exists in database. Foreign key constraint issue may be due to ID format mismatch.",
           },
         },
       };
@@ -116,4 +116,3 @@ export class TestController {
     }
   }
 }
-

@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { AnalyticsService } from "../analytics/analytics.service";
@@ -28,7 +33,7 @@ export class ProfileService {
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
     private readonly analyticsService: AnalyticsService,
-    private readonly followService: FollowService
+    private readonly followService: FollowService,
   ) {}
 
   /**
@@ -37,7 +42,7 @@ export class ProfileService {
   async getPublicProfile(
     profileId: string,
     viewerUserId?: string,
-    viewerIp?: string
+    viewerIp?: string,
   ) {
     try {
       // Get user with relations (without artworks - they should be fetched separately via paginated endpoint)
@@ -84,7 +89,10 @@ export class ProfileService {
       // Check if viewer is following this user
       let isFollowing = false;
       if (viewerUserId && viewerUserId !== profileId) {
-        const followStatus = await this.followService.isFollowing(viewerUserId, profileId);
+        const followStatus = await this.followService.isFollowing(
+          viewerUserId,
+          profileId,
+        );
         isFollowing = followStatus.isFollowing;
       }
 
@@ -117,7 +125,7 @@ export class ProfileService {
             viewerUserId,
             viewerIp,
             timestamp: new Date(),
-          }
+          },
         );
       }
 
@@ -295,7 +303,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch authenticated profile ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -364,10 +372,10 @@ export class ProfileService {
           if (talentTypes.length !== updateProfileDto.talentTypeIds.length) {
             const foundIds = talentTypes.map((tt) => tt.id);
             const missingIds = updateProfileDto.talentTypeIds.filter(
-              (id) => !foundIds.includes(id)
+              (id) => !foundIds.includes(id),
             );
             throw new NotFoundException(
-              `Talent type(s) not found: ${missingIds.join(", ")}`
+              `Talent type(s) not found: ${missingIds.join(", ")}`,
             );
           }
         }
@@ -424,7 +432,7 @@ export class ProfileService {
           email: updatedUser.email,
           changes,
           updatedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`Profile updated for user ${userId}`);
@@ -471,7 +479,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch preferences for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -482,7 +490,7 @@ export class ProfileService {
    */
   async updatePreferences(
     userId: string,
-    updatePreferencesDto: UpdatePreferencesDto
+    updatePreferencesDto: UpdatePreferencesDto,
   ) {
     try {
       const user = await this.prisma.user.findUnique({
@@ -528,7 +536,7 @@ export class ProfileService {
             messagingPreferences: updatedUser.messagingPreferences,
           },
           updatedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`Preferences updated for user ${userId}`);
@@ -548,7 +556,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to update preferences for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -646,7 +654,7 @@ export class ProfileService {
           settingsType: "security",
           changes: updateSettingsDto,
           updatedAt: new Date(),
-        }
+        },
       );
 
       this.logger.log(`Settings updated for user ${userId}`);
@@ -708,7 +716,7 @@ export class ProfileService {
   async getUploadedArtworks(
     userId: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
   ) {
     try {
       const skip = (page - 1) * limit;
@@ -766,12 +774,12 @@ export class ProfileService {
     entityId?: string,
     metadata?: any,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ) {
     // TODO: Implement activityLog model in Prisma schema
     // Activity logging is currently disabled
     this.logger.debug(
-      `Activity logged (not persisted): ${action} for user ${userId}`
+      `Activity logged (not persisted): ${action} for user ${userId}`,
     );
   }
 
@@ -808,7 +816,7 @@ export class ProfileService {
           reason: deactivateDto.reason,
           deactivatedAt: new Date(),
           canReactivate: !deactivateDto.deleteData,
-        }
+        },
       );
 
       this.logger.log(`Account deactivated for user ${userId}`);
@@ -819,7 +827,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to deactivate account for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -863,7 +871,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to reactivate account for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -892,13 +900,13 @@ export class ProfileService {
       // Calculate statistics
       const totalArtworks = user.artworks.length;
       const approvedArtworks = user.artworks.filter(
-        (a) => a.status === "APPROVED"
+        (a) => a.status === "APPROVED",
       ).length;
       const pendingArtworks = user.artworks.filter(
-        (a) => a.status === "PENDING"
+        (a) => a.status === "PENDING",
       ).length;
       const soldArtworks = user.artworks.filter(
-        (a) => a.status === "SOLD"
+        (a) => a.status === "SOLD",
       ).length;
 
       // Get total views from interactions
@@ -938,7 +946,7 @@ export class ProfileService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch statistics for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -972,7 +980,7 @@ export class ProfileService {
   async deleteCover(userId: string) {
     // TODO: Implement coverImage field in User model
     this.logger.log(
-      `Cover image delete requested for user ${userId} (not implemented)`
+      `Cover image delete requested for user ${userId} (not implemented)`,
     );
     return {
       success: true,
@@ -991,14 +999,14 @@ export class ProfileService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       return {
-        paymentMethodPreference: user.paymentMethodPreference || 'paypal', // Default to paypal
+        paymentMethodPreference: user.paymentMethodPreference || "paypal", // Default to paypal
       };
     } catch (error) {
-      this.logger.error('Failed to get payment method preference:', error);
+      this.logger.error("Failed to get payment method preference:", error);
       throw error;
     }
   }
@@ -1006,24 +1014,32 @@ export class ProfileService {
   /**
    * Update user's preferred payment method for purchases
    */
-  async updatePaymentMethodPreference(userId: string, paymentMethodPreference: string) {
+  async updatePaymentMethodPreference(
+    userId: string,
+    paymentMethodPreference: string,
+  ) {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       // Validate payment method
-      if (paymentMethodPreference !== 'paypal' && paymentMethodPreference !== 'chapa') {
-        throw new BadRequestException('Invalid payment method. Must be "paypal" or "chapa"');
+      if (
+        paymentMethodPreference !== "paypal" &&
+        paymentMethodPreference !== "chapa"
+      ) {
+        throw new BadRequestException(
+          'Invalid payment method. Must be "paypal" or "chapa"',
+        );
       }
 
       const updated = await this.prisma.paymentMethodPreference.upsert({
         where: { userId },
-        update: { 
+        update: {
           method: paymentMethodPreference,
         },
         create: {
@@ -1034,17 +1050,19 @@ export class ProfileService {
         select: { method: true },
       });
 
-      this.logger.log(`Payment method preference updated for user ${userId}: ${paymentMethodPreference}`);
+      this.logger.log(
+        `Payment method preference updated for user ${userId}: ${paymentMethodPreference}`,
+      );
 
       return {
         success: true,
-        message: 'Payment method preference updated successfully',
+        message: "Payment method preference updated successfully",
         data: {
           method: updated.method,
         },
       };
     } catch (error) {
-      this.logger.error('Failed to update payment method preference:', error);
+      this.logger.error("Failed to update payment method preference:", error);
       throw error;
     }
   }

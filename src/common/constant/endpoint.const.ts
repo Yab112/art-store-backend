@@ -1,5 +1,5 @@
 export enum Endpoint {
-  Users = 'users',
-  Profile = 'profile',
-  Auth = 'auth',
+  Users = "users",
+  Profile = "profile",
+  Auth = "auth",
 }

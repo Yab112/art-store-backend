@@ -33,7 +33,7 @@ export class UsersController {
   findAll(
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
     @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
-    @Query("search") search?: string
+    @Query("search") search?: string,
   ) {
     return this.usersService.findAll(page, limit, search);
   }

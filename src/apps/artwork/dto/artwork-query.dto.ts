@@ -93,10 +93,13 @@ export class ArtworkQueryDto {
       // Filter out empty strings and return
       return value.filter((id) => id && id.trim().length > 0);
     }
-    if (typeof value === 'string' && value.trim()) {
+    if (typeof value === "string" && value.trim()) {
       // If it's a comma-separated string, split it
-      if (value.includes(',')) {
-        return value.split(',').map((id) => id.trim()).filter(Boolean);
+      if (value.includes(",")) {
+        return value
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
       }
       // If it's a single string, return as array
       return [value.trim()];
@@ -104,7 +107,7 @@ export class ArtworkQueryDto {
     return undefined;
   })
   @ValidateIf((o, value) => value !== undefined && value !== null)
-  @IsArray({ message: 'categoryIds must be an array' })
+  @IsArray({ message: "categoryIds must be an array" })
   @IsString({ each: true })
   categoryIds?: string[];
 

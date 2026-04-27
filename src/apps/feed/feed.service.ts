@@ -1,7 +1,7 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { FollowService } from '../follow/follow.service';
-import { FeedQueryDto, FeedResponseDto, FeedItem } from './dto';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { FollowService } from "../follow/follow.service";
+import { FeedQueryDto, FeedResponseDto, FeedItem } from "./dto";
 
 @Injectable()
 export class FeedService {
@@ -19,7 +19,7 @@ export class FeedService {
     userId: string,
     page: number = 1,
     limit: number = 20,
-    type: 'all' | 'artworks' | 'blog_posts' = 'all',
+    type: "all" | "artworks" | "blog_posts" = "all",
   ): Promise<FeedResponseDto> {
     try {
       // Get list of users being followed
@@ -45,11 +45,11 @@ export class FeedService {
       const items: FeedItem[] = [];
 
       // Fetch artworks and blog posts based on type
-      if (type === 'all' || type === 'artworks') {
+      if (type === "all" || type === "artworks") {
         const artworks = await this.prisma.artwork.findMany({
           where: {
             userId: { in: followingIds },
-            status: 'APPROVED',
+            status: "APPROVED",
             isApproved: true,
           },
           include: {
@@ -61,14 +61,14 @@ export class FeedService {
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
-          take: type === 'artworks' ? limit : Math.ceil(limit / 2),
-          skip: type === 'artworks' ? skip : 0,
+          orderBy: { createdAt: "desc" },
+          take: type === "artworks" ? limit : Math.ceil(limit / 2),
+          skip: type === "artworks" ? skip : 0,
         });
 
         for (const artwork of artworks) {
           items.push({
-            type: 'artwork',
+            type: "artwork",
             id: artwork.id,
             createdAt: artwork.createdAt,
             artwork: {
@@ -89,12 +89,12 @@ export class FeedService {
         }
       }
 
-      if (type === 'all' || type === 'blog_posts') {
+      if (type === "all" || type === "blog_posts") {
         const blogPosts = await this.prisma.blogPost.findMany({
           where: {
             authorId: { in: followingIds },
             published: true,
-            status: 'APPROVED',
+            status: "APPROVED",
           },
           include: {
             author: {
@@ -105,14 +105,14 @@ export class FeedService {
               },
             },
           },
-          orderBy: { publishedAt: 'desc' },
-          take: type === 'blog_posts' ? limit : Math.ceil(limit / 2),
-          skip: type === 'blog_posts' ? skip : 0,
+          orderBy: { publishedAt: "desc" },
+          take: type === "blog_posts" ? limit : Math.ceil(limit / 2),
+          skip: type === "blog_posts" ? skip : 0,
         });
 
         for (const blogPost of blogPosts) {
           items.push({
-            type: 'blog_post',
+            type: "blog_post",
             id: blogPost.id,
             createdAt: blogPost.publishedAt || blogPost.createdAt,
             blogPost: {
@@ -144,33 +144,38 @@ export class FeedService {
 
       // Apply pagination if type is 'all'
       let paginatedItems = items;
-      if (type === 'all') {
+      if (type === "all") {
         paginatedItems = items.slice(skip, skip + limit);
       }
 
       // Get total counts
       const [artworkCount, blogPostCount] = await Promise.all([
-        type === 'all' || type === 'artworks'
+        type === "all" || type === "artworks"
           ? this.prisma.artwork.count({
               where: {
                 userId: { in: followingIds },
-                status: 'APPROVED',
+                status: "APPROVED",
                 isApproved: true,
               },
             })
           : 0,
-        type === 'all' || type === 'blog_posts'
+        type === "all" || type === "blog_posts"
           ? this.prisma.blogPost.count({
               where: {
                 authorId: { in: followingIds },
                 published: true,
-                status: 'APPROVED',
+                status: "APPROVED",
               },
             })
           : 0,
       ]);
 
-      const total = type === 'all' ? artworkCount + blogPostCount : type === 'artworks' ? artworkCount : blogPostCount;
+      const total =
+        type === "all"
+          ? artworkCount + blogPostCount
+          : type === "artworks"
+            ? artworkCount
+            : blogPostCount;
       const totalPages = Math.ceil(total / limit);
 
       return {
@@ -186,4 +191,3 @@ export class FeedService {
     }
   }
 }
-

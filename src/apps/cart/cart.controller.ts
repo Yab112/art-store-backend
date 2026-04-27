@@ -10,11 +10,11 @@ import {
   Request,
   ParseIntPipe,
   Logger,
-} from '@nestjs/common';
-import { CartService } from './cart.service';
-import { AddToCartDto, UpdateCartItemDto } from './dto';
-import { AuthGuard } from '@/core/guards/auth.guard';
-import { UseGuards } from '@nestjs/common';
+} from "@nestjs/common";
+import { CartService } from "./cart.service";
+import { AddToCartDto, UpdateCartItemDto } from "./dto";
+import { AuthGuard } from "@/core/guards/auth.guard";
+import { UseGuards } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -22,14 +22,14 @@ import {
   ApiBody,
   ApiParam,
   ApiQuery,
-} from '@nestjs/swagger';
+} from "@nestjs/swagger";
 
 /**
  * Cart Controller
  * Handles all cart-related endpoints
  */
-@ApiTags('Cart')
-@Controller('cart') 
+@ApiTags("Cart")
+@Controller("cart")
 export class CartController {
   private readonly logger = new Logger(CartController.name);
 
@@ -42,21 +42,21 @@ export class CartController {
   @Post()
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Add artwork to cart',
-    description: 
+    summary: "Add artwork to cart",
+    description:
       "Add an artwork to the authenticated user's cart. If the artwork already exists, the quantity will be increased.",
   })
   @ApiBody({ type: AddToCartDto })
   @ApiResponse({
     status: 201,
-    description: 'Artwork added to cart successfully',
+    description: "Artwork added to cart successfully",
   })
   @ApiResponse({
     status: 400,
-    description: 'Max cart items reached or max quantity reached',
+    description: "Max cart items reached or max quantity reached",
   })
-  @ApiResponse({ status: 404, description: 'Artwork not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: "Artwork not found" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async addToCart(@Body() addToCartDto: AddToCartDto, @Request() req: any) {
     try {
       const userId = req.user.id;
@@ -64,13 +64,13 @@ export class CartController {
 
       return {
         success: true,
-        message: 'Artwork added to cart successfully',
+        message: "Artwork added to cart successfully",
         cartItem,
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to add to cart',
+        message: error.message || "Failed to add to cart",
       };
     }
   }
@@ -82,20 +82,20 @@ export class CartController {
   @Get()
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Get user cart items',
+    summary: "Get user cart items",
     description:
       "Retrieve a paginated list of items in the authenticated user's cart with totals.",
   })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: "page", required: false, type: Number, example: 1 })
+  @ApiQuery({ name: "limit", required: false, type: Number, example: 10 })
   @ApiResponse({
     status: 200,
-    description: 'Cart items retrieved successfully',
+    description: "Cart items retrieved successfully",
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async getCartItems(
-    @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 10,
     @Request() req: any,
   ) {
     try {
@@ -104,13 +104,13 @@ export class CartController {
 
       return {
         success: true,
-        message: 'Cart items retrieved successfully',
+        message: "Cart items retrieved successfully",
         ...result,
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to fetch cart items',
+        message: error.message || "Failed to fetch cart items",
       };
     }
   }
@@ -119,24 +119,24 @@ export class CartController {
    * PUT /cart/:artworkId
    * Update cart item quantity
    */
-  @Put(':artworkId')
+  @Put(":artworkId")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Update cart item quantity',
+    summary: "Update cart item quantity",
     description:
       "Update the quantity of a specific artwork in the user's cart.",
   })
-  @ApiParam({ name: 'artworkId', description: 'Artwork ID to update' })
+  @ApiParam({ name: "artworkId", description: "Artwork ID to update" })
   @ApiBody({ type: UpdateCartItemDto })
   @ApiResponse({
     status: 200,
-    description: 'Cart item updated successfully',
+    description: "Cart item updated successfully",
   })
-  @ApiResponse({ status: 404, description: 'Cart item not found' })
-  @ApiResponse({ status: 400, description: 'Invalid quantity' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: "Cart item not found" })
+  @ApiResponse({ status: 400, description: "Invalid quantity" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async updateCartItem(
-    @Param('artworkId') artworkId: string,
+    @Param("artworkId") artworkId: string,
     @Body() updateDto: UpdateCartItemDto,
     @Request() req: any,
   ) {
@@ -150,13 +150,13 @@ export class CartController {
 
       return {
         success: true,
-        message: 'Cart item updated successfully',
+        message: "Cart item updated successfully",
         cartItem,
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to update cart item',
+        message: error.message || "Failed to update cart item",
       };
     }
   }
@@ -166,24 +166,24 @@ export class CartController {
    * Remove artwork from cart
    * NOTE: This route must come BEFORE @Delete() to avoid route conflicts
    */
-  @Delete(':artworkId')
+  @Delete(":artworkId")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Remove artwork from cart',
+    summary: "Remove artwork from cart",
     description: "Remove an artwork from the authenticated user's cart.",
   })
   @ApiParam({
-    name: 'artworkId',
-    description: 'Artwork ID to remove from cart',
+    name: "artworkId",
+    description: "Artwork ID to remove from cart",
   })
   @ApiResponse({
     status: 200,
-    description: 'Artwork removed from cart successfully',
+    description: "Artwork removed from cart successfully",
   })
-  @ApiResponse({ status: 404, description: 'Cart item not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: "Cart item not found" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async removeFromCart(
-    @Param('artworkId') artworkId: string,
+    @Param("artworkId") artworkId: string,
     @Request() req: any,
   ) {
     try {
@@ -191,11 +191,13 @@ export class CartController {
       if (!userId) {
         return {
           success: false,
-          message: 'User not authenticated',
+          message: "User not authenticated",
         };
       }
 
-      this.logger.log(`Removing artwork ${artworkId} from cart for user ${userId}`);
+      this.logger.log(
+        `Removing artwork ${artworkId} from cart for user ${userId}`,
+      );
       const result = await this.cartService.removeFromCart(userId, artworkId);
 
       return {
@@ -203,10 +205,13 @@ export class CartController {
         ...result,
       };
     } catch (error: any) {
-      this.logger.error(`Failed to remove artwork ${artworkId} from cart:`, error);
+      this.logger.error(
+        `Failed to remove artwork ${artworkId} from cart:`,
+        error,
+      );
       return {
         success: false,
-        message: error.message || 'Failed to remove from cart',
+        message: error.message || "Failed to remove from cart",
       };
     }
   }
@@ -219,14 +224,14 @@ export class CartController {
   @Delete()
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Clear entire cart',
+    summary: "Clear entire cart",
     description: "Remove all items from the authenticated user's cart.",
   })
   @ApiResponse({
     status: 200,
-    description: 'Cart cleared successfully',
+    description: "Cart cleared successfully",
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async clearCart(@Request() req: any) {
     try {
       const userId = req.user.id;
@@ -239,7 +244,7 @@ export class CartController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to clear cart',
+        message: error.message || "Failed to clear cart",
       };
     }
   }
@@ -248,27 +253,27 @@ export class CartController {
    * GET /cart/summary
    * Get cart summary (total items and total price)
    */
-  @Get('summary')
+  @Get("summary")
   @UseGuards(AuthGuard)
   @ApiOperation({
-    summary: 'Get cart summary',
+    summary: "Get cart summary",
     description:
-      'Get the total number of items and total price of all items in the cart.',
+      "Get the total number of items and total price of all items in the cart.",
   })
   @ApiResponse({
     status: 200,
-    description: 'Cart summary retrieved successfully',
+    description: "Cart summary retrieved successfully",
     schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        success: { type: 'boolean', example: true },
-        totalItems: { type: 'number', example: 5 },
-        totalPrice: { type: 'number', example: 1500.0 },
-        itemCount: { type: 'number', example: 3 },
+        success: { type: "boolean", example: true },
+        totalItems: { type: "number", example: 5 },
+        totalPrice: { type: "number", example: 1500.0 },
+        itemCount: { type: "number", example: 3 },
       },
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   async getCartSummary(@Request() req: any) {
     try {
       const userId = req.user.id;
@@ -281,7 +286,7 @@ export class CartController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Failed to get cart summary',
+        message: error.message || "Failed to get cart summary",
       };
     }
   }

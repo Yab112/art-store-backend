@@ -19,7 +19,7 @@ export class BlogCommentsService {
   async create(
     blogPostId: string,
     createCommentDto: CreateCommentDto,
-    userId: string
+    userId: string,
   ) {
     try {
       // Verify blog post exists and is published
@@ -34,7 +34,7 @@ export class BlogCommentsService {
 
       if (!blogPost.published || blogPost.status !== "APPROVED") {
         throw new ForbiddenException(
-          "You can only comment on published blog posts"
+          "You can only comment on published blog posts",
         );
       }
 
@@ -88,7 +88,7 @@ export class BlogCommentsService {
       });
 
       this.logger.log(
-        `Comment created: ${comment.id} on blog post ${blogPostId}`
+        `Comment created: ${comment.id} on blog post ${blogPostId}`,
       );
 
       return {
@@ -98,7 +98,7 @@ export class BlogCommentsService {
     } catch (error) {
       this.logger.error(
         `Failed to create comment: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -168,7 +168,7 @@ export class BlogCommentsService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch comments: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -180,7 +180,7 @@ export class BlogCommentsService {
   async update(
     commentId: string,
     updateCommentDto: UpdateCommentDto,
-    userId: string
+    userId: string,
   ) {
     try {
       const comment = await this.prisma.blogComment.findUnique({
@@ -219,7 +219,7 @@ export class BlogCommentsService {
     } catch (error) {
       this.logger.error(
         `Failed to update comment: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -252,7 +252,7 @@ export class BlogCommentsService {
     } catch (error) {
       this.logger.error(
         `Failed to delete comment: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }

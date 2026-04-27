@@ -3,9 +3,9 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/database';
-import { FAVORITE_CONSTANTS, FAVORITE_MESSAGES } from './constants';
+} from "@nestjs/common";
+import { PrismaService } from "../../core/database";
+import { FAVORITE_CONSTANTS, FAVORITE_MESSAGES } from "./constants";
 
 @Injectable()
 export class FavoritesService {
@@ -147,7 +147,7 @@ export class FavoritesService {
                 _count: {
                   select: {
                     interactions: {
-                      where: { type: 'LIKE' },
+                      where: { type: "LIKE" },
                     },
                     comments: true,
                   },
@@ -156,7 +156,7 @@ export class FavoritesService {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         }),
         this.prisma.favorite.count({

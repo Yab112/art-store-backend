@@ -166,7 +166,7 @@ export class CategoryService {
 
     if (category._count?.artworks > 0) {
       throw new BadRequestException(
-        `Cannot delete category. It has ${category._count.artworks} associated artworks. Please reassign or remove the artworks first.`
+        `Cannot delete category. It has ${category._count.artworks} associated artworks. Please reassign or remove the artworks first.`,
       );
     }
 

@@ -1,2 +1,2 @@
-export * from './cors.module';
-export * from './cors.service';
+export * from "./cors.module";
+export * from "./cors.service";

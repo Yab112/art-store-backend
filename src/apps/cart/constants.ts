@@ -17,22 +17,21 @@ export const CART_CONSTANTS = {
 
 export const CART_MESSAGES = {
   SUCCESS: {
-    ADDED: 'Artwork added to cart successfully',
-    UPDATED: 'Cart item updated successfully',
-    REMOVED: 'Artwork removed from cart successfully',
-    CLEARED: 'Cart cleared successfully',
-    LISTED: 'Cart items retrieved successfully',
+    ADDED: "Artwork added to cart successfully",
+    UPDATED: "Cart item updated successfully",
+    REMOVED: "Artwork removed from cart successfully",
+    CLEARED: "Cart cleared successfully",
+    LISTED: "Cart items retrieved successfully",
   },
   ERROR: {
-    NOT_FOUND: 'Cart item not found',
-    ARTWORK_NOT_FOUND: 'Artwork not found',
-    MAX_CART_ITEMS_REACHED: 'You have reached the maximum number of cart items',
-    MAX_QUANTITY_REACHED: 'Maximum quantity per item reached',
-    INVALID_QUANTITY: 'Invalid quantity. Must be between 1 and 10',
-    EMPTY_CART: 'Cart is empty',
+    NOT_FOUND: "Cart item not found",
+    ARTWORK_NOT_FOUND: "Artwork not found",
+    MAX_CART_ITEMS_REACHED: "You have reached the maximum number of cart items",
+    MAX_QUANTITY_REACHED: "Maximum quantity per item reached",
+    INVALID_QUANTITY: "Invalid quantity. Must be between 1 and 10",
+    EMPTY_CART: "Cart is empty",
   },
   INFO: {
-    EMPTY_CART: 'Your cart is empty',
+    EMPTY_CART: "Your cart is empty",
   },
 } as const;
-

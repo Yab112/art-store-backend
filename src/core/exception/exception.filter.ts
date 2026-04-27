@@ -3,10 +3,10 @@ import {
   Catch,
   HttpException,
   ExceptionFilter as NestExceptionFilter,
-} from '@nestjs/common';
-import { Response } from 'express';
-import { ExceptionService } from './exception.service';
-import { PrismaClientValidationError } from '@prisma/client/runtime/library';
+} from "@nestjs/common";
+import { Response } from "express";
+import { ExceptionService } from "./exception.service";
+import { PrismaClientValidationError } from "@prisma/client/runtime/library";
 
 @Catch()
 export class ExceptionFilter implements NestExceptionFilter {
@@ -61,8 +61,8 @@ export class ExceptionFilter implements NestExceptionFilter {
   ) {
     return {
       status: 422, // Unprocessable Entity
-      message: 'Prisma validation error',
-      data: exception.message.replace(/\n/g, ' '),
+      message: "Prisma validation error",
+      data: exception.message.replace(/\n/g, " "),
     };
   }
 
@@ -70,7 +70,7 @@ export class ExceptionFilter implements NestExceptionFilter {
     console.log({ exception });
     return {
       status: 500, // Internal Server Error
-      message: 'Internal server error',
+      message: "Internal server error",
       data: {},
     };
   }

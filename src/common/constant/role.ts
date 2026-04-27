@@ -1,10 +1,10 @@
 export enum RoleEnum {
-  CLIENT = 'CLIENT',
-  ADMIN = 'ADMIN',
-  TASKER = 'TASKER',
+  CLIENT = "CLIENT",
+  ADMIN = "ADMIN",
+  TASKER = "TASKER",
 }
 
-import { User } from '@prisma/client';
+import { User } from "@prisma/client";
 
 export class UserFromToken {
   id?: string;

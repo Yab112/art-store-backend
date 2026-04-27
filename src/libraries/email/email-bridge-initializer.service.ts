@@ -1,6 +1,6 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { EmailService } from './email.service';
-import { emailBridge } from './email-bridge';
+import { Injectable, OnModuleInit } from "@nestjs/common";
+import { EmailService } from "./email.service";
+import { emailBridge } from "./email-bridge";
 
 @Injectable()
 export class EmailBridgeInitializerService implements OnModuleInit {
@@ -9,6 +9,6 @@ export class EmailBridgeInitializerService implements OnModuleInit {
   onModuleInit() {
     // Initialize the email bridge with the EmailService instance
     emailBridge.setEmailService(this.emailService);
-    console.log('✅ Email bridge initialized with EmailService');
+    console.log("✅ Email bridge initialized with EmailService");
   }
 }

@@ -15,18 +15,17 @@ export const FAVORITE_CONSTANTS = {
 
 export const FAVORITE_MESSAGES = {
   SUCCESS: {
-    ADDED: 'Artwork added to favorites successfully',
-    REMOVED: 'Artwork removed from favorites successfully',
-    LISTED: 'Favorites retrieved successfully',
+    ADDED: "Artwork added to favorites successfully",
+    REMOVED: "Artwork removed from favorites successfully",
+    LISTED: "Favorites retrieved successfully",
   },
   ERROR: {
-    NOT_FOUND: 'Favorite not found',
-    ALREADY_EXISTS: 'Artwork is already in favorites',
-    ARTWORK_NOT_FOUND: 'Artwork not found',
-    MAX_FAVORITES_REACHED: 'You have reached the maximum number of favorites',
+    NOT_FOUND: "Favorite not found",
+    ALREADY_EXISTS: "Artwork is already in favorites",
+    ARTWORK_NOT_FOUND: "Artwork not found",
+    MAX_FAVORITES_REACHED: "You have reached the maximum number of favorites",
   },
   INFO: {
-    EMPTY_FAVORITES: 'You have no favorites yet',
+    EMPTY_FAVORITES: "You have no favorites yet",
   },
 } as const;
-

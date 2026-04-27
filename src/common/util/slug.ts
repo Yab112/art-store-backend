@@ -1,4 +1,4 @@
-import slugify from 'slugify';
+import slugify from "slugify";
 
 export const generateSlug = (title: string, random = true) => {
   const baseSlug = slugify(title, { lower: true });
@@ -6,8 +6,8 @@ export const generateSlug = (title: string, random = true) => {
   const timestamp = Date.now().toString();
   let randomPart = Math.floor(Math.random() * 10000)
     .toString()
-    .padStart(4, '0');
-  if (!random) randomPart = '';
+    .padStart(4, "0");
+  if (!random) randomPart = "";
   return `${first10}-${timestamp}-${randomPart}`;
 };
 
@@ -22,9 +22,9 @@ export const removeSubArr = (mainArr: string[], arrToBeRemoved: string[]) => {
  * @param len
  */
 export function generateRandom(len: number) {
-  let pass = '';
+  let pass = "";
   const str =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + 'abcdefghijklmnopqrstuvwxyz0123456789';
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "abcdefghijklmnopqrstuvwxyz0123456789";
 
   for (let i = 1; i <= len; i++) {
     const char = Math.floor(Math.random() * str.length + 1);

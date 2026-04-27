@@ -30,8 +30,8 @@ export class BlogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: EventService,
-    private readonly configurationService: ConfigurationService
-  ) { }
+    private readonly configurationService: ConfigurationService,
+  ) {}
 
   /**
    * Create a new blog post
@@ -107,7 +107,7 @@ export class BlogService {
         user.name,
         user.email,
         blogPost.published,
-        blogPost.createdAt
+        blogPost.createdAt,
       );
 
       await this.eventService.emit(BLOG_EVENTS.CREATED, event);
@@ -120,7 +120,7 @@ export class BlogService {
           blogPost.slug,
           blogPost.publishedAt!,
           blogPost.excerpt || undefined,
-          blogPost.featuredImage || undefined
+          blogPost.featuredImage || undefined,
         );
         await this.eventService.emit(BLOG_EVENTS.PUBLISHED, publishedEvent);
       }
@@ -132,7 +132,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to create blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -156,7 +156,7 @@ export class BlogService {
 
       // Debug logging
       this.logger.debug(
-        `Blog findAll - status: ${status}, authorId: ${authorId}, requestingUserId: ${requestingUserId}, published: ${published}`
+        `Blog findAll - status: ${status}, authorId: ${authorId}, requestingUserId: ${requestingUserId}, published: ${published}`,
       );
 
       // Build where clause
@@ -188,7 +188,7 @@ export class BlogService {
           if (status) {
             where.status = status as Prisma.EnumBlogPostStatusFilter;
             this.logger.debug(
-              `Applied status filter for own posts: ${status}, type: ${typeof status}`
+              `Applied status filter for own posts: ${status}, type: ${typeof status}`,
             );
           }
           // Apply published filter if provided
@@ -259,11 +259,11 @@ export class BlogService {
 
       // Debug: Log results
       this.logger.debug(
-        `Blog findAll results: ${blogPosts.length} posts found (total: ${total}), status filter was: ${status}`
+        `Blog findAll results: ${blogPosts.length} posts found (total: ${total}), status filter was: ${status}`,
       );
       if (blogPosts.length > 0 && status) {
         this.logger.debug(
-          `Sample post statuses: ${blogPosts.map((p) => p.status).join(", ")}`
+          `Sample post statuses: ${blogPosts.map((p) => p.status).join(", ")}`,
         );
       }
 
@@ -277,7 +277,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch blog posts: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -290,7 +290,7 @@ export class BlogService {
     try {
       const isUuid =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          identifier
+          identifier,
         );
 
       const where = isUuid ? { id: identifier } : { slug: identifier };
@@ -326,7 +326,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -338,7 +338,7 @@ export class BlogService {
   async update(
     id: string,
     updateBlogPostDto: UpdateBlogPostDto,
-    userId: string
+    userId: string,
   ) {
     try {
       // Check if blog post exists
@@ -366,12 +366,12 @@ export class BlogService {
         // Author can only edit within 7 days of creation
         const daysSinceCreation = Math.floor(
           (Date.now() - existingPost.createdAt.getTime()) /
-          (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         );
 
         if (daysSinceCreation > 7) {
           throw new ForbiddenException(
-            "You can only edit your blog post within 7 days of creation"
+            "You can only edit your blog post within 7 days of creation",
           );
         }
       }
@@ -465,7 +465,7 @@ export class BlogService {
         updatedPost.slug,
         updatedPost.authorId,
         updatedPost.published,
-        updatedPost.updatedAt
+        updatedPost.updatedAt,
       );
       await this.eventService.emit(BLOG_EVENTS.UPDATED, event);
 
@@ -477,7 +477,7 @@ export class BlogService {
           updatedPost.slug,
           updatedPost.publishedAt!,
           updatedPost.excerpt || undefined,
-          updatedPost.featuredImage || undefined
+          updatedPost.featuredImage || undefined,
         );
         await this.eventService.emit(BLOG_EVENTS.PUBLISHED, publishedEvent);
       }
@@ -489,7 +489,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to update blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -527,7 +527,7 @@ export class BlogService {
         id,
         existingPost.title,
         existingPost.authorId,
-        new Date()
+        new Date(),
       );
       await this.eventService.emit(BLOG_EVENTS.DELETED, event);
 
@@ -537,7 +537,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to delete blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -556,7 +556,7 @@ export class BlogService {
 
       if (user?.role?.toLowerCase() !== "admin") {
         throw new ForbiddenException(
-          "Only administrators can approve blog posts"
+          "Only administrators can approve blog posts",
         );
       }
 
@@ -592,7 +592,7 @@ export class BlogService {
         updatedPost.author.name || "User",
         updatedPost.author.email,
         new Date(),
-        userId
+        userId,
       );
       await this.eventService.emit(BLOG_EVENTS.APPROVED, approvedEvent);
 
@@ -603,7 +603,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to approve blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -622,7 +622,7 @@ export class BlogService {
 
       if (user?.role?.toLowerCase() !== "admin") {
         throw new ForbiddenException(
-          "Only administrators can reject blog posts"
+          "Only administrators can reject blog posts",
         );
       }
 
@@ -655,7 +655,7 @@ export class BlogService {
         updatedPost.author.email,
         new Date(),
         userId,
-        reason
+        reason,
       );
       await this.eventService.emit(BLOG_EVENTS.REJECTED, rejectedEvent);
 
@@ -666,7 +666,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to reject blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -681,13 +681,13 @@ export class BlogService {
 
       // Debug logging
       this.logger.debug(
-        `Publish attempt - blogPostId: ${id}, userId: ${userId}, authorId: ${blogPost.authorId}, status: ${blogPost.status}`
+        `Publish attempt - blogPostId: ${id}, userId: ${userId}, authorId: ${blogPost.authorId}, status: ${blogPost.status}`,
       );
 
       // Check if blog post is approved
       if (blogPost.status !== "APPROVED") {
         throw new BadRequestException(
-          "Blog post must be approved before it can be published"
+          "Blog post must be approved before it can be published",
         );
       }
 
@@ -701,12 +701,12 @@ export class BlogService {
       const isAuthor = blogPost.authorId === userId;
 
       this.logger.debug(
-        `Publish check - isAdmin: ${isAdmin}, isAuthor: ${isAuthor}, authorId: ${blogPost.authorId}, userId: ${userId}`
+        `Publish check - isAdmin: ${isAdmin}, isAuthor: ${isAuthor}, authorId: ${blogPost.authorId}, userId: ${userId}`,
       );
 
       if (!isAdmin && !isAuthor) {
         throw new ForbiddenException(
-          "You can only publish your own blog posts or you must be an administrator"
+          "You can only publish your own blog posts or you must be an administrator",
         );
       }
 
@@ -735,7 +735,7 @@ export class BlogService {
         updatedPost.slug,
         updatedPost.publishedAt!,
         updatedPost.excerpt || undefined,
-        updatedPost.featuredImage || undefined
+        updatedPost.featuredImage || undefined,
       );
       await this.eventService.emit(BLOG_EVENTS.PUBLISHED, publishedEvent);
 
@@ -746,7 +746,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to publish blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -770,7 +770,7 @@ export class BlogService {
 
       if (!isAdmin && !isAuthor) {
         throw new ForbiddenException(
-          "You can only unpublish your own blog posts or you must be an administrator"
+          "You can only unpublish your own blog posts or you must be an administrator",
         );
       }
 
@@ -800,7 +800,7 @@ export class BlogService {
         updatedPost.authorId,
         updatedPost.author.name || "User",
         updatedPost.author.email,
-        new Date()
+        new Date(),
       );
       await this.eventService.emit(BLOG_EVENTS.UNPUBLISHED, unpublishedEvent);
 
@@ -811,7 +811,7 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to unpublish blog post: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }

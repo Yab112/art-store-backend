@@ -17,25 +17,73 @@ const express = require("express");
 import * as cors from "cors";
 import { join } from "path";
 
+const normalizeOrigin = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+
+  return value.trim().replace(/\/+$/, "");
+};
+
+const appendDomainVariants = (
+  origins: string[],
+  baseOrigin: string | undefined,
+) => {
+  if (!baseOrigin) {
+    return;
+  }
+
+  origins.push(baseOrigin);
+
+  try {
+    const parsed = new URL(baseOrigin);
+    if (parsed.hostname.startsWith("www.")) {
+      origins.push(`${parsed.protocol}//${parsed.hostname.replace(/^www\./, "")}`);
+    } else {
+      origins.push(`${parsed.protocol}//www.${parsed.hostname}`);
+    }
+  } catch {
+    // Ignore malformed env values and only use explicitly provided origin.
+  }
+};
+
 async function bootstrap() {
   const server = express();
+  const configuredFrontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
+  const configuredAdminFrontendUrl = normalizeOrigin(process.env.ADMIN_FRONTEND_URL);
+  const allowlistedOrigins: string[] = [
+    "http://localhost:5173", // Vite dev server (frontend)
+    "http://localhost:3000", // Backend (legacy)
+    "http://localhost:3099", // Backend (current)
+    "http://localhost:3001", // Admin dashboard (Next.js default)
+    "http://localhost:3002", // Admin dashboard (alternative port)
+    "http://13.48.104.231:3000", // EC2 Production (legacy)
+    "https://art-store-backend-x1bi.onrender.com", // Render backend
+    "https://art-store-frontend-flame.vercel.app",
+    "https://www.arthopia.com.et",
+    "https://arthopia.com.et",
+  ];
+
+  appendDomainVariants(allowlistedOrigins, configuredFrontendUrl);
+  appendDomainVariants(allowlistedOrigins, configuredAdminFrontendUrl);
+
+  const allowedOrigins = new Set(
+    allowlistedOrigins.map((origin) => normalizeOrigin(origin)).filter(Boolean),
+  );
 
   server.use(
     cors({
-      origin: [
-        "http://localhost:5173", // Vite dev server (frontend)
-        "http://localhost:3000", // Backend (legacy)
-        "http://localhost:3099", // Backend (current)
-        "http://localhost:3001", // Admin dashboard (Next.js default)
-        "http://localhost:3002", // Admin dashboard (alternative port)
-        "http://13.48.104.231:3000", // EC2 Production
-        "https://art-store-backend-latest.onrender.com",
-        "https://art-store-frontend-flame.vercel.app",
-        "http://51.20.54.47:3100",
-        "http://51.20.54.47:3000",
-        process.env.FRONTEND_URL || "https://www.arthopia.com.et",
-        process.env.ADMIN_FRONTEND_URL, // Admin dashboard URL from environment
-      ].filter(Boolean), // Remove undefined values
+      origin: (origin, callback) => {
+        const requestOrigin = normalizeOrigin(origin);
+
+        // Allow non-browser clients (no Origin header) and known frontend domains.
+        if (!requestOrigin || allowedOrigins.has(requestOrigin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
@@ -48,24 +96,22 @@ async function bootstrap() {
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
-    })
+    }),
   );
 
-  // CRITICAL FIX: Clean duplicate better-auth.session_token cookies BEFORE Better Auth processes them
-  // When browser has multiple session cookies (old + new), Better Auth picks the first (stale) one
-  // This middleware ensures only the LAST (most recent) session token is sent to Better Auth
+  
   server.use((req, res, next) => {
     if (req.headers.cookie && typeof req.headers.cookie === "string") {
       const cookieHeader = req.headers.cookie;
 
       // Extract all better-auth.session_token cookies
       const sessionTokenMatches = cookieHeader.match(
-        /better-auth\.session_token=([^;]+)/g
+        /better-auth\.session_token=([^;]+)/g,
       );
 
       if (sessionTokenMatches && sessionTokenMatches.length > 1) {
         console.log(
-          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`
+          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`,
         );
 
         // Remove all better-auth.session_token cookies from the header
@@ -83,8 +129,9 @@ async function bootstrap() {
         req.headers.cookie = cleanedCookies;
 
         console.log(
-          `[Cookie Cleaner] Cleaned cookie header - removed ${sessionTokenMatches.length - 1
-          } duplicate session tokens`
+          `[Cookie Cleaner] Cleaned cookie header - removed ${
+            sessionTokenMatches.length - 1
+          } duplicate session tokens`,
         );
       }
     }
@@ -101,7 +148,7 @@ async function bootstrap() {
     {
       logger: ["error", "warn", "log", "debug", "verbose"],
       bodyParser: false,
-    }
+    },
   );
 
   app.useStaticAssets(join(__dirname, "..", "public"));
@@ -117,7 +164,7 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
       contentSecurityPolicy: false,
       originAgentCluster: false,
-    })
+    }),
   );
   // app.enableCors(corsService.getOptions());
   app.useGlobalPipes(
@@ -129,7 +176,7 @@ async function bootstrap() {
       skipMissingProperties: false,
       skipNullProperties: false,
       skipUndefinedProperties: false,
-    })
+    }),
   );
   app.use(cookieParser());
 
@@ -145,11 +192,11 @@ async function bootstrap() {
     .addServer("http://localhost:3099", "Localhost")
     .addServer(
       "https://art-store-backend-latest.onrender.com/",
-      "Render Production URL"
+      "Render Production URL",
     )
     .addServer(
       "https://art-store-backend-latest.onrender.com/api",
-      "Render Production API URL"
+      "Render Production API URL",
     )
     .addServer("http://51.20.54.47:3099/api", "EC2 Production API")
     .addServer("http://51.20.54.47:3099", "EC2 Production (Root)")
@@ -179,7 +226,7 @@ async function bootstrap() {
       Object.entries(openAPISchema.paths).map(([path, schema]) => [
         `/auth${path}`, // e.g. /auth/sign-up/email
         schema,
-      ])
+      ]),
     );
 
     // merge into Nest Swagger doc
@@ -234,7 +281,7 @@ async function bootstrap() {
   await app.listen(port);
   logger.success(`🚀 Application started on port ${port} `);
   logger.log(
-    `📚 API Documentation available at http://localhost:${port}/swagger`
+    `📚 API Documentation available at http://localhost:${port}/swagger`,
   );
   logger.log(`🌍 Environment: ${configurationService.getEnvironment()}`);
 }

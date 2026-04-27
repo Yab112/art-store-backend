@@ -29,5 +29,7 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 RUN npx prisma@6 generate
 # Copy built application
 COPY --from=builder /app/dist ./dist
+# Copy email templates
+COPY --from=builder /app/templates ./templates
 EXPOSE 3000
 CMD ["node", "dist/src/main"]

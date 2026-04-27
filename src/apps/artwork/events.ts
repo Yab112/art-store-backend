@@ -5,37 +5,37 @@
 
 export const ARTWORK_EVENTS = {
   // Submission events
-  SUBMITTED: 'artwork.submitted',
-  UPDATED: 'artwork.updated',
-  DELETED: 'artwork.deleted',
+  SUBMITTED: "artwork.submitted",
+  UPDATED: "artwork.updated",
+  DELETED: "artwork.deleted",
 
   // Status change events
-  APPROVED: 'artwork.approved',
-  REJECTED: 'artwork.rejected',
-  SOLD: 'artwork.sold',
-  WITHDRAWN: 'artwork.withdrawn',
+  APPROVED: "artwork.approved",
+  REJECTED: "artwork.rejected",
+  SOLD: "artwork.sold",
+  WITHDRAWN: "artwork.withdrawn",
 
   // Price events
-  PRICE_UPDATED: 'artwork.price.updated',
-  PRICE_NEGOTIATION_TOGGLED: 'artwork.price.negotiation.toggled',
+  PRICE_UPDATED: "artwork.price.updated",
+  PRICE_NEGOTIATION_TOGGLED: "artwork.price.negotiation.toggled",
 
   // Interaction events
-  VIEWED: 'artwork.viewed',
-  FAVORITED: 'artwork.favorited',
-  SHARED: 'artwork.shared',
+  VIEWED: "artwork.viewed",
+  FAVORITED: "artwork.favorited",
+  SHARED: "artwork.shared",
 
   // Comment events
-  COMMENT_ADDED: 'artwork.comment.added',
-  COMMENT_UPDATED: 'artwork.comment.updated',
-  COMMENT_DELETED: 'artwork.comment.deleted',
+  COMMENT_ADDED: "artwork.comment.added",
+  COMMENT_UPDATED: "artwork.comment.updated",
+  COMMENT_DELETED: "artwork.comment.deleted",
 
   // Like events
-  LIKED: 'artwork.liked',
-  UNLIKED: 'artwork.unliked',
+  LIKED: "artwork.liked",
+  UNLIKED: "artwork.unliked",
 
   // File events
-  PHOTOS_UPLOADED: 'artwork.photos.uploaded',
-  PROOF_UPLOADED: 'artwork.proof.uploaded',
+  PHOTOS_UPLOADED: "artwork.photos.uploaded",
+  PROOF_UPLOADED: "artwork.proof.uploaded",
 } as const;
 
 // Event payload interfaces
@@ -161,7 +161,7 @@ export interface ArtworkFavoritedEvent {
 export interface ArtworkSharedEvent {
   artworkId: string;
   userId?: string;
-  platform: 'email' | 'facebook' | 'twitter' | 'whatsapp' | 'link';
+  platform: "email" | "facebook" | "twitter" | "whatsapp" | "link";
   timestamp: Date;
 }
 
