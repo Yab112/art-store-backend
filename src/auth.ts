@@ -457,6 +457,7 @@ export const auth = betterAuth({
     "https://art-store-frontend-flame.vercel.app",
     "https://www.arthopia.com.et", // Production frontend
     "https://arthopia.com.et",
+    "https://mainadmin.arthopia.com.et",
   ].filter(Boolean),
 
   // Rate limiting

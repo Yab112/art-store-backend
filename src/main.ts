@@ -62,6 +62,7 @@ async function bootstrap() {
     "https://art-store-frontend-flame.vercel.app",
     "https://www.arthopia.com.et",
     "https://arthopia.com.et",
+    "https://mainadmin.arthopia.com.et",
   ];
 
   appendDomainVariants(allowlistedOrigins, configuredFrontendUrl);

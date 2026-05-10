@@ -28,6 +28,7 @@ export class CorsService {
         origin: [
           clientBaseUrl,
           "https://www.arthopia.com.et/",
+          "https://mainadmin.arthopia.com.et",
           process.env.FRONTEND_URL,
         ].filter(Boolean),
         credentials: true,
