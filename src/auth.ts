@@ -34,6 +34,7 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
+    autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
       // Better-auth URL format can be:
       // - Full URL: http://backend/api/auth/verify-email?token=xxx

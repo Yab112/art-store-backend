@@ -83,7 +83,7 @@ export class EmailService {
       const html = await ejs.renderFile(templatePath, options.variables);
 
       const mailOptions = {
-        from: "eshetieyabibal@gmail.com",
+        from: this.configurationService.get("SMTP_USER"),
         to: options.email,
         subject: options.subject,
         html,

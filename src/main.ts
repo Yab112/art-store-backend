@@ -189,16 +189,8 @@ async function bootstrap() {
     .setTitle("Art Store API")
     .setDescription("Comprehensive marketplace API for Art Store application")
     .setVersion("1.0")
-    .addServer("http://localhost:3099/api", "Localhost")
-    .addServer("http://localhost:3099", "Localhost")
-    .addServer(
-      "https://art-store-backend-latest.onrender.com/",
-      "Render Production URL",
-    )
-    .addServer(
-      "https://art-store-backend-latest.onrender.com/api",
-      "Render Production API URL",
-    )
+    .addServer(`${process.env.BASE_URL || "http://localhost:3099"}/api`, "Current Server API")
+    .addServer(process.env.BASE_URL || "http://localhost:3099", "Current Server Root")
     .addServer("http://51.20.54.47:3099/api", "EC2 Production API")
     .addServer("http://51.20.54.47:3099", "EC2 Production (Root)")
     .build();
