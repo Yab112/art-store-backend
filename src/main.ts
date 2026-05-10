@@ -52,16 +52,12 @@ async function bootstrap() {
   const configuredFrontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
   const configuredAdminFrontendUrl = normalizeOrigin(process.env.ADMIN_FRONTEND_URL);
   const allowlistedOrigins: string[] = [
-    "http://localhost:5173", // Vite dev server (frontend)
-    "http://localhost:3000", // Backend (legacy)
-    "http://localhost:3099", // Backend (current)
-    "http://localhost:3001", // Admin dashboard (Next.js default)
-    "http://localhost:3002", // Admin dashboard (alternative port)
-    "http://13.48.104.231:3000", // EC2 Production (legacy)
-    "https://art-store-backend-x1bi.onrender.com", // Render backend
-    "https://art-store-frontend-flame.vercel.app",
-    "https://www.arthopia.com.et",
-    "https://arthopia.com.et",
+    configuredFrontendUrl,
+    configuredAdminFrontendUrl,
+    normalizeOrigin(process.env.BASE_URL),
+    "http://localhost:5173",
+    "http://localhost:3001",
+    "http://localhost:3099",
   ];
 
   appendDomainVariants(allowlistedOrigins, configuredFrontendUrl);
@@ -188,16 +184,8 @@ async function bootstrap() {
     .setTitle("Art Store API")
     .setDescription("Comprehensive marketplace API for Art Store application")
     .setVersion("1.0")
-    .addServer("http://localhost:3099/api", "Localhost")
-    .addServer("http://localhost:3099", "Localhost")
-    .addServer(
-      "https://art-store-backend-latest.onrender.com/",
-      "Render Production URL",
-    )
-    .addServer(
-      "https://art-store-backend-latest.onrender.com/api",
-      "Render Production API URL",
-    )
+    .addServer(`${process.env.BASE_URL || "http://localhost:3099"}/api`, "Current Server API")
+    .addServer(process.env.BASE_URL || "http://localhost:3099", "Current Server Root")
     .addServer("http://51.20.54.47:3099/api", "EC2 Production API")
     .addServer("http://51.20.54.47:3099", "EC2 Production (Root)")
     .build();
