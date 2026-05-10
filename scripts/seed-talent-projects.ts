@@ -23,9 +23,9 @@ const S3_IMAGES = [
 const getImageUrl = (filename: string) => `${S3_BASE_URL}/${filename}`;
 
 // Helper to get random S3 image
-const getRandomImage = () =>
+const getRandomImage = () => 
   getImageUrl(S3_IMAGES[Math.floor(Math.random() * S3_IMAGES.length)]);
-
+ 
 // Artwork titles by talent type
 const artworkTitlesByTalent: Record<string, string[]> = {
   painter: [
