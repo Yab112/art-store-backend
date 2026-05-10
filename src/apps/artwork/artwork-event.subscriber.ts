@@ -191,7 +191,7 @@ export class ArtworkEventSubscriber {
           approvedAt: event.approvedAt.toISOString(),
           publicUrl:
             event.publicUrl ||
-            `http://localhost:3000/artwork/${event.artworkId}`,
+            `${process.env.FRONTEND_URL}/artwork/${event.artworkId}`,
         },
       });
 
@@ -391,7 +391,7 @@ export class ArtworkEventSubscriber {
             commenterAvatar: event.commenterAvatar || "",
             comment: event.comment,
             commentedAt: event.createdAt.toISOString(),
-            artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
+            artworkUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/artwork/${event.artworkId}`,
           },
         });
 
@@ -471,7 +471,7 @@ export class ArtworkEventSubscriber {
             likerAvatar: event.likerAvatar || "",
             totalLikes: event.totalLikes.toString(),
             likedAt: event.likedAt.toISOString(),
-            artworkUrl: `http://localhost:3000/artwork/${event.artworkId}`,
+            artworkUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/artwork/${event.artworkId}`,
           },
         });
 
