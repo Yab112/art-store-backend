@@ -429,11 +429,12 @@ export class TransactionsService {
     page: number = 1,
     limit: number = 20,
     status?: PaymentStatus,
+    provider?: string,
   ) {
     try {
       const skip = (page - 1) * limit;
       this.logger.log(
-        `Fetching all transactions for userId: ${userId}, page: ${page}, limit: ${limit}`,
+        `Fetching all transactions for userId: ${userId}, page: ${page}, limit: ${limit}, provider: ${provider || 'none'}`,
       );
 
       // Get buyer transactions (purchases - debits)
@@ -539,41 +540,114 @@ export class TransactionsService {
         `[SELLER-TX] Found ${withdrawalTransactions.length} withdrawal transactions (debits) for user ${userId}`,
       );
 
-      // Combine and format all transactions
+      // Resolve withdrawal transaction provider/currency by querying Withdrawal table
+      const withdrawalIds = withdrawalTransactions
+        .map((tx) => (tx.metadata as any)?.withdrawalId)
+        .filter(Boolean);
+
+      const withdrawals = await this.prisma.withdrawal.findMany({
+        where: {
+          id: { in: withdrawalIds },
+        },
+        select: {
+          id: true,
+          method: true,
+          currency: true,
+        },
+      });
+      const withdrawalMap = new Map(withdrawals.map((w) => [w.id, w]));
+
+      // Combine and format all transactions with resolved providers and currencies
       const allTransactions = [
-        ...buyerTransactions.map((tx) => ({
-          ...tx,
-          type: "DEBIT" as const,
-          typeLabel: "Purchase",
-        })),
-        ...sellerTransactions.map((tx) => ({
-          ...tx,
-          type: "CREDIT" as const,
-          typeLabel: "Earning",
-        })),
-        ...withdrawalTransactions.map((tx) => ({
-          ...tx,
-          type: "DEBIT" as const,
-          typeLabel: "Withdrawal",
-          order: null,
-        })),
+        ...buyerTransactions.map((tx) => {
+          const metadata = tx.metadata as any;
+          const resolvedProvider = (
+            metadata?.paymentProvider ||
+            metadata?.provider ||
+            metadata?.paymentMethod ||
+            "paypal"
+          ).toLowerCase();
+          const resolvedCurrency =
+            metadata?.currency ||
+            (resolvedProvider === "chapa" ? "ETB" : "USD");
+
+          return {
+            ...tx,
+            type: "DEBIT" as const,
+            typeLabel: "Purchase",
+            resolvedProvider,
+            resolvedCurrency,
+          };
+        }),
+        ...sellerTransactions.map((tx) => {
+          const metadata = tx.metadata as any;
+          const resolvedProvider = (
+            metadata?.paymentProvider ||
+            metadata?.provider ||
+            "paypal"
+          ).toLowerCase();
+          const resolvedCurrency =
+            metadata?.currency ||
+            (resolvedProvider === "chapa" ? "ETB" : "USD");
+
+          return {
+            ...tx,
+            type: "CREDIT" as const,
+            typeLabel: "Earning",
+            resolvedProvider,
+            resolvedCurrency,
+          };
+        }),
+        ...withdrawalTransactions.map((tx) => {
+          const metadata = tx.metadata as any;
+          const withdrawalId = metadata?.withdrawalId;
+          const withdrawalInfo = withdrawalId ? withdrawalMap.get(withdrawalId) : null;
+          const resolvedProvider = (
+            withdrawalInfo?.method ||
+            metadata?.paymentProvider ||
+            metadata?.provider ||
+            "paypal"
+          ).toLowerCase();
+          const resolvedCurrency =
+            withdrawalInfo?.currency ||
+            metadata?.currency ||
+            (resolvedProvider === "chapa" ? "ETB" : "USD");
+
+          return {
+            ...tx,
+            type: "DEBIT" as const,
+            typeLabel: "Withdrawal",
+            order: null,
+            resolvedProvider,
+            resolvedCurrency,
+          };
+        }),
       ].sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
-      const total = allTransactions.length;
-      const paginatedTransactions = allTransactions.slice(skip, skip + limit);
+      // Filter by provider if provided
+      let filteredTransactions = allTransactions;
+      if (provider) {
+        const targetProvider = provider.toLowerCase();
+        filteredTransactions = allTransactions.filter(
+          (tx) => tx.resolvedProvider === targetProvider,
+        );
+      }
+
+      const total = filteredTransactions.length;
+      const paginatedTransactions = filteredTransactions.slice(skip, skip + limit);
 
       // Format transactions for response
       const formattedTransactions = paginatedTransactions.map((tx) => {
-        const metadata = tx.metadata as any;
         return {
           id: tx.id,
           orderId: tx.orderId,
           amount: Number(tx.amount),
           status: tx.status,
-          provider: metadata?.paymentProvider || metadata?.provider || null,
+          provider: tx.resolvedProvider,
+          currency: tx.resolvedCurrency,
           createdAt: tx.createdAt,
           updatedAt: tx.updatedAt,
           metadata: tx.metadata,

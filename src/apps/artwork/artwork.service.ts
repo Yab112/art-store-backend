@@ -122,6 +122,7 @@ export class ArtworkService {
       // This ensures we're using the exact ID format that exists in the database
       const artworkData: Prisma.ArtworkCreateInput = {
         ...rest,
+        statusUpdatedAt: new Date(),
         dimensions: dimensions as unknown as Prisma.InputJsonValue,
         user: {
           connect: { id: user.id },
@@ -300,12 +301,19 @@ export class ArtworkService {
       // Build where clause
       const where: any = {};
 
-      // By default, only show APPROVED and SOLD artworks (exclude PENDING and REJECTED)
-      // This ensures only approved artworks are available for purchase
+      // Public view: only show APPROVED and SOLD artworks (exclude PENDING and REJECTED)
+      // This ensures only approved artworks are available for purchase on the public site.
       if (status) {
-        where.status = status;
+        // If a status is requested, still ensure it's either APPROVED or SOLD
+        if (!["APPROVED", "SOLD"].includes(status)) {
+          where.status = {
+            in: ["APPROVED", "SOLD"],
+          };
+        } else {
+          where.status = status;
+        }
       } else {
-        // If no status filter is provided, only show APPROVED and SOLD
+        // If no status filter is provided, default to APPROVED and SOLD
         where.status = {
           in: ["APPROVED", "SOLD"],
         };
@@ -413,6 +421,10 @@ export class ArtworkService {
       const orderByClause: any = {};
       orderByClause[sortBy] = orderBy;
 
+      console.log("ArtworkService.findAll - where:", JSON.stringify(where, null, 2));
+      console.log("ArtworkService.findAll - skip:", skip, "limit:", limit);
+      console.log("ArtworkService.findAll - orderBy:", JSON.stringify(orderByClause, null, 2));
+
       const [artworks, total] = await Promise.all([
         this.prisma.artwork.findMany({
           where,
@@ -476,6 +488,143 @@ export class ArtworkService {
       };
     } catch (error) {
       this.logger.error("❌ Failed to fetch artworks:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Admin-only method to fetch artworks of any status
+   */
+  async findAllAdmin(
+    query: {
+      page?: number;
+      limit?: number;
+      status?: ArtworkStatus;
+      search?: string;
+      artist?: string;
+      userId?: string;
+      categoryIds?: string[];
+      minPrice?: number;
+      maxPrice?: number;
+      sortBy?: "createdAt" | "desiredPrice" | "title" | "artist" | "updatedAt";
+      orderBy?: "asc" | "desc";
+    },
+    adminUserId: string,
+  ) {
+    try {
+      // Verify user is admin
+      const user = await this.prisma.user.findUnique({
+        where: { id: adminUserId },
+        select: { role: true },
+      });
+
+      if (user?.role?.toLowerCase() !== "admin") {
+        throw new ForbiddenException("Only administrators can access this endpoint");
+      }
+
+      // Reuse the internal logic but without status restrictions
+      const {
+        page = 1,
+        limit = 10,
+        status,
+        search,
+        artist,
+        userId,
+        categoryIds,
+        minPrice,
+        maxPrice,
+        sortBy = "createdAt",
+        orderBy = "desc",
+      } = query;
+
+      const skip = (page - 1) * limit;
+      const where: any = {};
+
+      // In admin view, we allow any status
+      if (status) {
+        where.status = status;
+      }
+
+      if (artist) {
+        where.artist = { contains: artist, mode: "insensitive" };
+      }
+
+      if (userId) {
+        where.userId = userId;
+      }
+
+      if (categoryIds && categoryIds.length > 0) {
+        where.categories = {
+          some: {
+            categoryId: { in: categoryIds },
+          },
+        };
+      }
+
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        where.desiredPrice = {};
+        if (minPrice !== undefined) where.desiredPrice.gte = minPrice;
+        if (maxPrice !== undefined) where.desiredPrice.lte = maxPrice;
+      }
+
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: "insensitive" } },
+          { artist: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const orderByClause: any = {};
+      orderByClause[sortBy] = orderBy;
+
+      const [artworks, total] = await Promise.all([
+        this.prisma.artwork.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: orderByClause,
+        }),
+        this.prisma.artwork.count({ where }),
+      ]);
+
+      const artworksWithStats = artworks.map((artwork) => ({
+        ...artwork,
+        categories: artwork.categories?.map((ac) => ac.category) || [],
+      }));
+
+      return {
+        artworks: artworksWithStats,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error("❌ Failed to fetch admin artworks:", error);
       throw error;
     }
   }
@@ -807,6 +956,7 @@ export class ArtworkService {
         where: { id },
         data: {
           status,
+          statusUpdatedAt: new Date(),
           isApproved: status === ArtworkStatus.APPROVED,
         },
         include: {

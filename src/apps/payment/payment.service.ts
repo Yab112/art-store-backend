@@ -791,4 +791,25 @@ export class PaymentService {
   async capturePaypalPayment(orderId: string): Promise<any> {
     return this.paypalService.capturePayment(orderId);
   }
+
+  /**
+   * Get list of banks supported by Chapa
+   */
+  async getChapaBanks(): Promise<any> {
+    return this.chapaService.getBanks();
+  }
+
+  /**
+   * Initiate a Chapa bank transfer
+   */
+  async initiateChapaTransfer(data: {
+    account_name: string;
+    account_number: string;
+    amount: number;
+    currency?: string;
+    bank_code: string;
+    reference: string;
+  }): Promise<any> {
+    return this.chapaService.initiateTransfer(data);
+  }
 }

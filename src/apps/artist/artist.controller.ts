@@ -10,17 +10,16 @@ import {
   Request,
   Query,
   Param,
-  ParseIntPipe,
   UseGuards,
   UnauthorizedException,
 } from "@nestjs/common";
+import * as fs from "fs";
+import * as path from "path";
 import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { ArtistService } from "./artist.service";
-import { ArtworkService } from "../artwork/artwork.service";
 import { RequestWithdrawalDto } from "./dto/request-withdrawal.dto";
 import { UpdatePaymentMethodDto } from "./dto/update-payment-method.dto";
 import { AuthGuard } from "@/core/guards/auth.guard";
-import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../core/decorators/public.decorator";
 
 @ApiTags("Artists")
@@ -37,9 +36,13 @@ export class ArtistController {
   @Get("earnings")
   @UseGuards(AuthGuard)
   async getEarnings(@Request() req: any) {
-    // In a real app, get userId from authenticated session
-    // For now, we'll use a placeholder or from request
-    const userId = req.user?.id || req.headers["x-user-id"];
+    // Safely extract userId from header or session
+    const xUserId = req.headers["x-user-id"];
+    const userId = (Array.isArray(xUserId) ? xUserId[0] : xUserId) || req.user?.id;
+
+    const logDir = path.join(process.cwd(), "scratch");
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+    fs.appendFileSync(path.join(logDir, "debug.log"), `[${new Date().toISOString()}] getEarnings: userId=${userId}, x-user-id=${xUserId}, user=${JSON.stringify(req.user)}\n`);
 
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -70,19 +73,27 @@ export class ArtistController {
   })
   async getWithdrawals(
     @Request() req: any,
-    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
-    const userId = req.user?.id;
+    // Safely extract userId from header or session
+    const xUserId = req.headers["x-user-id"];
+    const userId = (Array.isArray(xUserId) ? xUserId[0] : xUserId) || req.user?.id;
 
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
 
+    // Safely parse pagination parameters
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    const pageNum = isNaN(parsedPage) ? 1 : parsedPage;
+    const limitNum = isNaN(parsedLimit) ? 20 : parsedLimit;
+
     this.logger.log(
-      `Get withdrawals for user: ${userId}, page: ${page}, limit: ${limit}`,
+      `Get withdrawals for user: ${userId}, page: ${pageNum}, limit: ${limitNum}`,
     );
-    return this.artistService.getWithdrawalHistory(userId, page, limit);
+    return this.artistService.getWithdrawalHistory(userId, pageNum, limitNum);
   }
 
   /**
@@ -110,6 +121,8 @@ export class ArtistController {
       userId,
       requestWithdrawalDto.amount,
       requestWithdrawalDto.iban,
+      requestWithdrawalDto.bankCode,
+      requestWithdrawalDto.accountName,
     );
   }
 
@@ -121,7 +134,9 @@ export class ArtistController {
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Get payment methods for authenticated artist" })
   async getPaymentMethods(@Request() req: any) {
-    const userId = req.user?.id || req.headers["x-user-id"];
+    // Safely extract userId from header or session
+    const xUserId = req.headers["x-user-id"];
+    const userId = (Array.isArray(xUserId) ? xUserId[0] : xUserId) || req.user?.id;
 
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -200,6 +215,36 @@ export class ArtistController {
       country,
       talentTypeId,
       email,
+    );
+  }
+
+  /**
+   * Get all artists for admin
+   * GET /api/artist/admin
+   */
+  @Get("admin")
+  @UseGuards(AuthGuard)
+  async getAllArtistsAdmin(
+    @Request() req: any,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("search") search?: string,
+    @Query("country") country?: string,
+    @Query("talentTypeId") talentTypeId?: string,
+    @Query("email") email?: string,
+  ) {
+    const userId = req.user?.id;
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 50;
+
+    return this.artistService.findAllAdmin(
+      pageNum,
+      limitNum,
+      search,
+      country,
+      talentTypeId,
+      email,
+      userId,
     );
   }
 

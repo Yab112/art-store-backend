@@ -230,4 +230,5 @@ export class ArtworkQueryDto {
   @IsOptional()
   @IsEnum(["asc", "desc"])
   orderBy?: "asc" | "desc" = "desc";
+
 }

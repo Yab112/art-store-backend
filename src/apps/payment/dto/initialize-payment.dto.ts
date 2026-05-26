@@ -38,9 +38,6 @@ export class InitializePaymentDto {
   @IsOptional()
   lastName?: string;
 
-  @IsString()
-  @IsOptional()
-  phoneNumber?: string;
 
   @IsString()
   @IsOptional()

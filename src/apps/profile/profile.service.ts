@@ -1002,9 +1002,7 @@ export class ProfileService {
         throw new NotFoundException("User not found");
       }
 
-      return {
-        paymentMethodPreference: user.paymentMethodPreference || "paypal", // Default to paypal
-      };
+      return user.paymentMethodPreference || { method: "paypal" };
     } catch (error) {
       this.logger.error("Failed to get payment method preference:", error);
       throw error;
@@ -1016,7 +1014,7 @@ export class ProfileService {
    */
   async updatePaymentMethodPreference(
     userId: string,
-    paymentMethodPreference: string,
+    dto: any,
   ) {
     try {
       const user = await this.prisma.user.findUnique({
@@ -1026,6 +1024,8 @@ export class ProfileService {
       if (!user) {
         throw new NotFoundException("User not found");
       }
+
+      const { paymentMethodPreference, paypalEmail, chapaAccountName, chapaAccountNumber, chapaBankCode } = dto;
 
       // Validate payment method
       if (
@@ -1041,13 +1041,20 @@ export class ProfileService {
         where: { userId },
         update: {
           method: paymentMethodPreference,
+          ...(paypalEmail !== undefined && { paypalEmail }),
+          ...(chapaAccountName !== undefined && { chapaAccountName }),
+          ...(chapaAccountNumber !== undefined && { chapaAccountNumber }),
+          ...(chapaBankCode !== undefined && { chapaBankCode }),
         },
         create: {
           userId,
           method: paymentMethodPreference,
           isDefault: true,
+          paypalEmail,
+          chapaAccountName,
+          chapaAccountNumber,
+          chapaBankCode,
         },
-        select: { method: true },
       });
 
       this.logger.log(
@@ -1057,9 +1064,7 @@ export class ProfileService {
       return {
         success: true,
         message: "Payment method preference updated successfully",
-        data: {
-          method: updated.method,
-        },
+        data: updated,
       };
     } catch (error) {
       this.logger.error("Failed to update payment method preference:", error);

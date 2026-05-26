@@ -42,4 +42,11 @@ export class WithdrawalsQueryDto {
   })
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: "Filter by payout method",
+    example: "CHAPA",
+  })
+  @IsOptional()
+  method?: string;
 }

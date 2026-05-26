@@ -9,7 +9,7 @@ import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { ConfigurationService } from "../../core/configuration";
 import { CreateBlogPostDto, UpdateBlogPostDto, BlogPostQueryDto } from "./dto";
-import { Prisma } from "@prisma/client";
+import { Prisma, BlogPostStatus } from "@prisma/client";
 import {
   BLOG_EVENTS,
   BlogPostCreatedEvent,
@@ -141,7 +141,16 @@ export class BlogService {
   /**
    * Get all blog posts with pagination and filters
    */
-  async findAll(query: BlogPostQueryDto, requestingUserId?: string) {
+  async findAll(query: {
+    page?: number;
+    limit?: number;
+    published?: boolean;
+    search?: string;
+    authorId?: string;
+    status?: BlogPostStatus;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }, requestingUserId?: string) {
     try {
       const {
         page = BLOG_CONSTANTS.DEFAULT_PAGE,
@@ -166,51 +175,21 @@ export class BlogService {
       const isViewingOwnPosts =
         requestingUserId && authorId === requestingUserId;
 
-      // Only show approved and published posts to non-admins
-      // BUT: Allow users to see ALL their own posts (including PENDING/REJECTED)
-      // Admins can see all statuses
-      if (requestingUserId) {
-        const requestingUser = await this.prisma.user.findUnique({
-          where: { id: requestingUserId },
-          select: { role: true },
-        });
+      // Handle visibility and status filtering
+      // Priority:
+      // 1. If requestingUserId is provided, check if user is viewing their own posts
+      // 2. Otherwise, public access: show only APPROVED and published
 
-        const isAdmin =
-          requestingUser && requestingUser.role?.toLowerCase() === "admin";
-
-        if (!isAdmin && !isViewingOwnPosts) {
-          // Regular user viewing other people's posts - only show approved and published
-          where.status = "APPROVED";
-          where.published = true;
-        } else if (!isAdmin && isViewingOwnPosts) {
-          // Regular user viewing their own posts - show all statuses
-          // Apply status filter if provided (this takes priority)
-          if (status) {
-            where.status = status as Prisma.EnumBlogPostStatusFilter;
-            this.logger.debug(
-              `Applied status filter for own posts: ${status}, type: ${typeof status}`,
-            );
-          }
-          // Apply published filter if provided
-          if (published !== undefined) {
-            where.published = published;
-          }
-        } else if (!isAdmin && authorId && !isViewingOwnPosts) {
-          // User is authenticated but viewing someone else's posts
-          // Only show APPROVED and published posts
-          where.status = "APPROVED";
-          where.published = true;
-        } else if (isAdmin) {
-          // Admin can see everything - apply filters if provided
-          if (status) {
-            where.status = status as Prisma.EnumBlogPostStatusFilter;
-          }
-          if (published !== undefined) {
-            where.published = published;
-          }
+      if (requestingUserId && authorId === requestingUserId) {
+        // Author viewing their own posts - show all their statuses
+        if (status) {
+          where.status = status;
+        }
+        if (published !== undefined) {
+          where.published = published;
         }
       } else {
-        // Public access - only show approved and published posts
+        // Public access (or viewing others' posts) - only show approved and published posts
         where.status = "APPROVED";
         where.published = true;
       }
@@ -277,6 +256,93 @@ export class BlogService {
     } catch (error) {
       this.logger.error(
         `Failed to fetch blog posts: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get all blog posts for admin (all statuses)
+   */
+  async findAllAdmin(query: BlogPostQueryDto, requestingUserId: string) {
+    try {
+      // Verify user is admin
+      const requestingUser = await this.prisma.user.findUnique({
+        where: { id: requestingUserId },
+        select: { role: true },
+      });
+
+      if (requestingUser?.role?.toLowerCase() !== "admin") {
+        throw new ForbiddenException("Only administrators can access this endpoint");
+      }
+
+      const {
+        page = BLOG_CONSTANTS.DEFAULT_PAGE,
+        limit = BLOG_CONSTANTS.DEFAULT_LIMIT,
+        published,
+        search,
+        authorId,
+        status,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+      } = query;
+
+      const where: Prisma.BlogPostWhereInput = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (published !== undefined) {
+        where.published = published;
+      }
+
+      if (authorId) {
+        where.authorId = authorId;
+      }
+
+      if (search) {
+        where.OR = [
+          { title: { contains: search, mode: "insensitive" } },
+          { content: { contains: search, mode: "insensitive" } },
+          { excerpt: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const orderBy: Prisma.BlogPostOrderByWithRelationInput = {};
+      orderBy[sortBy] = sortOrder;
+
+      const [total, blogPosts] = await Promise.all([
+        this.prisma.blogPost.count({ where }),
+        this.prisma.blogPost.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      return {
+        data: blogPosts,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch admin blog posts: ${error.message}`,
         error.stack,
       );
       throw error;

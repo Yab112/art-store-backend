@@ -74,10 +74,24 @@ export class BlogController {
     description: "Blog posts retrieved successfully",
     type: BlogPostListResponseDto,
   })
-  async findAll(@Query() query: BlogPostQueryDto) {
-    // Public endpoint - no authentication required
-    // Only shows APPROVED and published posts
-    return this.blogService.findAll(query);
+  async findAll(@Query() query: BlogPostQueryDto, @Request() req: any) {
+    // Pass req.user.id if available (populated by AuthGuard or custom logic)
+    // Note: Since this endpoint is public, req.user might be undefined if not logged in
+    return this.blogService.findAll(query, req.user?.id);
+  }
+
+  @Get("admin")
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get all blog posts for admin (all statuses)" })
+  @ApiResponse({
+    status: 200,
+    description: "Blog posts retrieved successfully",
+    type: BlogPostListResponseDto,
+  })
+  async findAllAdmin(@Query() query: BlogPostQueryDto, @Request() req: any) {
+    const userId = req.user.id;
+    return this.blogService.findAllAdmin(query, userId);
   }
 
   @Get("published")

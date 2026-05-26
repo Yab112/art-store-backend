@@ -81,6 +81,13 @@ export class ArtworkController {
     return this.artworkService.findAll(query);
   }
 
+  @Get("admin")
+  @UseGuards(AuthGuard)
+  async findAllAdmin(@Query() query: ArtworkQueryDto, @Request() req: any) {
+    const userId = req.user.id;
+    return this.artworkService.findAllAdmin(query, userId);
+  }
+
   @Get("my-artworks")
   @UseGuards(AuthGuard)
   async findMyArtworks(
