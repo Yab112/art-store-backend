@@ -3,10 +3,13 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { SettingsService } from "../settings/settings.service";
 import { Decimal } from "@prisma/client/runtime/library";
+import * as fs from "fs";
+import * as path from "path";
 
 @Injectable()
 export class ArtistService {
@@ -26,12 +29,14 @@ export class ArtistService {
     try {
       this.logger.log(`[EARNINGS] Getting earnings for user: ${userId}`);
 
-      // Get the user and their earning field (source of truth)
+      // Get the user and their earning fields
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
           earning: true,
+          earningPaypal: true,
+          earningChapa: true,
         },
       });
 
@@ -40,8 +45,10 @@ export class ArtistService {
         throw new NotFoundException("User not found");
       }
 
-      // Total earnings from user table (source of truth)
+      // Total earnings
       const totalEarnings = Number(user.earning || 0);
+      const totalEarningsPaypal = Number(user.earningPaypal || 0);
+      const totalEarningsChapa = Number(user.earningChapa || 0);
 
       // Get all withdrawals for this user
       const allWithdrawals = await this.prisma.withdrawal.findMany({
@@ -50,13 +57,23 @@ export class ArtistService {
         },
       });
 
-      // Calculate total withdrawn (COMPLETED withdrawals)
+      // Calculate total withdrawn per method (COMPLETED withdrawals)
       const totalWithdrawn = allWithdrawals
         .filter((w) => w.status === "COMPLETED")
         .reduce((sum, w) => sum + Number(w.amount), 0);
 
-      // Available balance = total earnings - total withdrawn
+      const totalWithdrawnPaypal = allWithdrawals
+        .filter((w) => w.status === "COMPLETED" && (w.method === "PAYPAL" || !w.method))
+        .reduce((sum, w) => sum + Number(w.amount), 0);
+
+      const totalWithdrawnChapa = allWithdrawals
+        .filter((w) => w.status === "COMPLETED" && w.method === "CHAPA")
+        .reduce((sum, w) => sum + Number(w.amount), 0);
+
+      // Available balances
       const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
+      const availableBalancePaypal = Math.max(0, totalEarningsPaypal - totalWithdrawnPaypal);
+      const availableBalanceChapa = Math.max(0, totalEarningsChapa - totalWithdrawnChapa);
 
       // Get all order items for artworks sold by this artist (orders with status PAID)
       const orderItems = await this.prisma.orderItem.findMany({
@@ -186,25 +203,31 @@ export class ArtistService {
       return {
         success: true,
         data: {
-          // Core earnings metrics (using user.earning as source of truth)
-          earning: totalEarnings, // Total earnings from user table
-          totalEarnings: totalEarnings, // Alias for compatibility
+          // Summary
+          totalEarnings: totalEarnings,
+          totalEarningsPaypal: totalEarningsPaypal,
+          totalEarningsChapa: totalEarningsChapa,
+          
+          totalWithdrawn: totalWithdrawn,
+          totalWithdrawnPaypal: totalWithdrawnPaypal,
+          totalWithdrawnChapa: totalWithdrawnChapa,
+          
+          availableBalance: availableBalance,
+          availableBalancePaypal: availableBalancePaypal,
+          availableBalanceChapa: availableBalanceChapa,
+
+          // Aggregated/Legacy metrics
           totalSales: totalSales,
           totalCommission: totalCommission,
-
-          // Withdrawal metrics
-          totalWithdrawn: totalWithdrawn,
-
-          // Available balance (what can be withdrawn now)
-          availableBalance: availableBalance,
-
-          // Sales data
           salesCount: salesCount,
           sales: sales,
         },
       };
     } catch (error) {
       this.logger.error("[EARNINGS] Failed to get earnings:", error);
+      const logDir = path.join(process.cwd(), "scratch");
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+      fs.appendFileSync(path.join(logDir, "debug.log"), `[${new Date().toISOString()}] EARNINGS ERROR: ${error.message}\n${error.stack}\n`);
       throw error;
     }
   }
@@ -218,37 +241,13 @@ export class ArtistService {
     limit: number = 20,
   ) {
     try {
-      // Get all artworks by this artist to find their IBANs
-      const artworks = await this.prisma.artwork.findMany({
-        where: { userId },
-        select: { iban: true },
-      });
-
-      const ibans = [...new Set(artworks.map((a) => a.iban).filter(Boolean))];
-
-      // If no IBANs, return empty result
-      if (ibans.length === 0) {
-        return {
-          success: true,
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            pages: 0,
-          },
-        };
-      }
-
       const skip = (page - 1) * limit;
 
-      // Get withdrawals for those IBANs with pagination
+      // Get withdrawals for this user with pagination
       const [withdrawals, total] = await Promise.all([
         this.prisma.withdrawal.findMany({
           where: {
-            payoutAccount: {
-              in: ibans,
-            },
+            userId: userId,
           },
           orderBy: {
             createdAt: "desc",
@@ -258,9 +257,7 @@ export class ArtistService {
         }),
         this.prisma.withdrawal.count({
           where: {
-            payoutAccount: {
-              in: ibans,
-            },
+            userId: userId,
           },
         }),
       ]);
@@ -287,6 +284,8 @@ export class ArtistService {
           return {
             id: w.id,
             amount: Number(w.amount),
+            currency: w.currency || "USD",
+            method: w.method || "PAYPAL",
             status: w.status, // System status (PROCESSING, INITIATED, etc.)
             paypalStatus, // Actual PayPal transaction status (SUCCESS, UNCLAIMED, etc.)
             payoutAccount: w.payoutAccount,
@@ -303,6 +302,9 @@ export class ArtistService {
       };
     } catch (error) {
       this.logger.error("Failed to get withdrawal history:", error);
+      const logDir = path.join(process.cwd(), "scratch");
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+      fs.appendFileSync(path.join(logDir, "debug.log"), `[${new Date().toISOString()}] WITHDRAWAL ERROR: ${error.message}\n${error.stack}\n`);
       throw error;
     }
   }
@@ -311,27 +313,19 @@ export class ArtistService {
    * Request withdrawal with comprehensive backend validations
    * All validations must pass before request enters admin review
    */
-  async requestWithdrawal(userId: string, amount: number, iban: string) {
+  async requestWithdrawal(
+    userId: string,
+    amount: number,
+    iban: string,
+    bankCode?: string,
+    accountName?: string,
+  ) {
     try {
       // ============================================
       // BACKEND VALIDATIONS (AUTOMATIC) - FIRST
       // ============================================
 
-      // 1. Verify the IBAN belongs to this artist
-      const artwork = await this.prisma.artwork.findFirst({
-        where: {
-          userId,
-          iban,
-        },
-      });
-
-      if (!artwork) {
-        throw new NotFoundException(
-          "Payment account not found or does not belong to you",
-        );
-      }
-
-      // 2. Check if artist is verified (email verified)
+      // 1. Verify user exists and get verification status
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { emailVerified: true, email: true, banned: true },
@@ -368,13 +362,18 @@ export class ArtistService {
         );
       }
 
-      // 5. Check balance is sufficient
+      // 5. Determine method and check balance is sufficient
+      const isChapa = !!bankCode;
+      const method = isChapa ? "CHAPA" : "PAYPAL";
+      const currency = isChapa ? "ETB" : "USD";
+      const currencySymbol = isChapa ? "ETB" : "$";
+      
       const stats = await this.getEarningsStats(userId);
-      const availableBalance = stats.data.availableBalance;
+      const availableBalance = isChapa ? stats.data.availableBalanceChapa : stats.data.availableBalancePaypal;
 
       if (amount > availableBalance) {
         throw new BadRequestException(
-          `Insufficient balance. Available: $${availableBalance.toFixed(2)}, Requested: $${amount.toFixed(2)}`,
+          `Insufficient ${method} balance. Available: ${currencySymbol}${availableBalance.toFixed(2)}, Requested: ${currencySymbol}${amount.toFixed(2)}`,
         );
       }
 
@@ -382,29 +381,32 @@ export class ArtistService {
       const paymentSettings =
         await this.settingsService.getPaymentSettingsValues();
 
-      if (amount < paymentSettings.minWithdrawalAmount) {
+      const minAmount = isChapa ? paymentSettings.minWithdrawalAmountChapa : paymentSettings.minWithdrawalAmountPaypal;
+
+      if (amount < minAmount) {
         throw new BadRequestException(
-          `Minimum withdrawal amount is $${paymentSettings.minWithdrawalAmount}`,
+          `Minimum withdrawal amount for ${method} is ${currencySymbol}${minAmount}`,
         );
       }
 
       // 7. Check maximum withdrawal amount (0 = unlimited)
+      const maxAmount = isChapa ? paymentSettings.maxWithdrawalAmountChapa : paymentSettings.maxWithdrawalAmountPaypal;
+
       if (
-        paymentSettings.maxWithdrawalAmount > 0 &&
-        amount > paymentSettings.maxWithdrawalAmount
+        maxAmount > 0 &&
+        amount > maxAmount
       ) {
         throw new BadRequestException(
-          `Maximum withdrawal amount is $${paymentSettings.maxWithdrawalAmount}`,
+          `Maximum withdrawal amount for ${method} is ${currencySymbol}${maxAmount}`,
         );
       }
 
       // 8. Check for any pending withdrawals (INITIATED or PROCESSING states)
-      // User can only request a new withdrawal if all previous withdrawals are COMPLETED, REJECTED, FAILED, or REFUNDED
       const pendingWithdrawals = await this.prisma.withdrawal.findMany({
         where: {
           userId,
           status: {
-            in: ["INITIATED", "PROCESSING"], // Check for any pending/active withdrawals
+            in: ["INITIATED", "PROCESSING"],
           },
         },
         orderBy: {
@@ -414,55 +416,43 @@ export class ArtistService {
 
       if (pendingWithdrawals.length > 0) {
         const pendingCount = pendingWithdrawals.length;
-        const totalPendingAmount = pendingWithdrawals.reduce(
-          (sum, w) => sum + Number(w.amount),
-          0,
-        );
-        const statuses = [
-          ...new Set(pendingWithdrawals.map((w) => w.status)),
-        ].join(" and ");
-
-        // Create a more informative error message
-        const withdrawalDetails = pendingWithdrawals
-          .map((w, idx) => `$${Number(w.amount).toFixed(2)} (${w.status})`)
-          .join(", ");
-
         throw new BadRequestException(
-          `You have ${pendingCount} pending withdrawal request${pendingCount > 1 ? "s" : ""} totaling $${totalPendingAmount.toFixed(2)} with status: ${statuses}. ` +
-            `Please wait until all pending withdrawals are completed or rejected before requesting a new withdrawal. ` +
-            `Pending: ${withdrawalDetails}`,
+          `You have ${pendingCount} pending withdrawal request(s). Please wait until they are processed.`,
         );
       }
 
-      // 10. PayPal email validation (if using PayPal for payouts)
-      // For now, we'll validate that the email format is valid
-      // In production, you might want to check if the email is a valid PayPal account
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (user.email && !emailRegex.test(user.email)) {
-        throw new BadRequestException(
-          "Invalid email format. Please update your email address.",
-        );
+      // 9. PayPal email validation
+      if (method === "PAYPAL") {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(iban)) {
+          throw new BadRequestException("Invalid PayPal email format.");
+        }
       }
 
       // All validations passed - create withdrawal request
-      // Status: INITIATED (enters admin review queue)
+      const metadata: any = {};
+      if (bankCode) metadata.bankCode = bankCode;
+      if (accountName) metadata.accountName = accountName;
+
       const withdrawal = await this.prisma.withdrawal.create({
         data: {
           userId,
           payoutAccount: iban,
           amount: new Decimal(amount),
-          status: "INITIATED", // Admin will review and approve/reject
+          method,
+          currency,
+          status: "INITIATED",
+          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
         } as any,
       });
 
       this.logger.log(
-        `✅ Withdrawal request created (passed all validations): ${withdrawal.id} for user ${userId}, amount: $${amount}`,
+        `✅ Withdrawal request created: ${withdrawal.id} for user ${userId}, amount: ${currencySymbol}${amount}`,
       );
 
       return {
         success: true,
-        message:
-          "Withdrawal request submitted successfully and is pending admin approval",
+        message: "Withdrawal request submitted successfully and is pending admin approval",
         data: {
           id: withdrawal.id,
           amount: Number(withdrawal.amount),
@@ -481,32 +471,38 @@ export class ArtistService {
    */
   async getPaymentMethods(userId: string) {
     try {
-      const artworks = await this.prisma.artwork.findMany({
+      const pref = await this.prisma.paymentMethodPreference.findUnique({
         where: { userId },
-        select: {
-          id: true,
-          accountHolder: true,
-          iban: true,
-          bicCode: true,
-        },
-        distinct: ["iban"],
       });
 
-      // Group by IBAN to avoid duplicates
-      const uniquePaymentMethods = artworks.reduce((acc, artwork) => {
-        if (!acc.find((pm) => pm.iban === artwork.iban)) {
-          acc.push({
-            accountHolder: artwork.accountHolder,
-            iban: artwork.iban,
-            bicCode: artwork.bicCode,
-          });
+      const methods = [];
+      if (pref) {
+        const paypalMethod = pref.paypalEmail ? {
+          type: "paypal",
+          accountHolder: "PayPal",
+          iban: pref.paypalEmail,
+          bicCode: null,
+        } : null;
+
+        const chapaMethod = pref.chapaAccountNumber ? {
+          type: "chapa",
+          accountHolder: pref.chapaAccountName,
+          iban: pref.chapaAccountNumber,
+          bicCode: pref.chapaBankCode,
+        } : null;
+
+        if (pref.method === "chapa") {
+          if (chapaMethod) methods.push(chapaMethod);
+          if (paypalMethod) methods.push(paypalMethod);
+        } else {
+          if (paypalMethod) methods.push(paypalMethod);
+          if (chapaMethod) methods.push(chapaMethod);
         }
-        return acc;
-      }, []);
+      }
 
       return {
         success: true,
-        data: uniquePaymentMethods,
+        data: methods,
       };
     } catch (error) {
       this.logger.error("Failed to get payment methods:", error);
@@ -556,7 +552,30 @@ export class ArtistService {
     bicCode?: string,
   ) {
     try {
-      // Update all artworks by this user
+      // Create or update the preference. We'll map the legacy fields to chapa/paypal based on basic heuristics
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(iban);
+      
+      const updateData: any = {};
+      if (isEmail) {
+        updateData.paypalEmail = iban;
+      } else {
+        updateData.chapaAccountNumber = iban;
+        updateData.chapaAccountName = accountHolder;
+        if (bicCode) updateData.chapaBankCode = bicCode;
+      }
+
+      await this.prisma.paymentMethodPreference.upsert({
+        where: { userId },
+        update: updateData,
+        create: {
+          userId,
+          method: isEmail ? "paypal" : "chapa",
+          isDefault: true,
+          ...updateData
+        },
+      });
+
+      // Legacy support: also update artworks just in case
       const result = await this.prisma.artwork.updateMany({
         where: { userId },
         data: {
@@ -780,6 +799,212 @@ export class ArtistService {
       };
     } catch (error) {
       this.logger.error("Failed to get all artists:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Admin-only method to fetch all artists (including banned)
+   */
+  async findAllAdmin(
+    page: number = 1,
+    limit: number = 50,
+    search?: string,
+    country?: string,
+    talentTypeId?: string,
+    email?: string,
+    requestingUserId?: string,
+  ) {
+    try {
+      if (requestingUserId) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: requestingUserId },
+          select: { role: true },
+        });
+        if (user?.role?.toLowerCase() !== "admin") {
+          throw new ForbiddenException("Only administrators can access this endpoint");
+        }
+      }
+
+      const skip = (page - 1) * limit;
+      const where: any = {};
+
+      if (country && country.trim() !== "") {
+        where.location = { contains: country, mode: "insensitive" };
+      }
+
+      if (talentTypeId && talentTypeId.trim() !== "") {
+        where.talentTypes = {
+          some: { talentType: { id: talentTypeId } },
+        };
+      }
+
+      if (email && email.trim() !== "") {
+        where.email = { contains: email, mode: "insensitive" };
+      }
+
+      if (search && search.trim() !== "") {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { location: { contains: search, mode: "insensitive" } },
+          { bio: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [artists, total, userAgg, withdrawalsPaypal, withdrawalsChapa, orderItemsCount, platformEarnings] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            location: true,
+            role: true,
+            banned: true,
+            createdAt: true,
+            earning: true,
+            earningPaypal: true,
+            earningChapa: true,
+            paymentMethodPreference: true,
+            _count: {
+              select: { artworks: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        this.prisma.user.count({ where }),
+        this.prisma.user.aggregate({
+          where,
+          _sum: { 
+            earning: true,
+            earningPaypal: true,
+            earningChapa: true 
+          }
+        }),
+        this.prisma.withdrawal.aggregate({
+          where: { 
+            user: where, 
+            status: "COMPLETED",
+            method: "PAYPAL" 
+          },
+          _sum: { amount: true }
+        }),
+        this.prisma.withdrawal.aggregate({
+          where: { 
+            user: where, 
+            status: "COMPLETED",
+            method: "CHAPA" 
+          },
+          _sum: { amount: true }
+        }),
+        this.prisma.orderItem.count({
+          where: {
+            artwork: { user: where },
+            order: { status: "PAID" }
+          }
+        }),
+        this.prisma.platformEarning.findMany({
+          select: {
+            amount: true,
+            metadata: true
+          }
+        })
+      ]);
+
+      // Calculate totals for each currency
+      const totalEarningsPaypal = Number(userAgg._sum.earningPaypal || 0);
+      const totalEarningsChapa = Number(userAgg._sum.earningChapa || 0);
+      const totalWithdrawnPaypal = Number(withdrawalsPaypal._sum.amount || 0);
+      const totalWithdrawnChapa = Number(withdrawalsChapa._sum.amount || 0);
+      
+      const availableBalancePaypal = Math.max(0, totalEarningsPaypal - totalWithdrawnPaypal);
+      const availableBalanceChapa = Math.max(0, totalEarningsChapa - totalWithdrawnChapa);
+
+      // Group platform commissions by payment gateway dynamically using stored transaction values
+      let totalCommissionPaypal = 0;
+      let totalCommissionChapa = 0;
+
+      for (const earning of platformEarnings) {
+        const metadata = earning.metadata as any;
+        const provider = (metadata?.paymentProvider || "").toLowerCase();
+        const amount = Number(earning.amount || 0);
+        
+        if (provider === "paypal") {
+          totalCommissionPaypal += amount;
+        } else {
+          totalCommissionChapa += amount;
+        }
+      }
+
+      return {
+        success: true,
+        artists: artists.map(a => {
+          const pref = a.paymentMethodPreference;
+          const methods = [];
+          if (pref) {
+            const paypalMethod = pref.paypalEmail ? {
+              type: "paypal",
+              accountHolder: "PayPal",
+              iban: pref.paypalEmail,
+              bicCode: null,
+            } : null;
+
+            const chapaMethod = pref.chapaAccountNumber ? {
+              type: "chapa",
+              accountHolder: pref.chapaAccountName,
+              iban: pref.chapaAccountNumber,
+              bicCode: pref.chapaBankCode,
+            } : null;
+
+            if (pref.method === "chapa") {
+              if (chapaMethod) methods.push(chapaMethod);
+              if (paypalMethod) methods.push(paypalMethod);
+            } else {
+              if (paypalMethod) methods.push(paypalMethod);
+              if (chapaMethod) methods.push(chapaMethod);
+            }
+          }
+
+          return {
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            image: a.image,
+            location: a.location,
+            role: a.role,
+            banned: a.banned,
+            createdAt: a.createdAt,
+            earning: a.earning,
+            earningPaypal: a.earningPaypal,
+            earningChapa: a.earningChapa,
+            artworkCount: a._count.artworks,
+            paymentMethods: methods,
+          };
+        }),
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+        stats: {
+          totalEarningsPaypal,
+          totalEarningsChapa,
+          totalWithdrawnPaypal,
+          totalWithdrawnChapa,
+          availableBalancePaypal,
+          availableBalanceChapa,
+          totalSales: orderItemsCount,
+          totalCommissionPaypal,
+          totalCommissionChapa
+        }
+      };
+    } catch (error) {
+      this.logger.error("Failed to fetch admin artists:", error);
       throw error;
     }
   }

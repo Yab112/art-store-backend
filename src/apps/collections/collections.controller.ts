@@ -9,6 +9,7 @@ import {
   Query,
   Request,
   ParseIntPipe,
+  ForbiddenException,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import {
@@ -99,6 +100,40 @@ export class CollectionsController {
       return {
         success: false,
         message: error.message || "Failed to fetch hot collections",
+      };
+    }
+  }
+
+  /**
+   * GET /collections/admin/all
+   * Get all collections (Admin only)
+   */
+  @Get("admin/all")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "Get all collections (Admin only)" })
+  async findAllAdmin(@Query() query: CollectionsQueryDto, @Request() req: any) {
+    // Check if user is admin
+    if (req.user?.role?.toUpperCase() !== "ADMIN") {
+      throw new ForbiddenException("Only admins can access this endpoint");
+    }
+
+    try {
+      const result = await this.collectionsService.findAll(
+        query.page,
+        query.limit,
+        query.search,
+        undefined, // Don't filter by user ID (admin sees everything)
+        query.visibility || "all", // Support visibility filtering, default to all
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch collections",
       };
     }
   }

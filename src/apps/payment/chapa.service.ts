@@ -89,20 +89,17 @@ export class ChapaService {
       const description = `Order ${orderIdShort}`.substring(0, 50);
 
       // Get frontend URL for return URL
-      const frontendUrl =
-        this.configService.get("FRONTEND_URL") || "http://localhost:5173";
+      const frontendUrl = this.configService.get<string>("FRONTEND_URL");
       const serverUrl =
-        this.configService.get("SERVER_BASE_URL") ||
-        this.configService.get("API_BASE_URL") ||
-        "http://localhost:3099";
+        this.configService.get<string>("SERVER_BASE_URL") ||
+        this.configService.get<string>("API_BASE_URL");
 
-      const payload = {
+      const payload: Record<string, any> = {
         amount: roundedAmount,
         currency: currency,
         email: paymentData.email,
         first_name: paymentData.firstName || "",
         last_name: paymentData.lastName || "",
-        phone_number: paymentData.phoneNumber || "",
         tx_ref: txRef,
         callback_url:
           paymentData.callbackUrl || `${serverUrl}/api/payment/chapa/callback`,
@@ -114,6 +111,7 @@ export class ChapaService {
           description: description,
         },
       };
+
 
       this.logger.log(
         `Initializing Chapa payment: ${paymentData.txRef}`,
@@ -366,6 +364,96 @@ export class ChapaService {
     } catch (error) {
       this.logger.error("Chapa webhook processing failed:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Fetch banks from Chapa
+   */
+  async getBanks(): Promise<any> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/banks`, {
+        headers: {
+          Authorization: `Bearer ${this.secretKey}`,
+        },
+      });
+
+      if (response.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      if (response.data.status === "success") {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      this.logger.error("Failed to fetch Chapa banks:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Initiate a bank transfer (Payout)
+   */
+  async initiateTransfer(data: {
+    account_name: string;
+    account_number: string;
+    amount: number;
+    bank_code: string;
+    reference: string;
+    currency?: string;
+  }): Promise<any> {
+    try {
+      this.logger.log(`Initiating Chapa transfer: ${data.reference}`);
+
+      const response = await axios.post(
+        `${this.baseUrl}/transfers`,
+        {
+          account_name: data.account_name,
+          account_number: data.account_number,
+          amount: data.amount,
+          currency: data.currency || "ETB",
+          reference: data.reference,
+          bank_code: data.bank_code,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.data.status === "success") {
+        this.logger.log(
+          `Chapa transfer response for ${data.reference}:`,
+          JSON.stringify(response.data, null, 2),
+        );
+        return {
+          success: true,
+          message: response.data.message || "Transfer initiated successfully",
+          data: response.data.data,
+        };
+      } else {
+        return {
+          success: false,
+          message: response.data.message || "Transfer failed",
+          data: response.data.data,
+        };
+      }
+    } catch (error: any) {
+      this.logger.error("Chapa transfer initiation failed:", error);
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || error.message;
+        return {
+          success: false,
+          message: `Chapa API error: ${JSON.stringify(error.response?.data || message)}`,
+          error: error.response?.data,
+        };
+      }
+      return {
+        success: false,
+        message: error.message || "Unknown error during transfer",
+      };
     }
   }
 }

@@ -34,7 +34,7 @@ export class ArtworkEventSubscriber {
    * Handle artwork submitted event
    * Send confirmation email to artist
    */
-  @OnEvent(ARTWORK_EVENTS.SUBMITTED)
+  @OnEvent(ARTWORK_EVENTS.SUBMITTED, { async: true })
   async handleArtworkSubmitted(event: ArtworkSubmittedEvent) {
     try {
       this.logger.log(

@@ -35,8 +35,12 @@ export class SettingsService implements OnModuleInit {
       };
 
       const defaultPaymentSettings = {
-        minWithdrawalAmount: 10,
-        maxWithdrawalAmount: 0, // 0 = unlimited
+        minWithdrawalAmount: 10, // Legacy/Default
+        minWithdrawalAmountPaypal: 10, // $10 USD
+        minWithdrawalAmountChapa: 100, // 100 ETB
+        maxWithdrawalAmount: 0, // Legacy
+        maxWithdrawalAmountPaypal: 0, // 0 = unlimited
+        maxWithdrawalAmountChapa: 0, // 0 = unlimited
         paymentTimeoutMinutes: 30,
         holdingPeriodDays: 7, // Funds must be held for 7 days before withdrawal
         platformCommissionRate: 10, // 10% platform commission
@@ -164,7 +168,11 @@ export class SettingsService implements OnModuleInit {
       // Get payment settings
       const paymentSettings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
+        minWithdrawalAmountPaypal: 10,
+        minWithdrawalAmountChapa: 100,
         maxWithdrawalAmount: 0,
+        maxWithdrawalAmountPaypal: 0,
+        maxWithdrawalAmountChapa: 0,
         paymentTimeoutMinutes: 30,
       };
 
@@ -230,6 +238,8 @@ export class SettingsService implements OnModuleInit {
    */
   async updatePlatformSettings(dto: UpdatePlatformSettingsDto) {
     try {
+      this.logger.log(`Updating platform settings with: ${JSON.stringify(dto)}`);
+      
       // Get current settings
       const currentSettings = (await this.getSetting("platform")) || {
         platformCommissionRate: 10,
@@ -248,7 +258,7 @@ export class SettingsService implements OnModuleInit {
       // Save to database
       await this.setSetting("platform", updatedSettings, "platform");
 
-      this.logger.log("Platform settings updated");
+      this.logger.log("Platform settings updated successfully");
 
       return {
         success: true,
@@ -256,7 +266,13 @@ export class SettingsService implements OnModuleInit {
         settings: updatedSettings,
       };
     } catch (error) {
-      this.logger.error("Failed to update platform settings:", error);
+      this.logger.error(`Failed to update platform settings: ${error.message}`, error.stack);
+      
+      // Re-throw with more context if it's a Prisma error
+      if (error.code) {
+        this.logger.error(`Prisma error code: ${error.code}`);
+      }
+      
       throw error;
     }
   }
@@ -342,7 +358,11 @@ export class SettingsService implements OnModuleInit {
     try {
       const settings = (await this.getSetting("payment")) || {
         minWithdrawalAmount: 10,
+        minWithdrawalAmountPaypal: 10,
+        minWithdrawalAmountChapa: 100,
         maxWithdrawalAmount: 0,
+        maxWithdrawalAmountPaypal: 0,
+        maxWithdrawalAmountChapa: 0,
         paymentTimeoutMinutes: 30,
       };
 
@@ -369,8 +389,17 @@ export class SettingsService implements OnModuleInit {
 
       const updatedSettings = {
         ...currentSettings,
-        ...(dto.minWithdrawalAmount !== undefined && {
-          minWithdrawalAmount: dto.minWithdrawalAmount,
+        ...(dto.minWithdrawalAmountPaypal !== undefined && {
+          minWithdrawalAmountPaypal: dto.minWithdrawalAmountPaypal,
+        }),
+        ...(dto.minWithdrawalAmountChapa !== undefined && {
+          minWithdrawalAmountChapa: dto.minWithdrawalAmountChapa,
+        }),
+        ...(dto.maxWithdrawalAmountPaypal !== undefined && {
+          maxWithdrawalAmountPaypal: dto.maxWithdrawalAmountPaypal,
+        }),
+        ...(dto.maxWithdrawalAmountChapa !== undefined && {
+          maxWithdrawalAmountChapa: dto.maxWithdrawalAmountChapa,
         }),
         ...(dto.maxWithdrawalAmount !== undefined && {
           maxWithdrawalAmount: dto.maxWithdrawalAmount,
@@ -378,6 +407,9 @@ export class SettingsService implements OnModuleInit {
         ...(dto.paymentTimeoutMinutes !== undefined && {
           paymentTimeoutMinutes: dto.paymentTimeoutMinutes,
         }),
+        // Also update legacy fields
+        minWithdrawalAmount: dto.minWithdrawalAmountPaypal || currentSettings.minWithdrawalAmount,
+        maxWithdrawalAmount: dto.maxWithdrawalAmountPaypal || currentSettings.maxWithdrawalAmount
       };
 
       await this.setSetting("payment", updatedSettings, "payment");
@@ -576,7 +608,11 @@ export class SettingsService implements OnModuleInit {
    */
   async getPaymentSettingsValues(): Promise<{
     minWithdrawalAmount: number;
+    minWithdrawalAmountPaypal: number;
+    minWithdrawalAmountChapa: number;
     maxWithdrawalAmount: number;
+    maxWithdrawalAmountPaypal: number;
+    maxWithdrawalAmountChapa: number;
     paymentTimeoutMinutes: number;
     holdingPeriodDays: number;
     platformCommissionRate: number;
@@ -591,7 +627,11 @@ export class SettingsService implements OnModuleInit {
       };
       return {
         minWithdrawalAmount: settings.minWithdrawalAmount || 10,
+        minWithdrawalAmountPaypal: settings.minWithdrawalAmountPaypal || 10,
+        minWithdrawalAmountChapa: settings.minWithdrawalAmountChapa || 100,
         maxWithdrawalAmount: settings.maxWithdrawalAmount || 0,
+        maxWithdrawalAmountPaypal: settings.maxWithdrawalAmountPaypal || 0,
+        maxWithdrawalAmountChapa: settings.maxWithdrawalAmountChapa || 0,
         paymentTimeoutMinutes: settings.paymentTimeoutMinutes || 30,
         holdingPeriodDays: settings.holdingPeriodDays || 7,
         platformCommissionRate: settings.platformCommissionRate || 10,
@@ -600,7 +640,11 @@ export class SettingsService implements OnModuleInit {
       this.logger.error("Failed to get payment settings:", error);
       return {
         minWithdrawalAmount: 10,
+        minWithdrawalAmountPaypal: 10,
+        minWithdrawalAmountChapa: 100,
         maxWithdrawalAmount: 0,
+        maxWithdrawalAmountPaypal: 0,
+        maxWithdrawalAmountChapa: 0,
         paymentTimeoutMinutes: 30,
         holdingPeriodDays: 7,
         platformCommissionRate: 10,

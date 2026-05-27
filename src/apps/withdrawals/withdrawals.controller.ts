@@ -57,6 +57,16 @@ export class WithdrawalsController {
   }
 
   /**
+   * Get withdrawal statistics
+   * GET /api/withdrawals/statistics
+   */
+  @Get("statistics")
+  @ApiOperation({ summary: "Get withdrawal statistics" })
+  async getStatistics() {
+    return this.withdrawalsService.getStatistics();
+  }
+
+  /**
    * Get withdrawal by ID with full details
    * GET /api/withdrawals/:id
    */
@@ -103,13 +113,4 @@ export class WithdrawalsController {
     }
   }
 
-  /**
-   * Get withdrawal statistics
-   * GET /api/withdrawals/statistics
-   */
-  @Get("statistics")
-  @ApiOperation({ summary: "Get withdrawal statistics" })
-  async getStatistics() {
-    return this.withdrawalsService.getStatistics();
-  }
 }

@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   ParseIntPipe,
+  ParseBoolPipe,
+  Req,
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { CreateUserDto } from "./dto/create-user.dto";
@@ -30,12 +32,31 @@ export class UsersController {
   @ApiQuery({ name: "page", required: false, type: Number, example: 1 })
   @ApiQuery({ name: "limit", required: false, type: Number, example: 20 })
   @ApiQuery({ name: "search", required: false, type: String })
+  @ApiQuery({ name: "banned", required: false, type: Boolean })
   findAll(
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
     @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
     @Query("search") search?: string,
+    @Query("banned", new ParseBoolPipe({ optional: true })) banned?: boolean,
   ) {
-    return this.usersService.findAll(page, limit, search);
+    return this.usersService.findAll(page, limit, search, banned);
+  }
+
+  @Get("admin")
+  @ApiOperation({ summary: "Get all users for admin with pagination and filters" })
+  @ApiQuery({ name: "page", required: false, type: Number, example: 1 })
+  @ApiQuery({ name: "limit", required: false, type: Number, example: 20 })
+  @ApiQuery({ name: "search", required: false, type: String })
+  @ApiQuery({ name: "banned", required: false, type: Boolean })
+  findAllAdmin(
+    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
+    @Query("search") search?: string,
+    @Query("banned", new ParseBoolPipe({ optional: true })) banned?: boolean,
+    @Req() req?: any,
+  ) {
+    const userId = req?.user?.id;
+    return this.usersService.findAllAdmin(page, limit, search, banned, userId);
   }
 
   @Get(":id")

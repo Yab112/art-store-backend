@@ -405,10 +405,15 @@ export class OrderService {
           }
 
           // Update user earnings
+          const earningField = paymentProvider.toLowerCase() === "paypal" ? "earningPaypal" : "earningChapa";
+          
           await this.prisma.user.update({
             where: { id: artistUserId },
             data: {
               earning: {
+                increment: new Decimal(earnings),
+              },
+              [earningField]: {
                 increment: new Decimal(earnings),
               },
             },
