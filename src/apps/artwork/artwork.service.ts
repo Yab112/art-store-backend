@@ -120,8 +120,12 @@ export class ArtworkService {
 
       // CRITICAL: Use the exact user.id from the database lookup, not the trimmedUserId
       // This ensures we're using the exact ID format that exists in the database
+      // Also provide default values for iban/bicCode if missing to satisfy DB constraints
+      // until the schema can be safely migrated to optional.
       const artworkData: Prisma.ArtworkCreateInput = {
         ...rest,
+        iban: rest.iban || "NOT_REQUIRED",
+        bicCode: rest.bicCode || "NOT_REQUIRED",
         statusUpdatedAt: new Date(),
         dimensions: dimensions as unknown as Prisma.InputJsonValue,
         user: {

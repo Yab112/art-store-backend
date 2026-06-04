@@ -251,7 +251,7 @@ model Artwork {
   desiredPrice           Float
   acceptPriceNegotiation Boolean
   accountHolder          String
-  iban                   String
+  iban                   String?
   bicCode                String?
   acceptTermsOfSale      Boolean
   giveSalesMandate       Boolean
