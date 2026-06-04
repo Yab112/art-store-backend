@@ -108,12 +108,13 @@ export class CreateArtworkDto {
   @IsString()
   accountHolder: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "IBAN for payment",
     example: "FR7630006000011234567890189",
   })
+  @IsOptional()
   @IsString()
-  iban: string;
+  iban?: string;
 
   @ApiPropertyOptional({ description: "BIC code", example: "BNPAFRPPXXX" })
   @IsOptional()

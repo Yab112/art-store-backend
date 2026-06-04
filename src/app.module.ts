@@ -21,6 +21,7 @@ import { WithdrawalsModule } from "./apps/withdrawals/withdrawals.module";
 import { FollowModule } from "./apps/follow/follow.module";
 import { FeedModule } from "./apps/feed/feed.module";
 import { BlogModule } from "./apps/blog/blog.module";
+import { FavoritesModule } from "./apps/favorites/favorites.module";
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { BlogModule } from "./apps/blog/blog.module";
     FollowModule,
     FeedModule,
     BlogModule,
+    FavoritesModule,
   ],
   controllers: [],
   providers: [

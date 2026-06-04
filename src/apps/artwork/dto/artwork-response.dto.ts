@@ -79,11 +79,11 @@ export class ArtworkDto {
   @ApiProperty({ description: "Account holder name", example: "John Doe" })
   accountHolder: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "IBAN for payment",
     example: "FR7630006000011234567890189",
   })
-  iban: string;
+  iban?: string;
 
   @ApiPropertyOptional({ description: "BIC code", example: "BNPAFRPPXXX" })
   bicCode?: string;
