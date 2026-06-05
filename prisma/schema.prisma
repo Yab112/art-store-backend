@@ -164,6 +164,7 @@ model User {
   bio                                String?
   location                           String?
   website                            String?
+  phone                              String?
   emailSubscription                  Boolean                  @default(true)
   score                              Float                    @default(0)
   role                               String

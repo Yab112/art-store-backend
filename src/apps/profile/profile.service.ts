@@ -251,6 +251,7 @@ export class ProfileService {
         bio: user.bio ?? null,
         location: user.location ?? null,
         website: user.website ?? null,
+        phone: user.phone ?? null,
         role: user.role,
         score: user.score ?? 0,
         twoFactorEnabled: user.twoFactorEnabled,
