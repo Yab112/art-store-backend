@@ -75,7 +75,7 @@ export class ProfileController {
       const userId = req.user.id;
       return await this.profileService.updatePaymentMethodPreference(
         userId,
-        dto.paymentMethodPreference,
+        dto,
       );
     } catch (error) {
       return {
@@ -86,9 +86,121 @@ export class ProfileController {
   }
 
   /**
+   * GET /profile
+   * Fetch authenticated user profile
+   */
+  @Get()
+  @UseGuards(AuthGuard)
+  async getAuthenticatedProfile(@Request() req: any) {
+    try {
+      const userId = req.user.id;
+      const profile = await this.profileService.getAuthenticatedProfile(userId);
+
+      return {
+        success: true,
+        profile,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch profile",
+      };
+    }
+  }
+
+  /**
+   * GET /profile/settings
+   * Fetch user settings
+   * MUST come before @Get(":id") to avoid route conflicts
+   */
+  @Get("settings")
+  @UseGuards(AuthGuard)
+  async getSettings(@Request() req: any) {
+    try {
+      const userId = req.user.id;
+      const settings = await this.profileService.getSettings(userId);
+
+      return {
+        success: true,
+        settings,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch settings",
+      };
+    }
+  }
+
+  /**
+   * GET /profile/uploads
+   * List uploaded artworks including drafts
+   * MUST come before @Get(":id") to avoid route conflicts
+   */
+  @Get("uploads")
+  @UseGuards(AuthGuard)
+  async getUploadedArtworks(
+    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Request() req: any,
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.profileService.getUploadedArtworks(
+        userId,
+        page,
+        limit,
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch uploads",
+      };
+    }
+  }
+
+  /**
+   * GET /profile/activity
+   * Retrieve user activity logs
+   * MUST come before @Get(":id") to avoid route conflicts
+   */
+  @Get("activity")
+  @UseGuards(AuthGuard)
+  async getActivityLogs(
+    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
+    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
+    @Request() req: any,
+  ) {
+    try {
+      const userId = req.user.id;
+      const result = await this.profileService.getActivityLogs(
+        userId,
+        page,
+        limit,
+      );
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || "Failed to fetch activity logs",
+      };
+    }
+  }
+
+  /**
    * GET /profile/:id
    * Fetch public user profile with their artworks & collections (Public)
    * This endpoint is public and doesn't require authentication
+   * MUST come AFTER all literal routes to avoid capturing them as :id params
    */
   @Get(":id")
   @Public()
@@ -105,29 +217,6 @@ export class ProfileController {
         viewerUserId,
         ip,
       );
-
-      return {
-        success: true,
-        profile,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Failed to fetch profile",
-      };
-    }
-  }
-
-  /**
-   * GET /profile
-   * Fetch authenticated user profile
-   */
-  @Get()
-  @UseGuards(AuthGuard)
-  async getAuthenticatedProfile(@Request() req: any) {
-    try {
-      const userId = req.user.id;
-      const profile = await this.profileService.getAuthenticatedProfile(userId);
 
       return {
         success: true,
@@ -200,29 +289,6 @@ export class ProfileController {
   }
 
   /**
-   * GET /profile/settings
-   * Fetch user settings
-   */
-  @Get("settings")
-  @UseGuards(AuthGuard)
-  async getSettings(@Request() req: any) {
-    try {
-      const userId = req.user.id;
-      const settings = await this.profileService.getSettings(userId);
-
-      return {
-        success: true,
-        settings,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Failed to fetch settings",
-      };
-    }
-  }
-
-  /**
    * PUT /profile/settings
    * Update user account settings
    */
@@ -260,68 +326,6 @@ export class ProfileController {
       return {
         success: false,
         message: error.message || "Failed to subscribe to newsletter",
-      };
-    }
-  }
-
-  /**
-   * GET /profile/uploads
-   * List uploaded artworks including drafts
-   */
-  @Get("uploads")
-  @UseGuards(AuthGuard)
-  async getUploadedArtworks(
-    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 10,
-    @Request() req: any,
-  ) {
-    try {
-      const userId = req.user.id;
-      const result = await this.profileService.getUploadedArtworks(
-        userId,
-        page,
-        limit,
-      );
-
-      return {
-        success: true,
-        ...result,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Failed to fetch uploads",
-      };
-    }
-  }
-
-  /**
-   * GET /profile/activity
-   * Retrieve user activity logs
-   */
-  @Get("activity")
-  @UseGuards(AuthGuard)
-  async getActivityLogs(
-    @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
-    @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 20,
-    @Request() req: any,
-  ) {
-    try {
-      const userId = req.user.id;
-      const result = await this.profileService.getActivityLogs(
-        userId,
-        page,
-        limit,
-      );
-
-      return {
-        success: true,
-        ...result,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || "Failed to fetch activity logs",
       };
     }
   }

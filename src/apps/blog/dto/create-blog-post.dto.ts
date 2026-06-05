@@ -52,8 +52,8 @@ export class CreateBlogPostDto {
   excerpt?: string;
 
   @ApiPropertyOptional({
-    description: "Featured image URL (S3/MinIO)",
-    example: "https://minio.example.com/blog/featured-image.jpg",
+    description: "Featured image URL (S3)",
+    example: "https://s3.example.com/blog/featured-image.jpg",
   })
   @IsOptional()
   @IsString()

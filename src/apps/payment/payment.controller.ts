@@ -166,4 +166,18 @@ export class PaymentController {
     this.logger.log(`Capture PayPal payment: ${orderId}`);
     return this.paymentService.capturePaypalPayment(orderId);
   }
+
+  /**
+   * Get list of banks supported by Chapa
+   * GET /api/payment/chapa/banks
+   */
+  @Get("chapa/banks")
+  async getChapaBanks() {
+    this.logger.log("Fetching Chapa banks");
+    const banks = await this.paymentService.getChapaBanks();
+    return {
+      success: true,
+      data: banks,
+    };
+  }
 }

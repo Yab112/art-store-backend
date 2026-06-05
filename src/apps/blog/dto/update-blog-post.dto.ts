@@ -52,7 +52,7 @@ export class UpdateBlogPostDto extends PartialType(CreateBlogPostDto) {
 
   @ApiPropertyOptional({
     description: "Featured image URL",
-    example: "https://minio.example.com/blog/new-featured-image.jpg",
+    example: "https://s3.example.com/blog/new-featured-image.jpg",
   })
   @IsOptional()
   @IsString()

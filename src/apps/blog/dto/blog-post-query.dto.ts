@@ -7,7 +7,7 @@ import {
   Max,
   IsEnum,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { BlogPostStatus } from "@prisma/client";
 
@@ -90,4 +90,5 @@ export class BlogPostQueryDto {
   @IsOptional()
   @IsEnum(BlogPostStatus)
   status?: BlogPostStatus;
+
 }

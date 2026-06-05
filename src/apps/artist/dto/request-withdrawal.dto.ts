@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, Min } from "class-validator";
+import { IsNotEmpty, IsNumber, IsString, Min, IsOptional } from "class-validator";
 
 export class RequestWithdrawalDto {
   @IsNotEmpty()
@@ -9,4 +9,12 @@ export class RequestWithdrawalDto {
   @IsNotEmpty()
   @IsString()
   iban: string;
+
+  @IsString()
+  @IsOptional()
+  bankCode?: string;
+
+  @IsString()
+  @IsOptional()
+  accountName?: string;
 }

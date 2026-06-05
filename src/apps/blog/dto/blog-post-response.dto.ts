@@ -30,7 +30,7 @@ export class BlogPostResponseDto {
 
   @ApiProperty({
     description: "Featured image URL",
-    example: "https://minio.example.com/blog/image.jpg",
+    example: "https://s3.example.com/blog/image.jpg",
   })
   featuredImage?: string;
 

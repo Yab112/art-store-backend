@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
@@ -34,7 +35,8 @@ export class UsersService {
           emailVerified: createUserDto.emailVerified ?? false,
           score: createUserDto.score ?? 0,
           banned: createUserDto.banned ?? false,
-          updatedAt: new Date(),
+          bannedAt: createUserDto.banned ? new Date() : null,
+          emailVerifiedAt: createUserDto.emailVerified ? new Date() : null,
         },
       });
 
@@ -46,7 +48,7 @@ export class UsersService {
     }
   }
 
-  async findAll(page: number = 1, limit: number = 20, search?: string) {
+  async findAll(page: number = 1, limit: number = 20, search?: string, banned: boolean = false) {
     try {
       const skip = (page - 1) * limit;
 
@@ -58,6 +60,80 @@ export class UsersService {
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
         ];
+      }
+
+      // Default to only showing non-banned users if not specified
+      where.banned = banned;
+
+      const [users, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            emailVerified: true,
+            image: true,
+            score: true,
+            role: true,
+            banned: true,
+            bannedAt: true,
+            banReason: true,
+            banExpires: true,
+            twoFactorEnabled: true,
+            createdAt: true,
+            updatedAt: true,
+            emailVerifiedAt: true,
+          },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      return {
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error("Failed to fetch users:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Admin-only method to fetch all users
+   */
+  async findAllAdmin(page: number = 1, limit: number = 20, search?: string, banned?: boolean, requestingUserId?: string) {
+    try {
+      if (requestingUserId) {
+        const requestingUser = await this.prisma.user.findUnique({
+          where: { id: requestingUserId },
+          select: { role: true },
+        });
+        if (requestingUser?.role?.toLowerCase() !== "admin") {
+          throw new ForbiddenException("Only administrators can access this endpoint");
+        }
+      }
+
+      const skip = (page - 1) * limit;
+      const where: any = {};
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (banned !== undefined) {
+        where.banned = banned;
       }
 
       const [users, total] = await Promise.all([
@@ -75,16 +151,17 @@ export class UsersService {
             score: true,
             role: true,
             banned: true,
+            bannedAt: true,
             banReason: true,
             banExpires: true,
             twoFactorEnabled: true,
             createdAt: true,
             updatedAt: true,
+            emailVerifiedAt: true,
           },
         }),
         this.prisma.user.count({ where }),
       ]);
-      console.log("users", users);
 
       return {
         users,
@@ -96,7 +173,7 @@ export class UsersService {
         },
       };
     } catch (error) {
-      this.logger.error("Failed to fetch users:", error);
+      this.logger.error("Failed to fetch admin users:", error);
       throw error;
     }
   }
@@ -283,11 +360,27 @@ export class UsersService {
         }
       }
 
+      const dataToUpdate: any = { ...updateUserDto };
+
+      if (updateUserDto.banned !== undefined) {
+        if (updateUserDto.banned === true && !existingUser.banned) {
+          dataToUpdate.bannedAt = new Date();
+        } else if (updateUserDto.banned === false) {
+          dataToUpdate.bannedAt = null;
+        }
+      }
+
+      if (updateUserDto.emailVerified !== undefined) {
+        if (updateUserDto.emailVerified === true && !existingUser.emailVerified) {
+          dataToUpdate.emailVerifiedAt = new Date();
+        } else if (updateUserDto.emailVerified === false) {
+          dataToUpdate.emailVerifiedAt = null;
+        }
+      }
+
       const user = await this.prisma.user.update({
         where: { id },
-        data: {
-          ...updateUserDto,
-        },
+        data: dataToUpdate,
       });
 
       this.logger.log(`User updated: ${id}`);

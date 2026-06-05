@@ -159,6 +159,7 @@ model User {
   name                               String
   email                              String                   @unique
   emailVerified                      Boolean                  @default(false)
+  emailVerifiedAt                    DateTime?
   image                              String?
   coverImage                         String?
   bio                                String?
@@ -169,11 +170,12 @@ model User {
   score                              Float                    @default(0)
   role                               String
   banned                             Boolean                  @default(false)
+  bannedAt                           DateTime?
   banReason                          String?
   banExpires                         DateTime?
   twoFactorEnabled                   Boolean                  @default(false)
   createdAt                          DateTime                 @default(now())
-  updatedAt                          DateTime
+  updatedAt                          DateTime                 @updatedAt
   firstlogin                         Boolean?
   lastActiveAt                       DateTime?
   profileViews                       Int                      @default(0)
@@ -183,6 +185,8 @@ model User {
   timezone                           String?                  @default("UTC")
   messagingPreferences               Json?
   earning                            Decimal                  @default(0) @db.Decimal(10, 2)
+  earningPaypal                      Decimal                  @default(0) @db.Decimal(10, 2)
+  earningChapa                       Decimal                  @default(0) @db.Decimal(10, 2)
   accounts                           Account[]
   Chat_Chat_clientIdToUser           Chat[]                   @relation("Chat_clientIdToUser")
   Chat_Chat_taskerIdToUser           Chat[]                   @relation("Chat_taskerIdToUser")
@@ -248,13 +252,14 @@ model Artwork {
   desiredPrice           Float
   acceptPriceNegotiation Boolean
   accountHolder          String
-  iban                   String
+  iban                   String?
   bicCode                String?
   acceptTermsOfSale      Boolean
   giveSalesMandate       Boolean
   proofOfOrigin          String?
   photos                 String[]
   status                 ArtworkStatus         @default(PENDING)
+  statusUpdatedAt        DateTime?
   isApproved             Boolean               @default(false)
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -454,6 +459,8 @@ model Withdrawal {
   userId        String?
   payoutAccount String
   amount        Decimal       @db.Decimal(10, 2)
+  method        String        @default("PAYPAL") // PAYPAL or CHAPA
+  currency      String        @default("USD")    // USD or ETB
   status        PaymentStatus @default(INITIATED)
   payoutBatchId String?
   metadata      Json?
@@ -482,13 +489,17 @@ model PlatformEarning {
 }
 
 model PaymentMethodPreference {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  method    String
-  isDefault Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  method             String
+  isDefault          Boolean  @default(true)
+  paypalEmail        String?
+  chapaAccountName   String?
+  chapaAccountNumber String?
+  chapaBankCode      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("payment_method_preferences")
 }

@@ -85,6 +85,7 @@ export class TransactionsController {
       page,
       limit,
       status,
+      provider,
     );
   }
 
