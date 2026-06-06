@@ -638,7 +638,8 @@ export const auth = betterAuth({
     defaultCookieAttributes: (() => {
       const port = process.env.PORT;
       const baseURL = process.env.BETTER_AUTH_URL;
-      const isHTTPS = baseURL.startsWith("https://");
+      const isHTTPS = baseURL?.startsWith("https://");
+      const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN;
 
       // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)
       // For HTTP: use sameSite: "lax" + secure: false (won't work for cross-origin API requests)
@@ -648,7 +649,7 @@ export const auth = betterAuth({
             sameSite: "none" as const,
             secure: true,
             httpOnly: true,
-            partitioned: true, // Required for cross-site cookies in modern browsers
+            domain: cookieDomain || undefined,
           }
         : {
             sameSite: "lax" as const,

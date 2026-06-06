@@ -38,7 +38,9 @@ const appendDomainVariants = (
   try {
     const parsed = new URL(baseOrigin);
     if (parsed.hostname.startsWith("www.")) {
-      origins.push(`${parsed.protocol}//${parsed.hostname.replace(/^www\./, "")}`);
+      origins.push(
+        `${parsed.protocol}//${parsed.hostname.replace(/^www\./, "")}`,
+      );
     } else {
       origins.push(`${parsed.protocol}//www.${parsed.hostname}`);
     }
@@ -50,7 +52,9 @@ const appendDomainVariants = (
 async function bootstrap() {
   const server = express();
   const configuredFrontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
-  const configuredAdminFrontendUrl = normalizeOrigin(process.env.ADMIN_FRONTEND_URL);
+  const configuredAdminFrontendUrl = normalizeOrigin(
+    process.env.ADMIN_FRONTEND_URL,
+  );
   const allowlistedOrigins: string[] = [
     "http://localhost:5173", // Vite dev server (frontend)
     "http://localhost:3000", // Backend (legacy)
@@ -100,7 +104,6 @@ async function bootstrap() {
     }),
   );
 
-  
   server.use((req, res, next) => {
     if (req.headers.cookie && typeof req.headers.cookie === "string") {
       const cookieHeader = req.headers.cookie;
@@ -152,6 +155,9 @@ async function bootstrap() {
     },
   );
 
+  // Trust proxy for secure cookies on Render/proxies
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
+
   app.useStaticAssets(join(__dirname, "..", "public"));
   const configurationService = app.get(ConfigurationService);
   const corsService = app.get(CorsService);
@@ -189,8 +195,14 @@ async function bootstrap() {
     .setTitle("Art Store API")
     .setDescription("Comprehensive marketplace API for Art Store application")
     .setVersion("1.0")
-    .addServer(`${process.env.BASE_URL || "http://localhost:3099"}/api`, "Current Server API")
-    .addServer(process.env.BASE_URL || "http://localhost:3099", "Current Server Root")
+    .addServer(
+      `${process.env.BASE_URL || "http://localhost:3099"}/api`,
+      "Current Server API",
+    )
+    .addServer(
+      process.env.BASE_URL || "http://localhost:3099",
+      "Current Server Root",
+    )
     .addServer("http://51.20.54.47:3099/api", "EC2 Production API")
     .addServer("http://51.20.54.47:3099", "EC2 Production (Root)")
     .build();
