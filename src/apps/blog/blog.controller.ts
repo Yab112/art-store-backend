@@ -36,6 +36,7 @@ import {
 } from "./dto";
 import { AuthGuard } from "../../core/guards/auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { Public } from "../../core/decorators/public.decorator";
 
 @ApiTags("Blog Posts")
 @Controller("blog")
@@ -48,6 +49,36 @@ export class BlogController {
     private readonly votesService: BlogVotesService,
     private readonly sharesService: BlogSharesService,
   ) {}
+
+  @Get("categories")
+  @ApiOperation({ summary: "Get all blog categories" })
+  @ApiResponse({
+    status: 200,
+    description: "Blog categories retrieved successfully",
+  })
+  async findAllCategories() {
+    return this.blogService.findAllCategories();
+  }
+
+  @Get("topics")
+  @ApiOperation({ summary: "Get all blog topics" })
+  @ApiResponse({
+    status: 200,
+    description: "Blog topics retrieved successfully",
+  })
+  async findAllTopics() {
+    return this.blogService.findAllTopics();
+  }
+
+  @Get("authors")
+  @ApiOperation({ summary: "Get all blog authors" })
+  @ApiResponse({
+    status: 200,
+    description: "Blog authors retrieved successfully",
+  })
+  async findAllAuthors() {
+    return this.blogService.findAllAuthors();
+  }
 
   @Post()
   @UseGuards(AuthGuard)
@@ -68,6 +99,8 @@ export class BlogController {
   }
 
   @Get()
+  @Public()
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: "Get all blog posts with pagination and filters" })
   @ApiResponse({
     status: 200,

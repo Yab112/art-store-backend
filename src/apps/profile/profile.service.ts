@@ -79,6 +79,23 @@ export class ProfileService {
         },
       });
 
+      // Get blog count separately
+      const blogCount = await this.prisma.blogPost.count({
+        where: {
+          authorId: profileId,
+          status: "APPROVED",
+          published: true,
+        },
+      });
+
+      // Get collection count separately
+      const collectionCount = await this.prisma.collection.count({
+        where: {
+          createdBy: profileId,
+          visibility: "public",
+        },
+      });
+
       if (!user) {
         throw new NotFoundException(PROFILE_MESSAGES.ERROR.PROFILE_NOT_FOUND);
       }
@@ -139,7 +156,9 @@ export class ProfileService {
         score: user.score,
         createdAt: user.createdAt,
         artworkCount: artworkCount,
-        // Don't return artworks array - they should be fetched via paginated artworks endpoint
+        blogCount: blogCount,
+        collectionCount: collectionCount,
+        // Don't return artworks array - they should be fetched via paginated endpoint
         artworks: [],
         reviewCount: user.reviews.length,
         // User profile fields
@@ -1013,10 +1032,7 @@ export class ProfileService {
   /**
    * Update user's preferred payment method for purchases
    */
-  async updatePaymentMethodPreference(
-    userId: string,
-    dto: any,
-  ) {
+  async updatePaymentMethodPreference(userId: string, dto: any) {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -1026,7 +1042,13 @@ export class ProfileService {
         throw new NotFoundException("User not found");
       }
 
-      const { paymentMethodPreference, paypalEmail, chapaAccountName, chapaAccountNumber, chapaBankCode } = dto;
+      const {
+        paymentMethodPreference,
+        paypalEmail,
+        chapaAccountName,
+        chapaAccountNumber,
+        chapaBankCode,
+      } = dto;
 
       // Validate payment method
       if (

@@ -64,6 +64,8 @@ model Category {
   image       String?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  isActive    Boolean             @default(true)
+  sortOrder   Int                 @default(0)
   artworks    ArtworkOnCategory[]
 }
 
@@ -159,7 +161,6 @@ model User {
   name                               String
   email                              String                   @unique
   emailVerified                      Boolean                  @default(false)
-  emailVerifiedAt                    DateTime?
   image                              String?
   coverImage                         String?
   bio                                String?
@@ -170,7 +171,6 @@ model User {
   score                              Float                    @default(0)
   role                               String
   banned                             Boolean                  @default(false)
-  bannedAt                           DateTime?
   banReason                          String?
   banExpires                         DateTime?
   twoFactorEnabled                   Boolean                  @default(false)
@@ -185,8 +185,11 @@ model User {
   timezone                           String?                  @default("UTC")
   messagingPreferences               Json?
   earning                            Decimal                  @default(0) @db.Decimal(10, 2)
-  earningPaypal                      Decimal                  @default(0) @db.Decimal(10, 2)
+  bannedAt                           DateTime?
+  emailVerifiedAt                    DateTime?
   earningChapa                       Decimal                  @default(0) @db.Decimal(10, 2)
+  earningPaypal                      Decimal                  @default(0) @db.Decimal(10, 2)
+  phone                              String?
   accounts                           Account[]
   Chat_Chat_clientIdToUser           Chat[]                   @relation("Chat_clientIdToUser")
   Chat_Chat_taskerIdToUser           Chat[]                   @relation("Chat_taskerIdToUser")
@@ -209,6 +212,7 @@ model User {
   artworks                           Artwork[]
   blogComments                       BlogComment[]            @relation("BlogComment_user")
   blogPosts                          BlogPost[]               @relation("BlogPost_author")
+  featuredBlogPosts                  BlogPost[]               @relation("ArtistSpotlight")
   blogShares                         BlogShare[]              @relation("BlogShare_user")
   blogVotes                          BlogVote[]               @relation("BlogVote_user")
   cartItems                          CartItem[]
@@ -259,11 +263,11 @@ model Artwork {
   proofOfOrigin          String?
   photos                 String[]
   status                 ArtworkStatus         @default(PENDING)
-  statusUpdatedAt        DateTime?
   isApproved             Boolean               @default(false)
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   userId                 String
+  statusUpdatedAt        DateTime?
   categories             ArtworkOnCategory[]
   collectionOnArtworks   CollectionOnArtwork[]
   comments               Comment[]
@@ -273,6 +277,7 @@ model Artwork {
   orderItems             OrderItem[]
   reviews                Review[]
   user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blogPosts              BlogPostOnArtwork[]
   cartItems              CartItem[]
   favorites              Favorite[]
 
@@ -459,13 +464,13 @@ model Withdrawal {
   userId        String?
   payoutAccount String
   amount        Decimal       @db.Decimal(10, 2)
-  method        String        @default("PAYPAL") // PAYPAL or CHAPA
-  currency      String        @default("USD")    // USD or ETB
   status        PaymentStatus @default(INITIATED)
   payoutBatchId String?
   metadata      Json?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  currency      String        @default("USD")
+  method        String        @default("PAYPAL")
   user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -493,45 +498,177 @@ model PaymentMethodPreference {
   userId             String   @unique
   method             String
   isDefault          Boolean  @default(true)
-  paypalEmail        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
   chapaAccountName   String?
   chapaAccountNumber String?
   chapaBankCode      String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  paypalEmail        String?
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("payment_method_preferences")
 }
 
 model BlogPost {
-  id            String         @id @default(uuid())
-  title         String
-  slug          String         @unique
-  content       String
-  excerpt       String?
-  featuredImage String?
-  status        BlogPostStatus @default(PENDING)
-  published     Boolean        @default(false)
-  publishedAt   DateTime?
-  authorId      String
-  views         Int            @default(0)
-  likes         Int            @default(0)
-  dislikes      Int            @default(0)
-  shares        Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  editedAt      DateTime?
-  comments      BlogComment[]
-  author        User           @relation("BlogPost_author", fields: [authorId], references: [id], onDelete: Cascade)
-  sharesList    BlogShare[]
-  votes         BlogVote[]
+  id              String         @id @default(uuid())
+  title           String
+  slug            String         @unique
+  subtitle        String?
+  content         String         @db.Text
+  excerpt         String?        @db.VarChar(500)
+  
+  // Content - block-based / rich text support
+  contentDocument Json?          // TipTap JSON (source of truth while editing)
+  contentHtml     String?        @db.Text // rendered HTML for public read
+  contentFormat   String         @default("tiptap/v1") // tiptap/v1 | legacy/html
+  
+  featuredImage   String?        // Also used as coverImage
+  layout          BlogPostLayout @default(STANDARD)
+  badge           String?
+  status          BlogPostStatus @default(DRAFT)
+  published       Boolean        @default(false)
+  publishedAt     DateTime?
+  authorId        String
+  isLive          Boolean        @default(false)
+  isBreaking      Boolean        @default(false)
+  isDrop          Boolean        @default(false)
+  dropDate        DateTime?
+  mediaType       MediaType      @default(IMAGE)
+  videoUrl        String?
+  videoDuration   String?
+  priority        Int            @default(0)
+  readingTimeMin  Int?           // computed: ceil(wordCount / 200)
+  locationTag     String?
+  ctaText         String?
+  ctaLink         String?
+  
+  views           Int            @default(0)
+  likes           Int            @default(0)
+  dislikes        Int            @default(0)
+  shares          Int            @default(0)
+  
+  lastAutoSavedAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  editedAt        DateTime?
+  
+  categoryId      String?
+  category        BlogCategory?  @relation(fields: [categoryId], references: [id])
+  topicId         String?
+  topic           BlogTopic?     @relation(fields: [topicId], references: [id])
+  
+  featuredArtistId String?
+  featuredArtist   User?         @relation("ArtistSpotlight", fields: [featuredArtistId], references: [id])
+  
+  relatedArtworks  BlogPostOnArtwork[]
+  comments         BlogComment[]
+  author           User          @relation("BlogPost_author", fields: [authorId], references: [id], onDelete: Cascade)
+  sharesList       BlogShare[]
+  votes            BlogVote[]
+  
+  // New Relations for Redesign
+  tags             BlogPostTag[]
+  media            BlogMedia[]
+  references       BlogReference[]
+  polls            BlogPoll[]
 
   @@index([slug])
   @@index([status, published, publishedAt])
   @@index([authorId])
   @@index([createdAt])
   @@map("blog_posts")
+}
+
+model BlogCategory {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  blogPosts   BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model BlogTopic {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  blogPosts   BlogPost[]
+
+  @@map("blog_topics")
+}
+
+model BlogPostOnArtwork {
+  id         String   @id @default(uuid())
+  blogPostId String
+  artworkId  String
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@unique([blogPostId, artworkId])
+  @@map("blog_posts_on_artworks")
+}
+
+model BlogTag {
+  id        String        @id @default(uuid())
+  name      String        @unique
+  slug      String        @unique
+  blogPosts BlogPostTag[]
+
+  @@map("blog_tags")
+}
+
+model BlogPostTag {
+  blogPostId String
+  tagId      String
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  tag        BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([blogPostId, tagId])
+  @@map("blog_posts_tags")
+}
+
+model BlogMedia {
+  id         String   @id @default(uuid())
+  blogPostId String
+  url        String
+  type       String   // image | video | gallery
+  alt        String?
+  order      Int      @default(0)
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@map("blog_media")
+}
+
+model BlogReference {
+  id         String   @id @default(uuid())
+  blogPostId String
+  title      String
+  url        String
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@map("blog_references")
+}
+
+model BlogPoll {
+  id         String           @id @default(uuid())
+  blogPostId String
+  question   String
+  options    BlogPollOption[]
+  blogPost   BlogPost         @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@map("blog_polls")
+}
+
+model BlogPollOption {
+  id     String @id @default(uuid())
+  pollId String
+  text   String
+  votes  Int    @default(0)
+  poll   BlogPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@map("blog_poll_options")
 }
 
 model BlogComment {
@@ -637,9 +774,11 @@ enum ReportStatus {
 }
 
 enum BlogPostStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
+  ARCHIVED
 }
 
 enum VoteType {
@@ -723,4 +862,20 @@ enum MESSAGE_STATUS {
   REJECTED
   SOLD
   WITHDRAWN
+}
+
+enum BlogPostLayout {
+  HERO
+  STANDARD
+  COMPACT
+  LINK_ONLY
+  SIDEBAR
+  TEXT_ONLY
+  OVERLAY
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  LIVE_STREAM
 }
