@@ -34,6 +34,52 @@ export class BlogService {
   ) {}
 
   /**
+   * Get all blog categories
+   */
+  async findAllCategories() {
+    return this.prisma.blogCategory.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Get all blog topics
+   */
+  async findAllTopics() {
+    return this.prisma.blogTopic.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Find all unique authors who have published blog posts
+   */
+  async findAllAuthors() {
+    const posts = await this.prisma.blogPost.findMany({
+      where: { status: "APPROVED", published: true },
+      select: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    });
+
+    const authors = posts.map((p) => p.author).filter((a) => !!a);
+
+    // Filter unique authors by ID
+    const uniqueAuthors = Array.from(
+      new Map(authors.map((a) => [a!.id, a])).values(),
+    );
+
+    return uniqueAuthors;
+  }
+
+  /**
    * Create a new blog post
    */
   async create(createBlogPostDto: CreateBlogPostDto, userId: string) {
@@ -70,16 +116,63 @@ export class BlogService {
       const blogPostData: Prisma.BlogPostCreateInput = {
         title: createBlogPostDto.title,
         slug,
+        subtitle: createBlogPostDto.subtitle,
         content: createBlogPostDto.content,
         excerpt: createBlogPostDto.excerpt,
         featuredImage: createBlogPostDto.featuredImage,
+        layout: createBlogPostDto.layout || "STANDARD",
+        badge: createBlogPostDto.badge,
         status: "PENDING", // Always starts as PENDING, needs admin approval
-        published: false, // Can't be published until approved
-        publishedAt: null,
+        published: createBlogPostDto.published || false,
+        publishedAt: createBlogPostDto.published ? new Date() : null,
+        isLive: createBlogPostDto.isLive || false,
+        isBreaking: createBlogPostDto.isBreaking || false,
+        isDrop: createBlogPostDto.isDrop || false,
+        dropDate: createBlogPostDto.dropDate
+          ? new Date(createBlogPostDto.dropDate)
+          : null,
+        mediaType: createBlogPostDto.mediaType || "IMAGE",
+        videoUrl: createBlogPostDto.videoUrl,
+        videoDuration: createBlogPostDto.videoDuration,
+        priority: createBlogPostDto.priority || 0,
+        locationTag: createBlogPostDto.locationTag,
+        ctaText: createBlogPostDto.ctaText,
+        ctaLink: createBlogPostDto.ctaLink,
         author: {
           connect: { id: user.id },
         },
       };
+
+      // Connect category if provided
+      if (createBlogPostDto.categoryId) {
+        blogPostData.category = {
+          connect: { id: createBlogPostDto.categoryId },
+        };
+      }
+
+      // Connect topic if provided
+      if (createBlogPostDto.topicId) {
+        blogPostData.topic = { connect: { id: createBlogPostDto.topicId } };
+      }
+
+      // Connect featured artist if provided
+      if (createBlogPostDto.featuredArtistId) {
+        blogPostData.featuredArtist = {
+          connect: { id: createBlogPostDto.featuredArtistId },
+        };
+      }
+
+      // Connect related artworks if provided
+      if (
+        createBlogPostDto.relatedArtworkIds &&
+        createBlogPostDto.relatedArtworkIds.length > 0
+      ) {
+        blogPostData.relatedArtworks = {
+          create: createBlogPostDto.relatedArtworkIds.map((artworkId) => ({
+            artwork: { connect: { id: artworkId } },
+          })),
+        };
+      }
 
       // Create blog post
       const blogPost = await this.prisma.blogPost.create({
@@ -91,6 +184,20 @@ export class BlogService {
               name: true,
               email: true,
               image: true,
+            },
+          },
+          category: true,
+          topic: true,
+          featuredArtist: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          relatedArtworks: {
+            include: {
+              artwork: true,
             },
           },
         },
@@ -141,16 +248,7 @@ export class BlogService {
   /**
    * Get all blog posts with pagination and filters
    */
-  async findAll(query: {
-    page?: number;
-    limit?: number;
-    published?: boolean;
-    search?: string;
-    authorId?: string;
-    status?: BlogPostStatus;
-    sortBy?: string;
-    sortOrder?: "asc" | "desc";
-  }, requestingUserId?: string) {
+  async findAll(query: BlogPostQueryDto, requestingUserId?: string) {
     try {
       const {
         page = BLOG_CONSTANTS.DEFAULT_PAGE,
@@ -161,6 +259,12 @@ export class BlogService {
         status,
         sortBy = "createdAt",
         sortOrder = "desc",
+        categoryId,
+        topicId,
+        isBreaking,
+        isLive,
+        isDrop,
+        minPriority,
       } = query;
 
       // Debug logging
@@ -168,34 +272,38 @@ export class BlogService {
         `Blog findAll - status: ${status}, authorId: ${authorId}, requestingUserId: ${requestingUserId}, published: ${published}`,
       );
 
-      // Build where clause
-      const where: Prisma.BlogPostWhereInput = {};
+      // Check user role for admin privileges
+      const userRole = requestingUserId
+        ? await this.prisma.user.findUnique({
+            where: { id: requestingUserId },
+            select: { role: true },
+          })
+        : null;
+      const isAdmin = userRole?.role?.toLowerCase() === "admin";
 
       // Check if user is viewing their own posts
       const isViewingOwnPosts =
         requestingUserId && authorId === requestingUserId;
 
-      // Handle visibility and status filtering
-      // Priority:
-      // 1. If requestingUserId is provided, check if user is viewing their own posts
-      // 2. Otherwise, public access: show only APPROVED and published
+      // Build where clause
+      const where: Prisma.BlogPostWhereInput = {};
 
-      if (requestingUserId && authorId === requestingUserId) {
-        // Author viewing their own posts - show all their statuses
-        if (status) {
-          where.status = status;
-        }
-        if (published !== undefined) {
-          where.published = published;
-        }
+      // Handle visibility and status filtering
+      if (isAdmin) {
+        // Admins can see everything, but respect requested filters
+        if (status) where.status = status;
+        if (published !== undefined) where.published = published;
+        if (authorId) where.authorId = authorId;
+      } else if (requestingUserId && authorId === requestingUserId) {
+        // Author viewing their own posts
+        where.authorId = requestingUserId;
+        if (status) where.status = status;
+        if (published !== undefined) where.published = published;
       } else {
-        // Public access (or viewing others' posts) - only show approved and published posts
+        // Public access - only show approved and published posts
         where.status = "APPROVED";
         where.published = true;
-      }
-
-      if (authorId) {
-        where.authorId = authorId;
+        if (authorId) where.authorId = authorId;
       }
 
       if (search) {
@@ -206,9 +314,50 @@ export class BlogService {
         ];
       }
 
-      // Build orderBy
-      const orderBy: Prisma.BlogPostOrderByWithRelationInput = {};
-      orderBy[sortBy] = sortOrder;
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
+
+      if (topicId) {
+        where.topicId = topicId;
+      }
+
+      if (isBreaking !== undefined) {
+        where.isBreaking = isBreaking;
+      }
+
+      if (isLive !== undefined) {
+        where.isLive = isLive;
+      }
+
+      if (isDrop !== undefined) {
+        where.isDrop = isDrop;
+      }
+
+      if (minPriority !== undefined) {
+        where.priority = { gte: minPriority };
+      }
+
+      // Build orderBy - Always prioritize "priority" field, then publishedAt/createdAt
+      const orderBy: Prisma.BlogPostOrderByWithRelationInput[] = [];
+
+      // Priority always comes first
+      orderBy.push({ priority: "desc" });
+
+      if (sortBy === "createdAt") {
+        if (isAdmin || isViewingOwnPosts) {
+          // Internal view: sort by creation time so newest submissions are first
+          orderBy.push({ createdAt: sortOrder });
+        } else {
+          // Public view: sort by publication time first, then creation time
+          orderBy.push({ publishedAt: sortOrder });
+          orderBy.push({ createdAt: sortOrder });
+        }
+      } else {
+        const order: any = {};
+        order[sortBy] = sortOrder;
+        orderBy.push(order);
+      }
 
       // Debug: Log the where clause before query
       this.logger.debug(`Blog findAll where clause: ${JSON.stringify(where)}`);
@@ -229,6 +378,20 @@ export class BlogService {
               name: true,
               email: true,
               image: true,
+            },
+          },
+          category: true,
+          topic: true,
+          featuredArtist: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          relatedArtworks: {
+            include: {
+              artwork: true,
             },
           },
         },
@@ -274,7 +437,9 @@ export class BlogService {
       });
 
       if (requestingUser?.role?.toLowerCase() !== "admin") {
-        throw new ForbiddenException("Only administrators can access this endpoint");
+        throw new ForbiddenException(
+          "Only administrators can access this endpoint",
+        );
       }
 
       const {
@@ -286,6 +451,12 @@ export class BlogService {
         status,
         sortBy = "createdAt",
         sortOrder = "desc",
+        categoryId,
+        topicId,
+        isBreaking,
+        isLive,
+        isDrop,
+        minPriority,
       } = query;
 
       const where: Prisma.BlogPostWhereInput = {};
@@ -310,8 +481,34 @@ export class BlogService {
         ];
       }
 
-      const orderBy: Prisma.BlogPostOrderByWithRelationInput = {};
-      orderBy[sortBy] = sortOrder;
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
+
+      if (topicId) {
+        where.topicId = topicId;
+      }
+
+      if (isBreaking !== undefined) {
+        where.isBreaking = isBreaking;
+      }
+
+      if (isLive !== undefined) {
+        where.isLive = isLive;
+      }
+
+      if (isDrop !== undefined) {
+        where.isDrop = isDrop;
+      }
+
+      if (minPriority !== undefined) {
+        where.priority = { gte: minPriority };
+      }
+
+      const orderBy: Prisma.BlogPostOrderByWithRelationInput[] = [
+        { priority: "desc" },
+        { [sortBy]: sortOrder },
+      ];
 
       const [total, blogPosts] = await Promise.all([
         this.prisma.blogPost.count({ where }),
@@ -327,6 +524,20 @@ export class BlogService {
                 name: true,
                 email: true,
                 image: true,
+              },
+            },
+            category: true,
+            topic: true,
+            featuredArtist: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+            relatedArtworks: {
+              include: {
+                artwork: true,
               },
             },
           },
@@ -370,6 +581,20 @@ export class BlogService {
               name: true,
               email: true,
               image: true,
+            },
+          },
+          category: true,
+          topic: true,
+          featuredArtist: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+          relatedArtworks: {
+            include: {
+              artwork: true,
             },
           },
         },
@@ -488,6 +713,77 @@ export class BlogService {
       }
       if (updateBlogPostDto.featuredImage !== undefined) {
         updateData.featuredImage = updateBlogPostDto.featuredImage;
+      }
+
+      // Add new fields to updateData
+      if (updateBlogPostDto.subtitle !== undefined)
+        updateData.subtitle = updateBlogPostDto.subtitle;
+      if (updateBlogPostDto.layout !== undefined)
+        updateData.layout = updateBlogPostDto.layout;
+      if (updateBlogPostDto.badge !== undefined)
+        updateData.badge = updateBlogPostDto.badge;
+      if (updateBlogPostDto.isLive !== undefined)
+        updateData.isLive = updateBlogPostDto.isLive;
+      if (updateBlogPostDto.isBreaking !== undefined)
+        updateData.isBreaking = updateBlogPostDto.isBreaking;
+      if (updateBlogPostDto.isDrop !== undefined)
+        updateData.isDrop = updateBlogPostDto.isDrop;
+      if (updateBlogPostDto.dropDate !== undefined) {
+        updateData.dropDate = updateBlogPostDto.dropDate
+          ? new Date(updateBlogPostDto.dropDate)
+          : null;
+      }
+      if (updateBlogPostDto.mediaType !== undefined)
+        updateData.mediaType = updateBlogPostDto.mediaType;
+      if (updateBlogPostDto.videoUrl !== undefined)
+        updateData.videoUrl = updateBlogPostDto.videoUrl;
+      if (updateBlogPostDto.videoDuration !== undefined)
+        updateData.videoDuration = updateBlogPostDto.videoDuration;
+      if (updateBlogPostDto.priority !== undefined)
+        updateData.priority = updateBlogPostDto.priority;
+      if (updateBlogPostDto.locationTag !== undefined)
+        updateData.locationTag = updateBlogPostDto.locationTag;
+      if (updateBlogPostDto.ctaText !== undefined)
+        updateData.ctaText = updateBlogPostDto.ctaText;
+      if (updateBlogPostDto.ctaLink !== undefined)
+        updateData.ctaLink = updateBlogPostDto.ctaLink;
+
+      // Handle relations
+      if (updateBlogPostDto.categoryId !== undefined) {
+        if (updateBlogPostDto.categoryId === null) {
+          updateData.category = { disconnect: true };
+        } else {
+          updateData.category = {
+            connect: { id: updateBlogPostDto.categoryId },
+          };
+        }
+      }
+
+      if (updateBlogPostDto.topicId !== undefined) {
+        if (updateBlogPostDto.topicId === null) {
+          updateData.topic = { disconnect: true };
+        } else {
+          updateData.topic = { connect: { id: updateBlogPostDto.topicId } };
+        }
+      }
+
+      if (updateBlogPostDto.featuredArtistId !== undefined) {
+        if (updateBlogPostDto.featuredArtistId === null) {
+          updateData.featuredArtist = { disconnect: true };
+        } else {
+          updateData.featuredArtist = {
+            connect: { id: updateBlogPostDto.featuredArtistId },
+          };
+        }
+      }
+
+      if (updateBlogPostDto.relatedArtworkIds !== undefined) {
+        updateData.relatedArtworks = {
+          deleteMany: {},
+          create: updateBlogPostDto.relatedArtworkIds.map((artworkId) => ({
+            artwork: { connect: { id: artworkId } },
+          })),
+        };
       }
 
       // Handle publish status change

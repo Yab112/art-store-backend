@@ -116,6 +116,41 @@ export class UploadService {
   }
 
   /**
+   * Generate presigned URL for uploading a video
+   * Frontend will use this URL to upload directly to S3
+   */
+  async getPresignedVideoUploadUrl(
+    fileName: string,
+    contentType: string,
+    expirySeconds = 3600,
+  ) {
+    // Validate file type
+    const allowedTypes = ["video/mp4", "video/webm", "video/quicktime"];
+    if (!allowedTypes.includes(contentType)) {
+      throw new BadRequestException(
+        "Invalid file type. Only MP4, WebM, and MOV are allowed.",
+      );
+    }
+
+    try {
+      const result = await this.s3Service.getPresignedUploadUrl(
+        fileName,
+        contentType,
+        undefined,
+        expirySeconds,
+      );
+
+      this.logger.log(
+        `✅ Presigned video upload URL generated: ${result.objectKey}`,
+      );
+      return result;
+    } catch (error: any) {
+      this.logger.error("❌ Failed to generate presigned video URL:", error);
+      throw new BadRequestException("Failed to generate upload URL");
+    }
+  }
+
+  /**
    * Get public URL for an S3 object
    */
   getPublicUrl(objectKey: string): string {

@@ -127,4 +127,39 @@ export class UploadController {
       objectKey: result.objectKey,
     };
   }
+
+  /**
+   * Generate presigned URL for uploading a video
+   */
+  @Post("presigned/video")
+  // @UseGuards(AuthGuard)
+  @Public()
+  @ApiOperation({
+    summary: "Get presigned URL for video upload",
+    description:
+      "Generate a presigned URL for uploading a video directly to S3 from the frontend.",
+  })
+  @ApiBody({ type: GeneratePresignedUrlDto })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Presigned URL generated successfully. Returns presignedUrl (for uploading), publicUrl (for accessing after upload), and objectKey (S3 path).",
+    type: PresignedUrlResponseDto,
+  })
+  @ApiResponse({ status: 400, description: "Invalid file type" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  async getPresignedVideoUrl(@Body() dto: GeneratePresignedUrlDto) {
+    const result = await this.uploadService.getPresignedVideoUploadUrl(
+      dto.fileName,
+      dto.contentType,
+      dto.expirySeconds,
+    );
+
+    return {
+      success: true,
+      presignedUrl: result.presignedUrl,
+      publicUrl: result.publicUrl,
+      objectKey: result.objectKey,
+    };
+  }
 }

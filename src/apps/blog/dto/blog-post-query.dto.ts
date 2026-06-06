@@ -91,4 +91,37 @@ export class BlogPostQueryDto {
   @IsEnum(BlogPostStatus)
   status?: BlogPostStatus;
 
+  @ApiPropertyOptional({ description: "Filter by category ID" })
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ description: "Filter by topic ID" })
+  @IsOptional()
+  @IsString()
+  topicId?: string;
+
+  @ApiPropertyOptional({ description: "Filter by breaking news status" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  isBreaking?: boolean;
+
+  @ApiPropertyOptional({ description: "Filter by live status" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  isLive?: boolean;
+
+  @ApiPropertyOptional({ description: "Filter by artwork drop status" })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  isDrop?: boolean;
+
+  @ApiPropertyOptional({ description: "Filter by priority (min value)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  minPriority?: number;
 }
