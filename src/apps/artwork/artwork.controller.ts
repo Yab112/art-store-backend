@@ -93,10 +93,11 @@ export class ArtworkController {
   async findMyArtworks(
     @Query("page", new ParseIntPipe({ optional: true })) page: number = 1,
     @Query("limit", new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Query("status") status: string | undefined,
     @Request() req: any,
   ) {
     const userId = req.user.id;
-    return this.artworkService.findByUser(userId, page, limit);
+    return this.artworkService.findByUser(userId, page, limit, status);
   }
 
   // IMPORTANT: More specific routes must come BEFORE generic :id route
