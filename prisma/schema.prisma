@@ -189,7 +189,6 @@ model User {
   emailVerifiedAt                    DateTime?
   earningChapa                       Decimal                  @default(0) @db.Decimal(10, 2)
   earningPaypal                      Decimal                  @default(0) @db.Decimal(10, 2)
-  phone                              String?
   accounts                           Account[]
   Chat_Chat_clientIdToUser           Chat[]                   @relation("Chat_clientIdToUser")
   Chat_Chat_taskerIdToUser           Chat[]                   @relation("Chat_taskerIdToUser")
@@ -516,12 +515,12 @@ model BlogPost {
   subtitle        String?
   content         String         @db.Text
   excerpt         String?        @db.VarChar(500)
-  
+
   // Content - block-based / rich text support
   contentDocument Json?          // TipTap JSON (source of truth while editing)
   contentHtml     String?        @db.Text // rendered HTML for public read
   contentFormat   String         @default("tiptap/v1") // tiptap/v1 | legacy/html
-  
+
   featuredImage   String?        // Also used as coverImage
   layout          BlogPostLayout @default(STANDARD)
   badge           String?
@@ -541,31 +540,31 @@ model BlogPost {
   locationTag     String?
   ctaText         String?
   ctaLink         String?
-  
+
   views           Int            @default(0)
   likes           Int            @default(0)
   dislikes        Int            @default(0)
   shares          Int            @default(0)
-  
+
   lastAutoSavedAt DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   editedAt        DateTime?
-  
+
   categoryId      String?
   category        BlogCategory?  @relation(fields: [categoryId], references: [id])
   topicId         String?
   topic           BlogTopic?     @relation(fields: [topicId], references: [id])
-  
+
   featuredArtistId String?
   featuredArtist   User?         @relation("ArtistSpotlight", fields: [featuredArtistId], references: [id])
-  
+
   relatedArtworks  BlogPostOnArtwork[]
   comments         BlogComment[]
   author           User          @relation("BlogPost_author", fields: [authorId], references: [id], onDelete: Cascade)
   sharesList       BlogShare[]
   votes            BlogVote[]
-  
+
   // New Relations for Redesign
   tags             BlogPostTag[]
   media            BlogMedia[]
