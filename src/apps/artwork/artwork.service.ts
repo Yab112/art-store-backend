@@ -1016,20 +1016,30 @@ export class ArtworkService {
     }
   }
 
-  async findByUser(userId: string, page: number = 1, limit: number = 10) {
+  async findByUser(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    status?: string,
+  ) {
     try {
       const skip = (page - 1) * limit;
 
+      const where: any = { userId };
+      if (status) {
+        where.status = status;
+      }
+
       const [artworks, total] = await Promise.all([
         this.prisma.artwork.findMany({
-          where: { userId },
+          where,
           skip,
           take: limit,
           orderBy: {
             createdAt: "desc",
           },
         }),
-        this.prisma.artwork.count({ where: { userId } }),
+        this.prisma.artwork.count({ where }),
       ]);
 
       return {
