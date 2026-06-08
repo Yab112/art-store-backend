@@ -1,11 +1,62 @@
 import { Controller, Get, Request, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@/core/guards/auth.guard";
+import { Public } from "@/core/decorators/public.decorator";
 import { PrismaService } from "@/core/database/prisma.service";
+import {
+  extractSessionCookieNames,
+  normalizeAuthRequestHeaders,
+} from "@/core/auth/auth-request.util";
 import { auth } from "../../auth";
 
 @Controller("test")
 export class TestController {
   constructor(private readonly prisma: PrismaService) {}
+
+  @Public()
+  @Get("auth-debug")
+  async authDebug(@Request() req: any) {
+    const normalizedHeaders = normalizeAuthRequestHeaders(
+      req.headers as Record<string, string | string[] | undefined>,
+    );
+    const cookieHeader =
+      typeof normalizedHeaders.cookie === "string"
+        ? normalizedHeaders.cookie
+        : "";
+    const session = await auth.api.getSession({
+      headers: normalizedHeaders as any,
+    });
+    const recentSessions = await this.prisma.session.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        token: true,
+        expiresAt: true,
+        createdAt: true,
+        user: { select: { email: true } },
+      },
+    });
+
+    return {
+      hasSession: Boolean(session?.user),
+      userEmail: session?.user?.email ?? null,
+      origin: req.headers.origin ?? null,
+      hasAuthorization: Boolean(
+        req.headers.authorization || req.headers.Authorization,
+      ),
+      sessionCookieNames: cookieHeader
+        ? extractSessionCookieNames(cookieHeader)
+        : [],
+      cookieHeaderLength: cookieHeader.length,
+      betterAuthUrl: process.env.BETTER_AUTH_URL ?? null,
+      frontendUrl: process.env.FRONTEND_URL ?? null,
+      cookieDomain: process.env.BETTER_AUTH_COOKIE_DOMAIN ?? null,
+      recentSessions,
+      hint: !session?.user
+        ? "No session detected. Cross-origin cookies between arthopia.com.et and onrender.com are blocked by browsers. Point api.arthopia.com.et to Render and set BETTER_AUTH_COOKIE_DOMAIN=arthopia.com.et, or send Authorization: Bearer <token> from the frontend."
+        : "Session is valid.",
+    };
+  }
 
   @Get("debug-user")
   @UseGuards(AuthGuard)

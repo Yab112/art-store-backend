@@ -16,6 +16,10 @@ import { toNodeHandler } from "better-auth/node";
 const express = require("express");
 import * as cors from "cors";
 import { join } from "path";
+import {
+  extractSessionCookieNames,
+  normalizeAuthRequestHeaders,
+} from "./core/auth/auth-request.util";
 
 const normalizeOrigin = (value?: string | null) => {
   if (!value) {
@@ -98,6 +102,7 @@ async function bootstrap() {
         "x-user-id",
         "X-User-Id",
       ],
+      exposedHeaders: ["set-auth-token"],
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
       preflightContinue: false,
       optionsSuccessStatus: 204,
@@ -105,40 +110,25 @@ async function bootstrap() {
   );
 
   server.use((req, res, next) => {
-    if (req.headers.cookie && typeof req.headers.cookie === "string") {
-      const cookieHeader = req.headers.cookie;
+    req.headers = normalizeAuthRequestHeaders(
+      req.headers as Record<string, string | string[] | undefined>,
+    ) as typeof req.headers;
 
-      // Extract all better-auth.session_token cookies
-      const sessionTokenMatches = cookieHeader.match(
-        /better-auth\.session_token=([^;]+)/g,
+    if (req.path?.startsWith("/api/auth/")) {
+      const cookieHeader =
+        typeof req.headers.cookie === "string" ? req.headers.cookie : "";
+      const hasBearer = Boolean(
+        req.headers.authorization || req.headers.Authorization,
       );
+      const sessionCookies = cookieHeader
+        ? extractSessionCookieNames(cookieHeader)
+        : [];
 
-      if (sessionTokenMatches && sessionTokenMatches.length > 1) {
-        console.log(
-          `[Cookie Cleaner] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`,
-        );
-
-        // Remove all better-auth.session_token cookies from the header
-        let cleanedCookies = cookieHeader
-          .replace(/better-auth\.session_token=[^;]+;?/g, "")
-          .trim();
-
-        // Add only the LAST (most recent) session token cookie
-        const lastSessionCookie =
-          sessionTokenMatches[sessionTokenMatches.length - 1];
-        cleanedCookies = cleanedCookies
-          ? `${cleanedCookies}; ${lastSessionCookie}`
-          : lastSessionCookie;
-
-        req.headers.cookie = cleanedCookies;
-
-        console.log(
-          `[Cookie Cleaner] Cleaned cookie header - removed ${
-            sessionTokenMatches.length - 1
-          } duplicate session tokens`,
-        );
-      }
+      console.log(
+        `[Auth Debug] ${req.method} ${req.path} | bearer=${hasBearer} | sessionCookies=${sessionCookies.join(", ") || "none"}`,
+      );
     }
+
     next();
   });
 

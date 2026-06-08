@@ -11,6 +11,7 @@ import {
   customSession,
   openAPI,
 } from "better-auth/plugins";
+import { bearer } from "better-auth/plugins/bearer";
 import { createAuthMiddleware } from "better-auth/api";
 import { emailBridge } from "./libraries/email";
 
@@ -521,6 +522,8 @@ export const auth = betterAuth({
 
   // Plugins for extended functionality
   plugins: [
+    // Expose session token via Authorization header for cross-origin frontends
+    bearer(),
     // Custom session to include role and image in session response
     customSession(async ({ user, session }) => {
       // Get the full user data from database to access role and image
@@ -635,22 +638,31 @@ export const auth = betterAuth({
       );
       return isHTTPS;
     })(),
+    crossSubDomainCookies: (() => {
+      const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN?.trim();
+      if (!cookieDomain) {
+        return { enabled: false as const };
+      }
+
+      const domain = cookieDomain.replace(/^\./, "");
+      console.log("🔐 Better Auth crossSubDomainCookies enabled for:", domain);
+      return {
+        enabled: true as const,
+        domain,
+      };
+    })(),
     defaultCookieAttributes: (() => {
-      const port = process.env.PORT;
       const baseURL = process.env.BETTER_AUTH_URL;
       const isHTTPS = baseURL?.startsWith("https://") ?? false;
-      const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN?.trim();
 
-      // For HTTPS: sameSite "none" + secure for cross-origin (frontend on arthopia, API on Render/EC2).
-      // partitioned: true (CHIPS) helps modern browsers accept cross-site session cookies.
-      // Only set domain when BETTER_AUTH_COOKIE_DOMAIN is explicitly configured (e.g. api.arthopia.com.et).
+      // HTTPS + cross-origin: SameSite=None. Do NOT use partitioned — OAuth callback
+      // arrives from Google (not arthopia), so partitioned cookies won't be sent back
+      // to arthopia.com.et fetches.
       const attributes = isHTTPS
         ? {
             sameSite: "none" as const,
             secure: true,
             httpOnly: true,
-            partitioned: true,
-            ...(cookieDomain ? { domain: cookieDomain } : {}),
           }
         : {
             sameSite: "lax" as const,
@@ -661,11 +673,6 @@ export const auth = betterAuth({
       console.log("🔐 Better Auth cookie attributes:", attributes);
       return attributes;
     })(),
-    // Add logger to debug cookie issues
-    logger: {
-      level: "debug",
-      disabled: false,
-    },
   },
 });
 

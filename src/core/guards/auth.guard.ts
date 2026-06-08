@@ -8,6 +8,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { auth } from "../../auth";
+import { normalizeAuthRequestHeaders } from "../auth/auth-request.util";
 import { PrismaService } from "../database/prisma.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
@@ -31,27 +32,9 @@ export class AuthGuard implements CanActivate {
       // Route is public - try to get user from session but don't require it
       const request = context.switchToHttp().getRequest<Request>();
       try {
-        // Clean duplicate cookies before calling getSession()
-        let cookieHeader = request.headers.cookie;
-        if (cookieHeader && typeof cookieHeader === "string") {
-          const sessionTokenMatches = cookieHeader.match(
-            /better-auth\.session_token=([^;]+)/g,
-          );
-
-          if (sessionTokenMatches && sessionTokenMatches.length > 1) {
-            let cleanedCookies = cookieHeader
-              .replace(/better-auth\.session_token=[^;]+;?/g, "")
-              .trim();
-
-            const lastSessionCookie =
-              sessionTokenMatches[sessionTokenMatches.length - 1];
-            cleanedCookies = cleanedCookies
-              ? `${cleanedCookies}; ${lastSessionCookie}`
-              : lastSessionCookie;
-
-            request.headers.cookie = cleanedCookies;
-          }
-        }
+        request.headers = normalizeAuthRequestHeaders(
+          request.headers as Record<string, string | string[] | undefined>,
+        ) as typeof request.headers;
 
         const session = await auth.api.getSession({
           headers: request.headers as any,
@@ -88,39 +71,9 @@ export class AuthGuard implements CanActivate {
         `Authorization header: ${request.headers.authorization || "none"}`,
       );
 
-      // CRITICAL FIX: Clean duplicate better-auth.session_token cookies before calling getSession()
-      // This ensures Better Auth receives only the most recent session token
-      let cookieHeader = request.headers.cookie;
-      if (cookieHeader && typeof cookieHeader === "string") {
-        const sessionTokenMatches = cookieHeader.match(
-          /better-auth\.session_token=([^;]+)/g,
-        );
-
-        if (sessionTokenMatches && sessionTokenMatches.length > 1) {
-          this.logger.debug(
-            `[AuthGuard] Found ${sessionTokenMatches.length} duplicate better-auth.session_token cookies. Using the LAST one (most recent).`,
-          );
-
-          // Remove all better-auth.session_token cookies from the header
-          let cleanedCookies = cookieHeader
-            .replace(/better-auth\.session_token=[^;]+;?/g, "")
-            .trim();
-
-          // Add only the LAST (most recent) session token cookie
-          const lastSessionCookie =
-            sessionTokenMatches[sessionTokenMatches.length - 1];
-          cleanedCookies = cleanedCookies
-            ? `${cleanedCookies}; ${lastSessionCookie}`
-            : lastSessionCookie;
-
-          // Update the request headers with cleaned cookies
-          request.headers.cookie = cleanedCookies;
-
-          this.logger.debug(
-            `[AuthGuard] Cleaned cookie header - removed ${sessionTokenMatches.length - 1} duplicate session tokens`,
-          );
-        }
-      }
+      request.headers = normalizeAuthRequestHeaders(
+        request.headers as Record<string, string | string[] | undefined>,
+      ) as typeof request.headers;
 
       // Get the session from Better Auth
       const session = await auth.api.getSession({
