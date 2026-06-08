@@ -14,6 +14,10 @@ import {
 import { bearer } from "better-auth/plugins/bearer";
 import { createAuthMiddleware } from "better-auth/api";
 import { emailBridge } from "./libraries/email";
+import {
+  appendTokenToOAuthRedirect,
+  extractSignedSessionTokenFromSetCookie,
+} from "./core/auth/oauth-redirect.util";
 
 const prisma = new PrismaClient();
 
@@ -271,6 +275,31 @@ export const auth = betterAuth({
   // Hooks to ensure Google profile image is stored after OAuth callback
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
+      // Cross-domain Google OAuth: append bearer token to redirect URL so the
+      // frontend receives it without relying on a second request with cookies.
+      if (ctx.path?.startsWith("/callback/")) {
+        const setCookie = ctx.context.responseHeaders?.get("set-cookie");
+        const location =
+          ctx.context.responseHeaders?.get("location") ??
+          ctx.context.responseHeaders?.get("Location");
+
+        if (setCookie && location) {
+          const token = extractSignedSessionTokenFromSetCookie(setCookie);
+
+          if (token) {
+            const redirectWithToken = appendTokenToOAuthRedirect(
+              location,
+              token,
+            );
+            ctx.setHeader("Location", redirectWithToken);
+            ctx.setHeader("set-auth-token", token);
+            console.log(
+              `[oauth-redirect] Token appended to OAuth redirect (${ctx.path})`,
+            );
+          }
+        }
+      }
+
       // This hook runs after OAuth callback endpoints
       if (ctx.path?.startsWith("/callback/google")) {
         console.log("🔍 OAuth callback hook triggered for Google");
