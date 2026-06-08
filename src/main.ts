@@ -21,6 +21,7 @@ import {
   normalizeAuthRequestHeaders,
 } from "./core/auth/auth-request.util";
 import { handleGetBearerToken } from "./core/auth/get-bearer-token.handler";
+import { handleOAuthHandoff } from "./core/auth/oauth-handoff.handler";
 
 const normalizeOrigin = (value?: string | null) => {
   if (!value) {
@@ -125,15 +126,19 @@ async function bootstrap() {
         ? extractSessionCookieNames(cookieHeader)
         : [];
 
+      const hasCookieHeader = Boolean(req.headers.cookie);
       console.log(
-        `[Auth Debug] ${req.method} ${req.path} | bearer=${hasBearer} | sessionCookies=${sessionCookies.join(", ") || "none"}`,
+        `[Auth Debug] ${req.method} ${req.path} | cookieHeader=${hasCookieHeader} | bearer=${hasBearer} | sessionCookies=${sessionCookies.join(", ") || "none"}`,
       );
     }
 
     next();
   });
 
-  // Used by frontend bearer-token-bootstrap after Google OAuth (cookie → localStorage).
+  // Google OAuth cross-domain: session cookie is on the API host, so hand off token via URL.
+  server.get("/api/auth/oauth-handoff", handleOAuthHandoff);
+
+  // Fallback for same-origin / proxied setups (cookie → localStorage).
   server.get("/api/auth/get-bearer-token", handleGetBearerToken);
 
   server.all("/api/auth/*", toNodeHandler(auth));

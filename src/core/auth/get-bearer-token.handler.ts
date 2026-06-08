@@ -23,18 +23,27 @@ export async function handleGetBearerToken(req: Request, res: Response) {
       return;
     }
 
+    const authHeader =
+      normalizedHeaders.authorization ?? normalizedHeaders.Authorization;
+    const authValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+    const bearerToken = authValue?.startsWith("Bearer ")
+      ? authValue.slice("Bearer ".length).trim()
+      : null;
+
     const cookieHeader =
       typeof normalizedHeaders.cookie === "string"
         ? normalizedHeaders.cookie
         : "";
-    const token = cookieHeader
+    const cookieToken = cookieHeader
       ? getSessionTokenFromCookieHeader(cookieHeader)
       : null;
+    const token = cookieToken ?? bearerToken ?? null;
 
     if (!token) {
       res.status(401).json({
         error: "Session cookie not found",
         token: null,
+        hint: "For Google OAuth across domains, use /api/auth/oauth-handoff as callbackURL",
       });
       return;
     }
