@@ -20,6 +20,7 @@ import {
   extractSessionCookieNames,
   normalizeAuthRequestHeaders,
 } from "./core/auth/auth-request.util";
+import { handleGetBearerToken } from "./core/auth/get-bearer-token.handler";
 
 const normalizeOrigin = (value?: string | null) => {
   if (!value) {
@@ -131,6 +132,9 @@ async function bootstrap() {
 
     next();
   });
+
+  // Used by frontend bearer-token-bootstrap after Google OAuth (cookie → localStorage).
+  server.get("/api/auth/get-bearer-token", handleGetBearerToken);
 
   server.all("/api/auth/*", toNodeHandler(auth));
   server.use(express.urlencoded({ extended: true }));

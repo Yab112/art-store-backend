@@ -4,6 +4,24 @@ const SESSION_COOKIE_PATTERN =
 const SESSION_COOKIE_REMOVE_PATTERN =
   /(?:__Secure-)?better-auth\.session_token=[^;]+;?/g;
 
+export function getSessionTokenFromCookieHeader(
+  cookieHeader: string,
+): string | null {
+  const match = cookieHeader.match(
+    /(?:__Secure-)?better-auth\.session_token=([^;]+)/,
+  );
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1].trim());
+  } catch {
+    return match[1].trim();
+  }
+}
+
 export function extractSessionCookieNames(cookieHeader: string): string[] {
   const names = new Set<string>();
   const pattern =
