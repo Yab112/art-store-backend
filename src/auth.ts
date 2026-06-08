@@ -625,7 +625,7 @@ export const auth = betterAuth({
     useSecureCookies: (() => {
       const port = process.env.PORT;
       const baseURL = process.env.BETTER_AUTH_URL || process.env.BACKEND_URL;
-      const isHTTPS = baseURL.startsWith("https://");
+      const isHTTPS = baseURL?.startsWith("https://") ?? false;
       console.log(
         "🔐 Better Auth useSecureCookies:",
         isHTTPS,
@@ -638,18 +638,19 @@ export const auth = betterAuth({
     defaultCookieAttributes: (() => {
       const port = process.env.PORT;
       const baseURL = process.env.BETTER_AUTH_URL;
-      const isHTTPS = baseURL?.startsWith("https://");
-      const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN;
+      const isHTTPS = baseURL?.startsWith("https://") ?? false;
+      const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN?.trim();
 
-      // For HTTPS: use sameSite: "none" + secure: true (works for cross-origin)
-      // For HTTP: use sameSite: "lax" + secure: false (won't work for cross-origin API requests)
-      // Note: HTTP cross-origin cookies are fundamentally limited by browser security
+      // For HTTPS: sameSite "none" + secure for cross-origin (frontend on arthopia, API on Render/EC2).
+      // partitioned: true (CHIPS) helps modern browsers accept cross-site session cookies.
+      // Only set domain when BETTER_AUTH_COOKIE_DOMAIN is explicitly configured (e.g. api.arthopia.com.et).
       const attributes = isHTTPS
         ? {
             sameSite: "none" as const,
             secure: true,
             httpOnly: true,
-            domain: cookieDomain || undefined,
+            partitioned: true,
+            ...(cookieDomain ? { domain: cookieDomain } : {}),
           }
         : {
             sameSite: "lax" as const,
