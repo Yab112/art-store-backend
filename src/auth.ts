@@ -492,9 +492,11 @@ export const auth = betterAuth({
   ].filter(Boolean),
 
   // Rate limiting
+  // NOTE: Better Auth only enables rate limiting when NODE_ENV=production.
+  // max: 10 was exhausted immediately by normal login flows in prod.
   rateLimit: {
     window: 60, // 1 minute
-    max: 10, // 10 requests per window
+    max: 100, // 100 requests per window per IP (was 10 — far too low)
   },
 
   // Base URL configuration - should be the backend origin only (without /api/auth)
@@ -640,6 +642,13 @@ export const auth = betterAuth({
   advanced: {
     database: {
       generateId: false,
+    },
+    // CRITICAL: Tell Better Auth which headers to read for the real client IP.
+    // On Render (and most cloud platforms), the real IP comes via x-forwarded-for.
+    // Without this, getIp() returns null and ALL users share one rate-limit
+    // bucket — one user exhausts it and everybody gets 429.
+    ipAddress: {
+      ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
     },
     // Allow redirects to frontend URLs after OAuth callbacks
     // This is needed for cross-origin redirects (backend -> frontend)
