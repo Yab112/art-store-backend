@@ -85,32 +85,29 @@ async function bootstrap() {
   server.use(
     cors({
       origin: (origin, callback) => {
-        // Allow non-browser clients (no origin)
-        if (!origin) {
+        const requestOrigin = normalizeOrigin(origin);
+
+        // Allow non-browser clients (no Origin header) and known frontend domains.
+        if (!requestOrigin || allowedOrigins.has(requestOrigin)) {
           callback(null, true);
           return;
         }
 
-        const normalizedOrigin = normalizeOrigin(origin) || "";
-
-        // Dynamically allow any arthopia domain or localhost/vercel/render
-        if (
-          allowedOrigins.has(normalizedOrigin) ||
-          normalizedOrigin.includes("arthopia.com") ||
-          normalizedOrigin.includes("localhost") ||
-          normalizedOrigin.includes("vercel.app") ||
-          normalizedOrigin.includes("onrender.com")
-        ) {
-          callback(null, true);
-        } else {
-          console.warn(`[CORS] Rejected origin: ${origin}`);
-          callback(null, false);
-        }
+        callback(new Error(`CORS blocked for origin: ${origin}`));
       },
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      // Omit allowedHeaders to default to reflecting Access-Control-Request-Headers
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Cookie",
+        "x-user-id",
+        "X-User-Id",
+      ],
       exposedHeaders: ["set-auth-token"],
       credentials: true, // Allow credentials (cookies, authorization headers, etc.)
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     }),
   );
 
