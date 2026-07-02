@@ -48,6 +48,17 @@ export class UpdatePaymentSettingsDto {
   maxWithdrawalAmountChapa?: number;
 
   @ApiPropertyOptional({
+    description: "Legacy minimum withdrawal amount",
+    example: 10,
+    minimum: 0,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minWithdrawalAmount?: number;
+
+  @ApiPropertyOptional({
     description: "Legacy maximum withdrawal amount",
     example: 10000,
     minimum: 0,
