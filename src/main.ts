@@ -142,8 +142,9 @@ async function bootstrap() {
   server.get("/api/auth/get-bearer-token", handleGetBearerToken);
 
   server.all("/api/auth/*", toNodeHandler(auth));
-  server.use(express.urlencoded({ extended: true }));
-  server.use(express.json());
+  // Delivery disputes / signatures send base64 images; default 100kb is too small.
+  server.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  server.use(express.json({ limit: "10mb" }));
 
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,

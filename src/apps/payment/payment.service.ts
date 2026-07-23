@@ -21,6 +21,8 @@ import { OrderService } from "../order/order.service";
 import { CartService } from "../cart/cart.service";
 import { WithdrawalsService } from "../withdrawals/withdrawals.service";
 import { PaymentStatus } from "@prisma/client";
+import { normalizeCurrency } from "../../libraries/currency/currency.util";
+import { CheckoutPricingService } from "../checkout/checkout-pricing.service";
 
 @Injectable()
 export class PaymentService {
@@ -34,6 +36,7 @@ export class PaymentService {
     private readonly cartService: CartService,
     @Inject(forwardRef(() => WithdrawalsService))
     private readonly withdrawalsService: WithdrawalsService,
+    private readonly checkoutPricingService: CheckoutPricingService,
   ) {}
 
   /**
@@ -43,6 +46,71 @@ export class PaymentService {
     paymentData: InitializePaymentDto,
   ): Promise<PaymentInitializeResponse> {
     try {
+      let currency = normalizeCurrency(paymentData.currency);
+      if (!currency) {
+        throw new BadRequestException(
+          "currency is required and must be USD or ETB",
+        );
+      }
+
+      if (paymentData.provider === PaymentProvider.CHAPA && currency !== "ETB") {
+        throw new BadRequestException("Chapa payments must use currency ETB");
+      }
+      if (paymentData.provider === PaymentProvider.PAYPAL && currency !== "USD") {
+        throw new BadRequestException("PayPal payments must use currency USD");
+      }
+
+      if (paymentData.orderId) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: paymentData.orderId },
+          include: { transaction: true },
+        });
+        if (!order?.transaction) {
+          throw new BadRequestException("Order/transaction not found for payment");
+        }
+        const meta = (order.transaction.metadata as any) || {};
+        const quote = this.checkoutPricingService.assertQuoteUsable(
+          this.checkoutPricingService.parseQuoteFromMetadata(meta),
+        );
+
+        // Gateway must collect the locked quote — never recalculate
+        currency = quote.chargedCurrency;
+        paymentData.currency = quote.chargedCurrency as any;
+        paymentData.amount = quote.chargedAmount;
+
+        if (
+          paymentData.provider === PaymentProvider.CHAPA &&
+          quote.provider !== "chapa"
+        ) {
+          throw new BadRequestException("Charge quote provider mismatch (expected chapa)");
+        }
+        if (
+          paymentData.provider === PaymentProvider.PAYPAL &&
+          quote.provider !== "paypal"
+        ) {
+          throw new BadRequestException(
+            "Charge quote provider mismatch (expected paypal)",
+          );
+        }
+
+        await this.prisma.transaction.update({
+          where: { id: order.transaction.id },
+          data: {
+            metadata: {
+              ...meta,
+              paymentProvider: paymentData.provider,
+              currency: quote.chargedCurrency,
+              chargedCurrency: quote.chargedCurrency,
+              chargedAmount: quote.chargedAmount,
+              chargeQuote: quote,
+            },
+          },
+        });
+      }
+
+      // Ensure gateway call uses the explicit currency
+      paymentData.currency = currency as any;
+
       let initializeResponse: PaymentInitializeResponse;
       switch (paymentData.provider) {
         case PaymentProvider.CHAPA:
@@ -67,6 +135,11 @@ export class PaymentService {
                       ...metadata,
                       chapaTxRef: (initializeResponse.data as any).chapaTxRef,
                       originalTxRef: paymentData.txRef,
+                      paymentProvider: "chapa",
+                      currency,
+                      chargedAmount: Number(
+                        metadata.chargedAmount ?? paymentData.amount,
+                      ),
                     },
                   },
                 });
@@ -232,7 +305,18 @@ export class PaymentService {
               this.logger.log(
                 `Order ${orderId} already PAID - skipping duplicate verification processing`,
               );
-              // Return success response without processing
+              try {
+                const siblingProgress =
+                  await this.orderService.getCheckoutSiblingProgress(orderId);
+                (verifyResponse.data as any).orderId = orderId;
+                (verifyResponse.data as any).checkoutId =
+                  siblingProgress.checkoutId;
+                (verifyResponse.data as any).remainingOrders =
+                  siblingProgress.remainingOrders;
+                (verifyResponse.data as any).allPaid = siblingProgress.allPaid;
+              } catch {
+                (verifyResponse.data as any).orderId = orderId;
+              }
               return verifyResponse;
             }
 
@@ -346,6 +430,24 @@ export class PaymentService {
               verifyData.provider,
               userIdFromMetadata,
             );
+
+            // Multi-seller sibling progress for sequential payment resume
+            try {
+              const siblingProgress =
+                await this.orderService.getCheckoutSiblingProgress(orderId);
+              (verifyResponse.data as any).orderId = orderId;
+              (verifyResponse.data as any).checkoutId =
+                siblingProgress.checkoutId;
+              (verifyResponse.data as any).remainingOrders =
+                siblingProgress.remainingOrders;
+              (verifyResponse.data as any).allPaid = siblingProgress.allPaid;
+            } catch (siblingErr) {
+              this.logger.warn(
+                `Could not load checkout sibling progress for ${orderId}:`,
+                siblingErr,
+              );
+              (verifyResponse.data as any).orderId = orderId;
+            }
 
             // Get userId from verifyResponse (already set above) for cart operations
             const userIdForCart = (verifyResponse.data as any).userId;

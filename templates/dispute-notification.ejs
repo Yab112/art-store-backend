@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= headline %></title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: #1f2937;
+      padding: 28px 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 36px 30px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .details {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 12px 22px;
+      background: #1f2937;
+      color: #fff !important;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><%= headline %></h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong><%= recipientName %></strong>,</p>
+      <p><%= body %></p>
+      <% if (typeof details !== 'undefined' && details) { %>
+      <div class="details"><%- details %></div>
+      <% } %>
+      <% if (typeof actionUrl !== 'undefined' && actionUrl && typeof actionLabel !== 'undefined' && actionLabel) { %>
+      <p style="text-align: center; margin-top: 28px;">
+        <a class="btn" href="<%= actionUrl %>"><%= actionLabel %></a>
+      </p>
+      <% } %>
+      <% if (typeof footerNote !== 'undefined' && footerNote) { %>
+      <p style="margin-top: 24px; font-size: 13px; color: #666;"><%= footerNote %></p>
+      <% } %>
+    </div>
+    <div class="footer">
+      Art Gallery · Dispute notifications
+    </div>
+  </div>
+</body>
+</html>

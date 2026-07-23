@@ -20,10 +20,9 @@ export class ArtworkDimensionInputDto {
   @IsString()
   width: string;
 
-  @ApiPropertyOptional({ description: "Depth of the artwork", example: "5cm" })
-  @IsOptional()
+  @ApiProperty({ description: "Depth of the artwork", example: "5cm" })
   @IsString()
-  depth?: string;
+  depth: string;
 }
 
 export class CreateArtworkDto {

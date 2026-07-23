@@ -22,6 +22,11 @@ import { FollowModule } from "./apps/follow/follow.module";
 import { FeedModule } from "./apps/feed/feed.module";
 import { BlogModule } from "./apps/blog/blog.module";
 import { FavoritesModule } from "./apps/favorites/favorites.module";
+import { FedExModule } from "./apps/fedex/fedex.module";
+import { DeliveryConfirmationModule } from "./apps/delivery-confirmation/delivery-confirmation.module";
+import { DisputesModule } from "./apps/disputes/disputes.module";
+import { BalanceModule } from "./apps/balance/balance.module";
+import { CheckoutCapabilityModule } from "./apps/checkout/checkout-capability.module";
 
 @Module({
   imports: [
@@ -50,6 +55,11 @@ import { FavoritesModule } from "./apps/favorites/favorites.module";
     FeedModule,
     BlogModule,
     FavoritesModule,
+    FedExModule,
+    DeliveryConfirmationModule,
+    BalanceModule,
+    DisputesModule,
+    CheckoutCapabilityModule,
   ],
   controllers: [],
   providers: [

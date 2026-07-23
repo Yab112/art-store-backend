@@ -15,6 +15,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { ArtistService } from "../artist/artist.service";
 import { PaypalService } from "../payment/paypal.service";
 import { PaymentService } from "../payment/payment.service";
+import { BalanceService } from "../balance/balance.service";
 
 // PaymentStatus enum - will be available after Prisma client regeneration
 type PaymentStatus =
@@ -43,6 +44,7 @@ export class WithdrawalsService {
     private readonly paypalService: PaypalService,
     @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
+    private readonly balanceService: BalanceService,
   ) {}
 
   /**
@@ -53,37 +55,11 @@ export class WithdrawalsService {
     try {
       this.logger.log(`Creating manual withdrawal request for user: ${userId}`);
 
-      // 1. Get current earnings/balance
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { earning: true },
-      });
-
-      if (!user) {
-        throw new NotFoundException("User not found");
-      }
-
-      // 2. Calculate already withdrawn or pending amounts
-      const activeWithdrawals = await this.prisma.withdrawal.findMany({
-        where: {
-          userId,
-          status: {
-            in: [
-              PaymentStatus.INITIATED,
-              PaymentStatus.PROCESSING,
-              PaymentStatus.COMPLETED,
-            ],
-          },
-        },
-      });
-
-      const totalDeducted = activeWithdrawals.reduce(
-        (sum, w) => sum + Number(w.amount),
-        0,
-      );
-
-      const totalEarnings = Number(user.earning || 0);
-      const availableBalance = totalEarnings - totalDeducted;
+      // 1. Balance check using reservation-aware withdrawable amount
+      const method = (createDto.method || "PAYPAL").toUpperCase();
+      const provider = method === "CHAPA" ? "chapa" : "paypal";
+      const bal = await this.balanceService.getWithdrawable(userId, provider);
+      const availableBalance = bal.available;
 
       if (createDto.amount > availableBalance) {
         throw new BadRequestException(
@@ -91,7 +67,7 @@ export class WithdrawalsService {
         );
       }
 
-      // 3. Create the withdrawal request
+      // 2. Create the withdrawal request
       const metadata: any = {};
       if (createDto.bankCode) metadata.bankCode = createDto.bankCode;
       if (createDto.accountName) metadata.accountName = createDto.accountName;
@@ -297,22 +273,7 @@ export class WithdrawalsService {
         validationStatus.issues.push("User account is banned");
       }
 
-      // Check for active disputes
-      const activeDisputes = await this.prisma.dispute.findMany({
-        where: {
-          targetUserId: withdrawal.userId,
-          status: "IN_PROGRESS",
-        },
-      });
-
-      if (activeDisputes.length > 0) {
-        validationStatus.canApprove = false;
-        validationStatus.issues.push(
-          `${activeDisputes.length} active dispute(s)`,
-        );
-      }
-
-      // Check balance
+      // Disputed amounts are reserved in available balance (not a full account freeze)
       if (earningsStats) {
         if (requestedAmount > earningsStats.availableBalance) {
           validationStatus.canApprove = false;

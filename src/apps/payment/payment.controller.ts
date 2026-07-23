@@ -11,6 +11,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PaymentService } from "./payment.service";
+import { ExchangeRateService } from "../../libraries/currency/exchange-rate.service";
 import { InitializePaymentDto } from "./dto/initialize-payment.dto";
 import { VerifyPaymentDto } from "./dto/verify-payment.dto";
 
@@ -18,7 +19,38 @@ import { VerifyPaymentDto } from "./dto/verify-payment.dto";
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly exchangeRateService: ExchangeRateService,
+  ) {}
+
+  /**
+   * REPORTING-ONLY reference FX (PAYMENT_AND_PAYOUT_ARCHITECTURE.md).
+   * Must never be used for checkout charges, payouts, or refunds.
+   * GET /api/payment/reporting/exchange-rate?base=USD&quote=ETB
+   */
+  @Get("reporting/exchange-rate")
+  async getReportingExchangeRate(
+    @Query("base") base = "USD",
+    @Query("quote") quote = "ETB",
+  ) {
+    if (base.toUpperCase() !== "USD" || quote.toUpperCase() !== "ETB") {
+      return {
+        success: false,
+        message: "Only USD→ETB reporting pair is supported",
+      };
+    }
+    const data = await this.exchangeRateService.getUsdToEtb();
+    return {
+      success: true,
+      reportingOnly: true,
+      data: {
+        ...data,
+        usage:
+          "internal_reporting_only — not for checkout, payout, or refund money movement",
+      },
+    };
+  }
 
   /**
    * Initialize a payment

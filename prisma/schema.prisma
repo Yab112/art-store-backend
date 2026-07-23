@@ -94,6 +94,7 @@ model Chat {
 
 model Dispute {
   id                              String         @id
+  orderId                         String?
   artworkId                       String?
   targetUserId                    String?
   raisedById                      String
@@ -101,13 +102,39 @@ model Dispute {
   reason                          String
   description                     String?
   resolution                      String?
+  attachmentUrl                   String?
   status                          DISPUTE_STATUS @default(IN_PROGRESS)
+  outcome                         String? // SELLER_WINS | BUYER_WINS
+  resolvedAt                      DateTime?
+  gatewayRefundId                 String?
+  reservedAmount                  Decimal?       @db.Decimal(10, 2)
+  reservedProvider                String? // paypal | chapa
+  // Buyer-wins return workflow
+  returnRequired                  Boolean?
+  returnWaivedAt                  DateTime?
+  returnWaivedById                String?
+  returnWaiveReason               String?
+  returnConfirmedAt               DateTime?
+  returnConfirmedBySellerId       String?
+  returnConfirmNote               String?
+  returnConfirmPhotoUrls          String[]       @default([])
+  returnSignatureUrl              String?
   createdAt                       DateTime       @default(now())
   updatedAt                       DateTime
   artwork                         Artwork?       @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  order                           Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
   User_Dispute_assignedToIdToUser User?          @relation("Dispute_assignedToIdToUser", fields: [assignedToId], references: [id], onDelete: Cascade)
   User_Dispute_raisedByIdToUser   User           @relation("Dispute_raisedByIdToUser", fields: [raisedById], references: [id], onDelete: Cascade)
   targetUser                      User?          @relation("Dispute_targetUser", fields: [targetUserId], references: [id])
+  returnWaivedBy                  User?          @relation("Dispute_returnWaivedBy", fields: [returnWaivedById], references: [id], onDelete: SetNull)
+  returnConfirmedBySeller         User?          @relation("Dispute_returnConfirmedBy", fields: [returnConfirmedBySellerId], references: [id], onDelete: SetNull)
+  refund                          Refund?
+  resolutionEvents                DisputeResolutionEvent[]
+  sellerLedgerEntries             SellerLedgerEntry[]
+
+  @@index([orderId])
+  @@index([status])
+  @@index([targetUserId])
 }
 
 model Message {
@@ -187,15 +214,28 @@ model User {
   earning                            Decimal                  @default(0) @db.Decimal(10, 2)
   bannedAt                           DateTime?
   emailVerifiedAt                    DateTime?
+
+  // FedEx Artist Address fields
+  addressLine1                       String?
+  addressLine2                       String?
+  addressCity                        String?
+  addressState                       String?
+  addressZipCode                     String?
+  addressCountry                     String?
+  addressPhone                       String?
+
   earningChapa                       Decimal                  @default(0) @db.Decimal(10, 2)
   earningPaypal                      Decimal                  @default(0) @db.Decimal(10, 2)
   accounts                           Account[]
+  deliveryConfirmations              DeliveryConfirmation[]
   Chat_Chat_clientIdToUser           Chat[]                   @relation("Chat_clientIdToUser")
   Chat_Chat_taskerIdToUser           Chat[]                   @relation("Chat_taskerIdToUser")
   collections                        Collection[]             @relation("Collection_createdBy")
   Dispute_Dispute_assignedToIdToUser Dispute[]                @relation("Dispute_assignedToIdToUser")
   Dispute_Dispute_raisedByIdToUser   Dispute[]                @relation("Dispute_raisedByIdToUser")
   disputesAgainstUser                Dispute[]                @relation("Dispute_targetUser")
+  disputesReturnWaived               Dispute[]                @relation("Dispute_returnWaivedBy")
+  disputesReturnConfirmed            Dispute[]                @relation("Dispute_returnConfirmedBy")
   interactions                       Interaction[]            @relation("Interaction_user")
   Message_Message_receiverIdToUser   Message[]                @relation("Message_receiverIdToUser")
   Message_Message_senderIdToUser     Message[]                @relation("Message_senderIdToUser")
@@ -209,6 +249,7 @@ model User {
   twoFactors                         TwoFactor[]
   withdrawals                        Withdrawal[]
   artworks                           Artwork[]
+  artistShipments                    Shipment[]               @relation("ArtistShipments")
   blogComments                       BlogComment[]            @relation("BlogComment_user")
   blogPosts                          BlogPost[]               @relation("BlogPost_author")
   featuredBlogPosts                  BlogPost[]               @relation("ArtistSpotlight")
@@ -219,7 +260,9 @@ model User {
   followers                          Follow[]                 @relation("UserFollowers")
   following                          Follow[]                 @relation("UserFollowing")
   paymentMethodPreference            PaymentMethodPreference?
+  sellerPayoutCapabilities           SellerPayoutCapability[]
   talentTypes                        UserOnTalentType[]
+  sellerLedgerEntries                SellerLedgerEntry[]
 
   @@map("users")
 }
@@ -253,6 +296,8 @@ model Artwork {
   yearOfAcquisition      String?
   description            String?
   desiredPrice           Float
+  /** Currency the seller priced this listing in (canonical charge amount). Never converted by the marketplace. */
+  listingCurrency        String                @default("USD")
   acceptPriceNegotiation Boolean
   accountHolder          String
   iban                   String?
@@ -352,6 +397,10 @@ model Order {
   receipt         Receipt?
   transaction     Transaction?
   platformEarning PlatformEarning?
+  shipments       Shipment[]
+  refund          Refund?
+  deliveryConfirmation DeliveryConfirmation?
+  disputes        Dispute[]
 
   @@index([userId])
   @@index([buyerEmail])
@@ -485,11 +534,74 @@ model PlatformEarning {
   updatedAt      DateTime     @updatedAt
   order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  adjustments    PlatformEarningAdjustment[]
 
   @@index([orderId])
   @@index([transactionId])
   @@index([createdAt])
   @@map("platform_earnings")
+}
+
+model PlatformEarningAdjustment {
+  id                String   @id @default(uuid())
+  platformEarningId String
+  orderId           String
+  disputeId         String?
+  amount            Decimal  @db.Decimal(10, 2) // negative for refund reversal
+  reason            String
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  platformEarning   PlatformEarning @relation(fields: [platformEarningId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([platformEarningId])
+  @@index([disputeId])
+  @@map("platform_earning_adjustments")
+}
+
+model SellerLedgerEntry {
+  id         String                 @id @default(uuid())
+  userId     String
+  orderId    String?
+  disputeId  String?
+  amount     Decimal                @db.Decimal(10, 2) // signed
+  provider   String // paypal | chapa
+  type       SellerLedgerEntryType
+  metadata   Json?
+  createdAt  DateTime               @default(now())
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dispute    Dispute?               @relation(fields: [disputeId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([disputeId])
+  @@index([type])
+  @@map("seller_ledger_entries")
+}
+
+model DisputeResolutionEvent {
+  id               String   @id @default(uuid())
+  disputeId        String
+  adminUserId      String? // null for seller-driven events (e.g. RETURN_CONFIRMED)
+  previousStatus   String
+  newStatus        String
+  outcome          String? // SELLER_WINS | BUYER_WINS
+  eventType        String? // BUYER_WINS_RECORDED | RETURN_CONFIRMED | RETURN_WAIVED | BUYER_WINS_CANCELLED | REFUND_COMPLETED | REFUND_FAILED | SELLER_WINS
+  resolutionNote   String?
+  gatewayRefundId  String?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  dispute          Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId])
+  @@map("dispute_resolution_events")
+}
+
+enum SellerLedgerEntryType {
+  ORDER_CREDIT_PENDING
+  PENDING_RELEASE
+  PENDING_CANCELLED
+  DISPUTE_REFUND_DEBIT
 }
 
 model PaymentMethodPreference {
@@ -506,6 +618,29 @@ model PaymentMethodPreference {
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("payment_method_preferences")
+}
+
+/**
+ * Durable seller payout capability (PAYMENT_AND_PAYOUT_ARCHITECTURE.md).
+ * Only payoutSupport = 'full' rows are created. Checkout reads these; it never re-derives eligibility.
+ */
+model SellerPayoutCapability {
+  id                 String   @id @default(uuid())
+  userId             String
+  provider           String
+  /// full | sendOnly | unsupported — only 'full' is persisted for connected payouts
+  payoutSupport      String   @default("full")
+  paypalEmail        String?
+  chapaAccountName   String?
+  chapaAccountNumber String?
+  chapaBankCode      String?
+  connectedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("seller_payout_capabilities")
 }
 
 model BlogPost {
@@ -806,10 +941,13 @@ enum ArtworkStatus {
   REJECTED
   SOLD
   WITHDRAWN
+  DISPUTED
 }
 
 enum DISPUTE_STATUS {
   IN_PROGRESS
+  WAITING_FOR_RETURN
+  READY_FOR_REFUND
   RESOLVED
   CLOSED
   REJECTED
@@ -820,6 +958,8 @@ enum OrderStatus {
   PAID
   CANCELLED
   REFUNDED
+  COMPLETED
+  DISPUTED
 }
 
 enum PaymentStatus {
@@ -878,3 +1018,102 @@ enum MediaType {
   VIDEO
   LIVE_STREAM
 }
+
+enum ShipmentStatus {
+  PENDING_ADDRESS
+  LABEL_CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  EXCEPTION
+  CANCELLED
+}
+
+model Shipment {
+  id               String          @id @default(uuid())
+  orderId          String
+  artistId         String
+  trackingNumber   String?
+  masterTrackingId String?
+  labelUrl         String?
+  serviceType      String
+  status           ShipmentStatus  @default(LABEL_CREATED)
+  failureReason    String?
+  estimatedDelivery DateTime?
+  lastTrackingSyncAt    DateTime?
+  lastTrackingSyncError String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artist           User            @relation("ArtistShipments", fields: [artistId], references: [id], onDelete: Cascade)
+  events           ShipmentEvent[]
+
+  @@unique([orderId, artistId])
+  @@map("shipments")
+}
+
+model ShipmentEvent {
+  id             String         @id @default(uuid())
+  shipmentId     String
+  status         ShipmentStatus
+  description    String
+  location       String?
+  timestamp      DateTime
+  createdAt      DateTime       @default(now())
+
+  shipment       Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@map("shipment_events")
+}
+
+model DeliveryConfirmation {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  buyerId         String
+  signatureUrl    String   // S3 URL to signature PNG
+  acceptedTerms   Boolean
+  hasDispute      Boolean  @default(false)
+  disputeReason   String?  // enum string: DAMAGED, WRONG_ITEM, QUALITY, OTHER
+  disputeNote     String?  // free-text for OTHER or extra detail
+  confirmedAt     DateTime @default(now())
+
+  order   Order @relation(fields: [orderId], references: [id])
+  buyer   User  @relation(fields: [buyerId], references: [id])
+
+  @@map("delivery_confirmations")
+}
+
+model Refund {
+  id              String       @id @default(uuid())
+  orderId         String       @unique
+  disputeId       String?      @unique
+  amount          Decimal      @db.Decimal(10, 2)
+  status          RefundStatus @default(PENDING)
+  sellerSigned    Boolean      @default(false)
+  signatureUrl    String?
+  gatewayRefundId String?
+  idempotencyKey  String?      @unique
+  failureReason   String?
+  provider        String? // paypal | chapa
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  order           Order        @relation(fields: [orderId], references: [id])
+  dispute         Dispute?     @relation(fields: [disputeId], references: [id], onDelete: SetNull)
+
+  @@map("refunds")
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  ACTIVE // legacy
+  COMPLETED
+  FAILED
+  MANUAL_REVIEW
+  CANCELLED // buyer-wins cancelled before money moved
+}
+
+

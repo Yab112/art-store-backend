@@ -4,9 +4,10 @@ import { ArtistService } from "./artist.service";
 import { PrismaModule } from "../../core/database/prisma.module";
 import { SettingsModule } from "../settings/settings.module";
 import { ArtworkModule } from "../artwork/artwork.module";
+import { BalanceModule } from "../balance/balance.module";
 
 @Module({
-  imports: [PrismaModule, SettingsModule, ArtworkModule],
+  imports: [PrismaModule, SettingsModule, ArtworkModule, BalanceModule],
   controllers: [ArtistController],
   providers: [ArtistService],
   exports: [ArtistService],

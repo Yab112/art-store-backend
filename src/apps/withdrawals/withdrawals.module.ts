@@ -4,11 +4,13 @@ import { WithdrawalsService } from "./withdrawals.service";
 import { PrismaModule } from "../../core/database";
 import { ArtistModule } from "../artist/artist.module";
 import { PaymentModule } from "../payment/payment.module";
+import { BalanceModule } from "../balance/balance.module";
 
 @Module({
   imports: [
     PrismaModule,
     ArtistModule,
+    BalanceModule,
     forwardRef(() => PaymentModule), // Use forwardRef to handle circular dependency
   ],
   controllers: [WithdrawalsController],

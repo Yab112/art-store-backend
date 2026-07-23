@@ -96,6 +96,52 @@ export class S3Service {
   }
 
   /**
+   * Upload a file buffer directly to S3
+   * @param buffer File buffer
+   * @param fileName Target filename
+   * @param contentType MIME type of the file
+   * @param bucket Optional bucket name
+   * @returns Public URL of the uploaded file
+   */
+  async uploadBuffer(
+    buffer: Buffer,
+    fileName: string,
+    contentType: string,
+    bucket?: string,
+  ): Promise<{ publicUrl: string; objectKey: string }> {
+    try {
+      const targetBucket = bucket || this.bucketName;
+      const fileExtension = extname(fileName);
+      const uniqueFileName = `${uuidv4()}${fileExtension}`;
+
+      // Determine folder based on content type
+      const folder = this.getFolderForContentType(contentType);
+      const objectKey = folder ? `${folder}/${uniqueFileName}` : uniqueFileName;
+
+      const command = new PutObjectCommand({
+        Bucket: targetBucket,
+        Key: objectKey,
+        Body: buffer,
+        ContentType: contentType,
+      });
+
+      await this.s3Client.send(command);
+
+      const publicUrl = this.getPublicUrl(objectKey);
+
+      this.logger.log(`✅ File uploaded successfully: ${objectKey}`);
+
+      return {
+        publicUrl,
+        objectKey,
+      };
+    } catch (error: any) {
+      this.logger.error(`❌ Failed to upload file to S3:`, error.message);
+      throw new Error(`Failed to upload file to S3: ${error.message}`);
+    }
+  }
+
+  /**
    * Generate a presigned URL for downloading/viewing a file
    * @param objectKey S3 object key (path)
    * @param bucket Optional bucket name
@@ -142,6 +188,53 @@ export class S3Service {
       ? this.publicUrlBase.slice(0, -1)
       : this.publicUrlBase;
     return `${baseUrl}/${cleanKey}`;
+  }
+
+  /**
+   * Parse an S3 object location from a public object URL.
+   */
+  parseS3ObjectFromUrl(
+    url: string,
+  ): { bucket: string; key: string } | null {
+    try {
+      const parsed = new URL(url);
+      const key = parsed.pathname.replace(/^\//, "");
+      if (!key) {
+        return null;
+      }
+
+      const virtualHostedMatch = parsed.hostname.match(
+        /^(.+)\.s3[.-][a-z0-9-]+\.amazonaws\.com$/i,
+      );
+      if (virtualHostedMatch) {
+        return { bucket: virtualHostedMatch[1], key };
+      }
+
+      const pathStyleMatch = parsed.hostname.match(
+        /^s3[.-][a-z0-9-]+\.amazonaws\.com$/i,
+      );
+      if (pathStyleMatch) {
+        const [bucket, ...rest] = key.split("/");
+        if (bucket && rest.length > 0) {
+          return { bucket, key: rest.join("/") };
+        }
+      }
+
+      const baseUrl = this.publicUrlBase.endsWith("/")
+        ? this.publicUrlBase.slice(0, -1)
+        : this.publicUrlBase;
+      if (url.startsWith(`${baseUrl}/`) && this.bucketName) {
+        return { bucket: this.bucketName, key };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  isBlockedMediaUrl(url: string): boolean {
+    return !url || url.includes("mock-s3-bucket");
   }
 
   /**

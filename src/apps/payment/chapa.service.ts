@@ -368,9 +368,19 @@ export class ChapaService {
   }
 
   /**
-   * Fetch banks from Chapa
+   * Fetch banks from Chapa and normalize for clients.
+   * Chapa returns `id` (used as bank_code for transfers) — not `code`.
    */
-  async getBanks(): Promise<any> {
+  async getBanks(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      code: string;
+      slug: string | null;
+      isMobileMoney: boolean;
+      accountLength: number | null;
+    }>
+  > {
     try {
       const response = await axios.get(`${this.baseUrl}/banks`, {
         headers: {
@@ -378,13 +388,39 @@ export class ChapaService {
         },
       });
 
-      if (response.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-      }
-      if (response.data.status === "success") {
-        return response.data.data;
-      }
-      return [];
+      const raw = Array.isArray(response.data?.data)
+        ? response.data.data
+        : response.data?.status === "success" && Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+
+      return raw
+        .map((bank: any) => {
+          const id = bank?.id != null ? String(bank.id) : "";
+          const code =
+            bank?.code != null && String(bank.code).trim() !== ""
+              ? String(bank.code)
+              : id;
+          if (!code || !bank?.name) return null;
+          return {
+            id: id || code,
+            name: String(bank.name),
+            code,
+            slug: bank?.slug != null ? String(bank.slug) : null,
+            isMobileMoney: Boolean(
+              bank?.is_mobilemoney === 1 ||
+                bank?.is_mobilemoney === true ||
+                bank?.isMobileMoney,
+            ),
+            accountLength:
+              typeof bank?.acct_length === "number"
+                ? bank.acct_length
+                : typeof bank?.accountLength === "number"
+                  ? bank.accountLength
+                  : null,
+          };
+        })
+        .filter(Boolean);
     } catch (error) {
       this.logger.error("Failed to fetch Chapa banks:", error);
       return [];
@@ -453,6 +489,73 @@ export class ChapaService {
       return {
         success: false,
         message: error.message || "Unknown error during transfer",
+      };
+    }
+  }
+
+  /**
+   * Attempt a Chapa refund by tx_ref / transaction reference.
+   * Chapa refund APIs vary by account; treat ambiguous network errors as unknown.
+   */
+  async refundPayment(params: {
+    txRef: string;
+    amount: number;
+    reason?: string;
+    idempotencyKey: string;
+  }): Promise<{
+    outcome: "success" | "failed" | "unknown";
+    gatewayRefundId?: string;
+    message?: string;
+  }> {
+    try {
+      if (!this.secretKey) {
+        return { outcome: "failed", message: "Chapa secret key not configured" };
+      }
+
+      const response = await axios.post(
+        `${this.baseUrl}/refund/${params.txRef}`,
+        {
+          amount: Math.round(params.amount * 100) / 100,
+          reason: params.reason || "Dispute resolution refund",
+          reference: params.idempotencyKey.slice(0, 50),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 30_000,
+        },
+      );
+
+      if (response.data?.status === "success") {
+        return {
+          outcome: "success",
+          gatewayRefundId:
+            response.data?.data?.id ||
+            response.data?.data?.refund_id ||
+            params.idempotencyKey,
+          message: response.data?.message,
+        };
+      }
+
+      return {
+        outcome: "failed",
+        message: response.data?.message || "Chapa refund failed",
+      };
+    } catch (error: any) {
+      if (error?.code === "ECONNABORTED" || !error?.response) {
+        return {
+          outcome: "unknown",
+          message: error?.message || "Chapa refund network error",
+        };
+      }
+      return {
+        outcome: "failed",
+        message:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Chapa refund failed",
       };
     }
   }

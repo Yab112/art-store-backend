@@ -252,27 +252,58 @@ export class PaypalService {
             );
           }
         } catch (captureError: any) {
-          status = "FAILED";
-          this.logger.error(
-            `Failed to capture PayPal order ${orderId}:`,
-            captureError,
-          );
-
           const paypalError = captureError?.response?.data;
-          const errorName = paypalError?.name;
-          const errorDetail =
-            paypalError?.details?.[0]?.description || paypalError?.message;
           const errorIssue = paypalError?.details?.[0]?.issue;
+          const isAlreadyCaptured =
+            errorIssue === "ORDER_ALREADY_CAPTURED" ||
+            String(paypalError?.message || "")
+              .toUpperCase()
+              .includes("ORDER_ALREADY_CAPTURED");
 
-          const errorMessage = [
-            errorName ? `${errorName}: ` : "",
-            errorIssue ? `(${errorIssue}) ` : "",
-            errorDetail || captureError?.message || "Unknown error",
-          ].join("");
+          // Concurrent verify / page refresh: capture already succeeded — treat as success
+          if (isAlreadyCaptured) {
+            this.logger.warn(
+              `PayPal order ${orderId} already captured — re-fetching status`,
+            );
+            const refreshed = await axios.get(
+              `${this.baseUrl}/v2/checkout/orders/${orderId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              },
+            );
+            status = refreshed.data.status;
+            if (status === "COMPLETED") {
+              this.logger.log(
+                `PayPal order ${orderId} confirmed COMPLETED after ORDER_ALREADY_CAPTURED`,
+              );
+            } else {
+              throw new BadRequestException(
+                `PayPal payment was already captured but order status is ${status}`,
+              );
+            }
+          } else {
+            status = "FAILED";
+            this.logger.error(
+              `Failed to capture PayPal order ${orderId}:`,
+              captureError,
+            );
 
-          throw new BadRequestException(
-            `PayPal payment capture failed: ${errorMessage}`,
-          );
+            const errorName = paypalError?.name;
+            const errorDetail =
+              paypalError?.details?.[0]?.description || paypalError?.message;
+
+            const errorMessage = [
+              errorName ? `${errorName}: ` : "",
+              errorIssue ? `(${errorIssue}) ` : "",
+              errorDetail || captureError?.message || "Unknown error",
+            ].join("");
+
+            throw new BadRequestException(
+              `PayPal payment capture failed: ${errorMessage}`,
+            );
+          }
         }
       } else if (status === "COMPLETED") {
         this.logger.log(`PayPal order already completed: ${orderId}`);
@@ -576,6 +607,120 @@ export class PaypalService {
         error.message || error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Refund a PayPal capture. Prefers captureId; falls back to looking up capture from order id.
+   */
+  async refundCapture(params: {
+    captureId?: string;
+    paypalOrderId?: string;
+    amount?: number;
+    currency?: string;
+    idempotencyKey: string;
+  }): Promise<{
+    outcome: "success" | "failed" | "unknown";
+    gatewayRefundId?: string;
+    message?: string;
+  }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      let captureId = params.captureId;
+
+      if (!captureId && params.paypalOrderId) {
+        const orderRes = await axios.get(
+          `${this.baseUrl}/v2/checkout/orders/${params.paypalOrderId}`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            timeout: 20_000,
+          },
+        );
+        captureId =
+          orderRes.data?.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      }
+
+      if (!captureId) {
+        return {
+          outcome: "failed",
+          message: "No PayPal capture id available to refund",
+        };
+      }
+
+      const body: any = {
+        note_to_payer: "Dispute resolution refund",
+      };
+      if (params.amount != null) {
+        body.amount = {
+          value: params.amount.toFixed(2),
+          currency_code: params.currency || "USD",
+        };
+      }
+
+      const response = await axios.post(
+        `${this.baseUrl}/v2/payments/captures/${captureId}/refund`,
+        body,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "PayPal-Request-Id": params.idempotencyKey,
+          },
+          timeout: 30_000,
+        },
+      );
+
+      const status = response.data?.status;
+      if (status === "COMPLETED" || status === "PENDING") {
+        return {
+          outcome: "success",
+          gatewayRefundId: response.data?.id,
+          message: status,
+        };
+      }
+      return {
+        outcome: "failed",
+        gatewayRefundId: response.data?.id,
+        message: `Unexpected refund status: ${status}`,
+      };
+    } catch (error: any) {
+      if (error?.code === "ECONNABORTED" || error?.message?.includes("timeout")) {
+        return {
+          outcome: "unknown",
+          message: error?.message || "PayPal refund timed out",
+        };
+      }
+      const issue = error?.response?.data?.details?.[0]?.issue;
+      // Idempotent replay of completed refund
+      if (
+        issue === "CAPTURE_FULLY_REFUNDED" ||
+        error?.response?.status === 422
+      ) {
+        const existingId =
+          error?.response?.data?.details?.[0]?.refund_id ||
+          error?.response?.data?.id;
+        if (issue === "CAPTURE_FULLY_REFUNDED") {
+          return {
+            outcome: "success",
+            gatewayRefundId: existingId,
+            message: "Already refunded",
+          };
+        }
+      }
+      if (!error?.response) {
+        return {
+          outcome: "unknown",
+          message: error?.message || "Network error during PayPal refund",
+        };
+      }
+      return {
+        outcome: "failed",
+        message:
+          error?.response?.data?.message ||
+          error?.response?.data?.details?.[0]?.description ||
+          error?.message ||
+          "PayPal refund failed",
+      };
     }
   }
 }
