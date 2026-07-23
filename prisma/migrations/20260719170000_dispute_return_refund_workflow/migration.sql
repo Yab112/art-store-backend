@@ -1,0 +1,31 @@
+-- Buyer-wins return + admin Complete Refund workflow
+
+ALTER TYPE "DISPUTE_STATUS" ADD VALUE IF NOT EXISTS 'WAITING_FOR_RETURN';
+ALTER TYPE "DISPUTE_STATUS" ADD VALUE IF NOT EXISTS 'READY_FOR_REFUND';
+
+ALTER TYPE "RefundStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';
+
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnRequired" BOOLEAN;
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnWaivedAt" TIMESTAMP(3);
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnWaivedById" TEXT;
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnWaiveReason" TEXT;
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnConfirmedAt" TIMESTAMP(3);
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnConfirmedBySellerId" TEXT;
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnConfirmNote" TEXT;
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnConfirmPhotoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "Dispute" ADD COLUMN IF NOT EXISTS "returnSignatureUrl" TEXT;
+
+DO $$ BEGIN
+  ALTER TABLE "Dispute" ADD CONSTRAINT "Dispute_returnWaivedById_fkey"
+    FOREIGN KEY ("returnWaivedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Dispute" ADD CONSTRAINT "Dispute_returnConfirmedBySellerId_fkey"
+    FOREIGN KEY ("returnConfirmedBySellerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "dispute_resolution_events" ADD COLUMN IF NOT EXISTS "eventType" TEXT;
+ALTER TABLE "dispute_resolution_events" ALTER COLUMN "adminUserId" DROP NOT NULL;

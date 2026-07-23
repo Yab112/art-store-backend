@@ -24,8 +24,7 @@ export class InitializePaymentDto {
   amount: number;
 
   @IsEnum(Currency)
-  @IsOptional()
-  currency?: Currency;
+  currency: Currency;
 
   @IsEmail()
   email: string;

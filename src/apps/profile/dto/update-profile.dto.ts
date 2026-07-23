@@ -14,6 +14,12 @@ const TransformEmptyToUndefined = () =>
     value === "" || value === null ? undefined : value,
   );
 
+// Helper to transform empty strings to null (useful for clearing database fields)
+const TransformEmptyToNull = () =>
+  Transform(({ value }) =>
+    value === "" ? null : value,
+  );
+
 export class UpdateProfileDto {
   @IsOptional()
   @TransformEmptyToUndefined()
@@ -61,6 +67,52 @@ export class UpdateProfileDto {
   @TransformEmptyToUndefined()
   @IsString()
   phone?: string;
+
+  // FedEx Artist Shipping Address fields
+  // Note: @ValidateIf guards skip @IsString when value is null (after TransformEmptyToNull
+  // converts "" to null). The ValidationPipe has skipNullProperties: false, so without
+  // this guard the null would fail @IsString() validation.
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressLine1?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressLine2?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressCity?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressState?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressZipCode?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressCountry?: string | null;
+
+  @IsOptional()
+  @TransformEmptyToNull()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  addressPhone?: string | null;
 
   @IsOptional()
   @TransformEmptyToUndefined()

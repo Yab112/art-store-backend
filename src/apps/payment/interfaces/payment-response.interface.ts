@@ -22,6 +22,18 @@ export interface PaymentVerifyResponse {
     customerEmail?: string;
     customerName?: string;
     originalTxRef?: string; // For PayPal: original TX-{orderId}-{timestamp} format
+    orderId?: string;
+    checkoutId?: string | null;
+    remainingOrders?: Array<{
+      orderId: string;
+      sellerId: string | null;
+      txRef: string | null;
+      totalAmount: number;
+      currency: string | null;
+      paymentProvider: string | null;
+      status: string;
+    }>;
+    allPaid?: boolean;
   };
 }
 

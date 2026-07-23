@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { ProfileController } from "./profile.controller";
 import { ProfileService } from "./profile.service";
 import { ProfileEventSubscriber } from "./profile-event.subscriber";
@@ -7,6 +7,8 @@ import { EmailModule } from "../../libraries/email";
 import { UploadModule } from "../../libraries/upload";
 import { AnalyticsModule } from "../analytics/analytics.module";
 import { FollowModule } from "../follow/follow.module";
+import { FedExModule } from "../fedex/fedex.module";
+import { CheckoutCapabilityModule } from "../checkout/checkout-capability.module";
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { FollowModule } from "../follow/follow.module";
     UploadModule,
     AnalyticsModule,
     FollowModule,
+    forwardRef(() => FedExModule),
+    CheckoutCapabilityModule,
   ],
   controllers: [ProfileController],
   providers: [ProfileService, ProfileEventSubscriber],

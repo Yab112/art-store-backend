@@ -6,8 +6,26 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { SettingsService } from "../settings/settings.service";
-import { CreateOrderDto } from "./dto/create-order.dto";
+import { CreateOrderDto, PaymentMethodEnum } from "./dto/create-order.dto";
+import { PrepareCheckoutDto } from "./dto/prepare-checkout.dto";
 import { Decimal } from "@prisma/client/runtime/library";
+import { randomUUID } from "crypto";
+import { FedExService } from "../fedex/fedex.service";
+import { withLifecycleFilteredEvents } from "../fedex/fedex-tracking.mapper";
+import { BalanceService } from "../balance/balance.service";
+import {
+  isFedExServiceType,
+  normalizeCurrency,
+} from "../../libraries/currency/currency.util";
+import {
+  CheckoutCapabilityService,
+  PaymentProviderId,
+} from "../checkout/checkout-capability.service";
+import { CheckoutPricingService } from "../checkout/checkout-pricing.service";
+import {
+  roundMoney,
+  toMinorUnits,
+} from "../checkout/checkout-pricing.types";
 
 @Injectable()
 export class OrderService {
@@ -16,6 +34,10 @@ export class OrderService {
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService,
+    private readonly fedexService: FedExService,
+    private readonly balanceService: BalanceService,
+    private readonly checkoutCapabilityService: CheckoutCapabilityService,
+    private readonly checkoutPricingService: CheckoutPricingService,
   ) {}
 
   /**
@@ -42,6 +64,22 @@ export class OrderService {
         );
       }
 
+      // Block new purchases while the buyer has an open dispute
+      const activeDispute = await this.prisma.dispute.findFirst({
+        where: {
+          raisedById: userId,
+          status: {
+            in: ["IN_PROGRESS", "WAITING_FOR_RETURN", "READY_FOR_REFUND"],
+          },
+        },
+        select: { id: true, orderId: true },
+      });
+      if (activeDispute) {
+        throw new BadRequestException(
+          "You have an active dispute under review. New orders are blocked until it is resolved.",
+        );
+      }
+
       // Validate artworks exist and are available (only APPROVED artworks can be purchased)
       const artworkIds = createOrderDto.items.map((item) => item.artworkId);
       const artworks = await this.prisma.artwork.findMany({
@@ -64,6 +102,23 @@ export class OrderService {
         throw new BadRequestException("Some artworks are not available");
       }
 
+      // One order = one seller (multi-seller carts use /checkout/prepare)
+      const sellerIds = [...new Set(artworks.map((a) => a.userId))];
+      if (sellerIds.length !== 1) {
+        throw new BadRequestException(
+          "An order may only include artworks from one seller. Use checkout prepare for multi-seller carts.",
+        );
+      }
+      const sellerId = sellerIds[0];
+      if (
+        createOrderDto.sellerId &&
+        createOrderDto.sellerId !== sellerId
+      ) {
+        throw new BadRequestException(
+          `sellerId mismatch: expected ${sellerId}, got ${createOrderDto.sellerId}`,
+        );
+      }
+
       // Prevent users from purchasing their own artwork
       const ownArtworks = artworks.filter(
         (artwork) => artwork.userId === userId,
@@ -77,32 +132,116 @@ export class OrderService {
         );
       }
 
-      // Calculate totals
-      let subtotal = 0;
+      const paymentProvider =
+        createOrderDto.paymentMethod === PaymentMethodEnum.CHAPA
+          ? ("chapa" as PaymentProviderId)
+          : createOrderDto.paymentMethod === PaymentMethodEnum.PAYPAL
+            ? ("paypal" as PaymentProviderId)
+            : null;
+      if (!paymentProvider) {
+        throw new BadRequestException(
+          "Only chapa and paypal payment methods are supported",
+        );
+      }
+
+      // Canonical listing currency is USD — prices are always dollars
+      const listingCurrencies = new Set(
+        artworks.map((a) =>
+          String((a as any).listingCurrency || "USD")
+            .trim()
+            .toUpperCase(),
+        ),
+      );
+      for (const c of listingCurrencies) {
+        if (c && c !== "USD") {
+          throw new BadRequestException(
+            `Artwork listing currency must be USD (found ${c}). Re-list in USD.`,
+          );
+        }
+      }
+      const listingCurrency = "USD" as const;
+
+      const resolved =
+        await this.checkoutCapabilityService.resolveCheckoutMethods({
+          buyerId: userId,
+          sellerIds: [sellerId],
+          listingCurrency,
+          buyerCountry: createOrderDto.shippingAddress?.country,
+        });
+
+      if (!resolved.compatible) {
+        throw new BadRequestException(
+          resolved.reason ||
+            "No compatible payment method for this buyer/seller combination",
+        );
+      }
+      if (!resolved.availableMethods.includes(paymentProvider)) {
+        throw new BadRequestException(
+          `Payment method ${paymentProvider} is not available for this order. Available: ${resolved.availableMethods.join(", ") || "none"}`,
+        );
+      }
+
+      // Shipping is logistics-only — always priced in USD (S1)
+      if (!createOrderDto.shippingOption?.serviceType) {
+        throw new BadRequestException("Shipping option is required");
+      }
+      const shippingOption = { ...createOrderDto.shippingOption };
+      const shippingCurrency = normalizeCurrency(shippingOption.currency);
+      if (
+        Number(shippingOption.totalCharge) > 0 &&
+        shippingCurrency &&
+        shippingCurrency !== "USD"
+      ) {
+        throw new BadRequestException(
+          `Shipping must be priced in USD (got ${shippingCurrency})`,
+        );
+      }
+      // Normalize stamp for persistence
+      shippingOption.currency = "USD";
+
+      // Merchandise totals in USD
+      let listingUsd = 0;
       const orderItemsData = createOrderDto.items.map((item) => {
         const artwork = artworks.find((a) => a.id === item.artworkId);
         if (!artwork) {
           throw new BadRequestException(`Artwork ${item.artworkId} not found`);
         }
 
-        const itemTotal = Number(artwork.desiredPrice) * item.quantity;
-        subtotal += itemTotal;
+        const unit = Number(artwork.desiredPrice);
+        listingUsd += unit * item.quantity;
 
         return {
           artworkId: item.artworkId,
           quantity: item.quantity,
-          price: new Decimal(artwork.desiredPrice),
+          price: new Decimal(unit),
         };
       });
+      listingUsd = roundMoney(listingUsd);
 
-      // Get platform commission rate from settings
       const platformCommissionRate =
         await this.settingsService.getPlatformCommissionRate();
+      const shippingUsd = roundMoney(Number(shippingOption.totalCharge) || 0);
 
-      // Platform fee is now inclusive in the desiredPrice
-      // Total amount the buyer pays is exactly the subtotal of desired prices
-      const platformFee = subtotal * platformCommissionRate;
-      const totalAmount = subtotal;
+      const chargeQuote = await this.checkoutPricingService.createQuote({
+        provider: paymentProvider,
+        listingUsd,
+        shippingUsd,
+        platformCommissionRate,
+      });
+
+      // Optional client currency must match the quote charge currency
+      const clientCurrency = normalizeCurrency(createOrderDto.currency);
+      if (clientCurrency && clientCurrency !== chargeQuote.chargedCurrency) {
+        throw new BadRequestException(
+          `Currency mismatch: client sent ${clientCurrency} but charge quote is ${chargeQuote.chargedCurrency}`,
+        );
+      }
+
+      const subtotal = listingUsd;
+      const shippingCost = shippingUsd;
+      const platformFee = chargeQuote.feeUsd;
+      const totalAmount = chargeQuote.chargedAmount;
+      const currency = chargeQuote.chargedCurrency;
 
       // Generate shorter txRef for Chapa (max 50 chars)
       // Format: TX-{first8charsOfOrderId}-{timestamp}
@@ -151,8 +290,41 @@ export class OrderService {
                   subtotal,
                   platformFee,
                   platformCommissionRate,
+                  shippingCost,
                   shippingAddress: createOrderDto.shippingAddress,
+                  shippingOption,
                   paymentMethod: createOrderDto.paymentMethod,
+                  paymentProvider,
+                  currency,
+                  chargedCurrency: chargeQuote.chargedCurrency,
+                  chargedAmount: chargeQuote.chargedAmount,
+                  chargedAmountMinor: toMinorUnits(chargeQuote.chargedAmount),
+                  listingCurrency: "USD",
+                  listingUsd: chargeQuote.listingUsd,
+                  shippingUsd: chargeQuote.shippingUsd,
+                  feeUsd: chargeQuote.feeUsd,
+                  totalUsd: chargeQuote.totalUsd,
+                  subtotalMinor: toMinorUnits(subtotal),
+                  shippingCostMinor: toMinorUnits(shippingCost),
+                  platformFeeMinor: toMinorUnits(platformFee),
+                  // Simplified charge snapshot (ChargeQuote is source of truth)
+                  chargeQuote,
+                  lockedFxRate: chargeQuote.fxRate,
+                  lockedAt: chargeQuote.lockedAt,
+                  expiresAt: chargeQuote.expiresAt,
+                  fxSource: chargeQuote.fxSource,
+                  // Legacy aliases for older refund/reporting readers
+                  listing_currency: "USD",
+                  checkout_currency: chargeQuote.chargedCurrency,
+                  settlement_currency: chargeQuote.chargedCurrency,
+                  refund_currency: chargeQuote.chargedCurrency,
+                  fx_rate_locked: chargeQuote.fxRate,
+                  fx_rate_source: chargeQuote.fxSource,
+                  fx_rate_captured_at: chargeQuote.lockedAt,
+                  sellerId,
+                  ...(createOrderDto.checkoutId
+                    ? { checkoutId: createOrderDto.checkoutId }
+                    : {}),
                   userId, // Keep in metadata for backward compatibility
                 }),
               ),
@@ -204,8 +376,14 @@ export class OrderService {
         orderId: order.id,
         txRef: txRef,
         totalAmount: Number(order.totalAmount),
+        chargedAmount: chargeQuote.chargedAmount,
+        currency: chargeQuote.chargedCurrency,
+        paymentProvider,
+        sellerId,
+        checkoutId: createOrderDto.checkoutId || null,
         subtotal,
         platformFee,
+        chargeQuote,
         items: (order.items || []).map((item: any) => ({
           artworkId: item.artworkId,
           artworkTitle: item.artwork?.title,
@@ -218,6 +396,151 @@ export class OrderService {
       this.logger.error("Order creation failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Multi-seller checkout: create one PENDING order per seller group.
+   * No payment is started here — FE pays each order sequentially.
+   */
+  async prepareCheckout(userId: string, dto: PrepareCheckoutDto) {
+    if (!userId || userId === "guest") {
+      throw new BadRequestException(
+        "Valid user ID is required to prepare checkout",
+      );
+    }
+    if (!dto.groups?.length) {
+      throw new BadRequestException("At least one seller group is required");
+    }
+
+    const checkoutId = randomUUID();
+    const orders: Array<{
+      orderId: string;
+      sellerId: string;
+      txRef: string;
+      totalAmount: number;
+      currency: string;
+      paymentProvider: string;
+      status: string;
+      chargeQuote: any;
+      totalUsd: number;
+    }> = [];
+
+    for (const group of dto.groups) {
+      // Charge currency is determined by CheckoutPricingService (USD or ETB)
+      const expectedChargeCurrency =
+        group.paymentMethod === PaymentMethodEnum.CHAPA ? "ETB" : "USD";
+
+      const created = await this.createOrder(userId, {
+        buyerEmail: dto.buyerEmail,
+        shippingAddress: dto.shippingAddress,
+        paymentMethod: group.paymentMethod,
+        currency: expectedChargeCurrency,
+        items: group.items,
+        shippingOption: {
+          ...group.shippingOption,
+          currency: "USD", // S1: shipping always USD
+        },
+        sellerId: group.sellerId,
+        checkoutId,
+      });
+
+      orders.push({
+        orderId: created.orderId,
+        sellerId: created.sellerId,
+        txRef: created.txRef,
+        totalAmount: created.chargedAmount,
+        currency: created.currency,
+        paymentProvider: created.paymentProvider,
+        status: "PENDING",
+        chargeQuote: created.chargeQuote,
+        totalUsd: created.chargeQuote?.totalUsd ?? created.subtotal,
+      });
+    }
+
+    const siblingOrderIds = orders.map((o) => o.orderId);
+    for (const o of orders) {
+      const tx = await this.prisma.transaction.findUnique({
+        where: { orderId: o.orderId },
+        select: { id: true, metadata: true },
+      });
+      if (!tx) continue;
+      await this.prisma.transaction.update({
+        where: { id: tx.id },
+        data: {
+          metadata: {
+            ...((tx.metadata as any) || {}),
+            checkoutId,
+            siblingOrderIds,
+          },
+        },
+      });
+    }
+
+    this.logger.log(
+      `Prepared multi-seller checkout ${checkoutId} with ${orders.length} order(s)`,
+    );
+
+    return {
+      success: true,
+      data: {
+        checkoutId,
+        orders,
+      },
+    };
+  }
+
+  /**
+   * Sibling progress for a multi-seller checkout session.
+   */
+  async getCheckoutSiblingProgress(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        transaction: { select: { metadata: true } },
+      },
+    });
+    if (!order) {
+      return {
+        checkoutId: null,
+        orders: [] as any[],
+        remainingOrders: [] as any[],
+        allPaid: true,
+      };
+    }
+    const meta = (order.transaction?.metadata as any) || {};
+    const checkoutId = meta.checkoutId || null;
+    const siblingIds: string[] = Array.isArray(meta.siblingOrderIds)
+      ? meta.siblingOrderIds
+      : [orderId];
+
+    const siblings = await this.prisma.order.findMany({
+      where: { id: { in: siblingIds } },
+      include: {
+        transaction: { select: { metadata: true, status: true } },
+      },
+    });
+
+    const orders = siblings.map((s) => {
+      const m = (s.transaction?.metadata as any) || {};
+      return {
+        orderId: s.id,
+        sellerId: m.sellerId || null,
+        txRef: m.txRef || null,
+        totalAmount: Number(s.totalAmount),
+        currency: m.currency || m.checkout_currency || null,
+        paymentProvider: m.paymentProvider || m.paymentMethod || null,
+        status: s.status,
+      };
+    });
+
+    const remainingOrders = orders.filter((o) => o.status !== "PAID");
+
+    return {
+      checkoutId,
+      orders,
+      remainingOrders,
+      allPaid: remainingOrders.length === 0,
+    };
   }
 
   /**
@@ -272,30 +595,59 @@ export class OrderService {
 
       if (order.status === "PAID") {
         this.logger.warn(
-          `[ORDER-COMPLETE] ⚠️ Order ${orderId} already paid - skipping completion`,
+          `[ORDER-COMPLETE] ⚠️ Order ${orderId} already paid — ensuring shipments exist`,
         );
-        // Return order with items included for cart clearing
-        return await this.prisma.order.findUnique({
+        const paidOrder = await this.prisma.order.findUnique({
           where: { id: orderId },
           include: {
             items: {
               include: {
-                artwork: true,
+                artwork: {
+                  include: { user: true },
+                },
               },
             },
             transaction: true,
           },
         });
+        if (paidOrder) {
+          const shippingMeta = (paidOrder.transaction?.metadata as any)
+            ?.shippingOption;
+          if (isFedExServiceType(shippingMeta)) {
+            try {
+              await this.fedexService.createShipmentsForOrder(paidOrder);
+            } catch (shipmentError: any) {
+              this.logger.error(
+                `[ORDER-COMPLETE] FedEx shipment re-check failed for order ${orderId}: ${shipmentError?.message}`,
+              );
+            }
+          }
+        }
+        return paidOrder;
       }
 
       // Update order and transaction
       this.logger.log(`[ORDER-COMPLETE] Updating order status to PAID...`);
 
       // Build enhanced metadata with payment completion details
+      const existingMeta = (order.transaction?.metadata as any) || {};
+      const currency =
+        normalizeCurrency(existingMeta.currency) ||
+        normalizeCurrency(
+          paymentProvider?.toLowerCase() === "chapa" ? "ETB" : "USD",
+        );
+      // Note: provider→currency above is ONLY for in-flight orders created before
+      // currency was persisted. New orders always have metadata.currency set at create.
+      const chargedAmount = Number(
+        existingMeta.chargedAmount ?? order.totalAmount,
+      );
+
       const enhancedMetadata = {
-        ...((order.transaction?.metadata as any) || {}),
+        ...existingMeta,
         txRef,
         paymentProvider,
+        currency,
+        chargedAmount,
         completedAt: new Date().toISOString(),
         ...(userId ? { buyerUserId: userId } : {}),
       };
@@ -324,7 +676,12 @@ export class OrderService {
         include: {
           items: {
             include: {
-              artwork: true,
+              // Include user (artist) so handleOrderPaid can read their shipping address
+              artwork: {
+                include: {
+                  user: true,
+                },
+              },
             },
           },
           transaction: true,
@@ -381,6 +738,49 @@ export class OrderService {
         );
       }
 
+      // Convert USD earnings → charged currency for Chapa (locked quote rate)
+      const chargeQuote = metadata.chargeQuote || null;
+      const fxRate =
+        paymentProvider.toLowerCase() === "chapa"
+          ? Number(chargeQuote?.fxRate ?? metadata.lockedFxRate ?? 0)
+          : 1;
+      const toChargedCurrency = (usdAmount: number) => {
+        if (paymentProvider.toLowerCase() !== "chapa") {
+          return roundMoney(usdAmount);
+        }
+        if (!Number.isFinite(fxRate) || fxRate <= 0) {
+          this.logger.warn(
+            `[ORDER-COMPLETE] Missing fx rate for Chapa order ${orderId}; falling back to chargedAmount proportion`,
+          );
+          const totalUsd = Number(
+            chargeQuote?.totalUsd ??
+              metadata.totalUsd ??
+              totalOrderValue + Number(metadata.shippingCost || 0),
+          );
+          const charged = Number(
+            chargeQuote?.chargedAmount ??
+              metadata.chargedAmount ??
+              order.totalAmount,
+          );
+          if (totalUsd > 0 && charged > 0) {
+            return roundMoney(usdAmount * (charged / totalUsd));
+          }
+          return roundMoney(usdAmount);
+        }
+        return roundMoney(usdAmount * fxRate);
+      };
+
+      totalPlatformCommission = toChargedCurrency(totalPlatformCommission);
+      for (const [artistUserId, earningsUsd] of [
+        ...artistEarningsMap.entries(),
+      ]) {
+        artistEarningsMap.set(artistUserId, toChargedCurrency(earningsUsd));
+      }
+
+      this.logger.log(
+        `[ORDER-COMPLETE] Charge currency earnings ready (provider=${paymentProvider}, fxRate=${fxRate || "n/a"})`,
+      );
+
       // Update user earnings and create seller transactions for each artist
       for (const [artistUserId, earnings] of artistEarningsMap.entries()) {
         try {
@@ -421,6 +821,16 @@ export class OrderService {
           this.logger.log(
             `[SELLER-EARNING] Updated earnings for artist ${artistUserId}: +${earnings} (Total earning updated)`
           );
+
+          // Phase 2: pending credit — held from withdrawable until COMPLETED / seller wins
+          const provider =
+            paymentProvider.toLowerCase() === "paypal" ? "paypal" : "chapa";
+          await this.balanceService.recordPendingCredit({
+            userId: artistUserId,
+            orderId,
+            amount: earnings,
+            provider,
+          });
 
           // Create seller transaction record
           // This represents the seller receiving money from the sale
@@ -533,6 +943,34 @@ export class OrderService {
       this.logger.log(
         `[ORDER-COMPLETE] ========================================`,
       );
+
+      // Create FedEx shipments only for FedEx / international PayPal orders
+      const shippingMeta = (updatedOrder.transaction?.metadata as any)
+        ?.shippingOption;
+      if (isFedExServiceType(shippingMeta)) {
+        try {
+          const shipmentResults =
+            await this.fedexService.createShipmentsForOrder(updatedOrder);
+          this.logger.log(
+            `[ORDER-COMPLETE] FedEx shipments for order ${orderId}: created=${shipmentResults.created.length}, skipped=${shipmentResults.skipped.length}, failed=${shipmentResults.failed.length}`,
+          );
+          if (shipmentResults.failed.length > 0) {
+            for (const failure of shipmentResults.failed) {
+              this.logger.error(
+                `[ORDER-COMPLETE] FedEx shipment failed for artist ${failure.artistId}: ${failure.reason}`,
+              );
+            }
+          }
+        } catch (shipmentError: any) {
+          this.logger.error(
+            `[ORDER-COMPLETE] FedEx shipment processing failed for order ${orderId}: ${shipmentError?.message}`,
+          );
+        }
+      } else {
+        this.logger.log(
+          `[ORDER-COMPLETE] Skipping FedEx for order ${orderId} (non-FedEx shipping: ${shippingMeta?.serviceType || "none"})`,
+        );
+      }
 
       return updatedOrder;
     } catch (error) {
@@ -706,6 +1144,43 @@ export class OrderService {
           },
         },
         transaction: true,
+        deliveryConfirmation: true,
+        disputes: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: {
+            refund: {
+              select: {
+                id: true,
+                status: true,
+                amount: true,
+              },
+            },
+            targetUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                addressLine1: true,
+                addressLine2: true,
+                addressCity: true,
+                addressState: true,
+                addressZipCode: true,
+                addressCountry: true,
+                addressPhone: true,
+              },
+            },
+          },
+        },
+        shipments: {
+          include: {
+            events: {
+              orderBy: {
+                timestamp: "desc"
+              }
+            }
+          }
+        }
       },
     });
 
@@ -713,7 +1188,11 @@ export class OrderService {
       throw new NotFoundException("Order not found");
     }
 
-    return order;
+    return {
+      ...order,
+      dispute: order.disputes?.[0] ?? null,
+      shipments: order.shipments.map(withLifecycleFilteredEvents),
+    };
   }
 
   /**
@@ -821,7 +1300,7 @@ export class OrderService {
       );
     }
 
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where,
       include: {
         items: {
@@ -844,9 +1323,52 @@ export class OrderService {
           },
         },
         transaction: true,
+        deliveryConfirmation: true,
+        disputes: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: {
+            refund: {
+              select: {
+                id: true,
+                status: true,
+                amount: true,
+              },
+            },
+            targetUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                addressLine1: true,
+                addressLine2: true,
+                addressCity: true,
+                addressState: true,
+                addressZipCode: true,
+                addressCountry: true,
+                addressPhone: true,
+              },
+            },
+          },
+        },
+        shipments: {
+          include: {
+            events: {
+              orderBy: {
+                timestamp: "desc"
+              }
+            }
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return orders.map((order) => ({
+      ...order,
+      dispute: order.disputes?.[0] ?? null,
+      shipments: order.shipments.map(withLifecycleFilteredEvents),
+    }));
   }
 
   /**

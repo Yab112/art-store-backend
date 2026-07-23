@@ -3,11 +3,19 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
 import { AnalyticsService } from "../analytics/analytics.service";
 import { FollowService } from "../follow/follow.service";
+import { FedExService } from "../fedex/fedex.service";
+import {
+  assertArtistShippableOrigin,
+  assertPostalAddressCoherence,
+  hasCompleteArtistShippingProfile,
+} from "../fedex/fedex-validation";
 import {
   UpdateProfileDto,
   UpdatePreferencesDto,
@@ -34,6 +42,8 @@ export class ProfileService {
     private readonly eventService: EventService,
     private readonly analyticsService: AnalyticsService,
     private readonly followService: FollowService,
+    @Inject(forwardRef(() => FedExService))
+    private readonly fedexService: FedExService,
   ) {}
 
   /**
@@ -271,6 +281,16 @@ export class ProfileService {
         location: user.location ?? null,
         website: user.website ?? null,
         phone: user.phone ?? null,
+        
+        // Shipping Address
+        addressLine1: user.addressLine1 ?? null,
+        addressLine2: user.addressLine2 ?? null,
+        addressCity: user.addressCity ?? null,
+        addressState: user.addressState ?? null,
+        addressZipCode: user.addressZipCode ?? null,
+        addressCountry: user.addressCountry ?? null,
+        addressPhone: user.addressPhone ?? null,
+
         role: user.role,
         score: user.score ?? 0,
         twoFactorEnabled: user.twoFactorEnabled,
@@ -373,11 +393,94 @@ export class ProfileService {
       if (updateProfileDto.phone !== undefined && updateProfileDto.phone !== "")
         updateData.phone = updateProfileDto.phone;
 
+      // Address fields
+      if (updateProfileDto.addressLine1 !== undefined) updateData.addressLine1 = updateProfileDto.addressLine1;
+      if (updateProfileDto.addressLine2 !== undefined) updateData.addressLine2 = updateProfileDto.addressLine2;
+      if (updateProfileDto.addressCity !== undefined) updateData.addressCity = updateProfileDto.addressCity;
+      if (updateProfileDto.addressState !== undefined) updateData.addressState = updateProfileDto.addressState;
+      if (updateProfileDto.addressZipCode !== undefined) updateData.addressZipCode = updateProfileDto.addressZipCode;
+      if (updateProfileDto.addressCountry !== undefined) updateData.addressCountry = updateProfileDto.addressCountry;
+      if (updateProfileDto.addressPhone !== undefined) updateData.addressPhone = updateProfileDto.addressPhone;
+
+      const addressFieldsTouched = [
+        "addressLine1",
+        "addressLine2",
+        "addressCity",
+        "addressState",
+        "addressZipCode",
+        "addressCountry",
+        "addressPhone",
+      ].some((field) => updateProfileDto[field] !== undefined);
+
+      // When any shipping address field is saved, require a complete shippable origin.
+      if (addressFieldsTouched) {
+        const mergedProfile = {
+          name: updateData.name ?? currentUser.name,
+          addressLine1:
+            updateData.addressLine1 !== undefined
+              ? updateData.addressLine1
+              : currentUser.addressLine1,
+          addressLine2:
+            updateData.addressLine2 !== undefined
+              ? updateData.addressLine2
+              : currentUser.addressLine2,
+          addressCity:
+            updateData.addressCity !== undefined
+              ? updateData.addressCity
+              : currentUser.addressCity,
+          addressState:
+            updateData.addressState !== undefined
+              ? updateData.addressState
+              : currentUser.addressState,
+          addressZipCode:
+            updateData.addressZipCode !== undefined
+              ? updateData.addressZipCode
+              : currentUser.addressZipCode,
+          addressCountry:
+            updateData.addressCountry !== undefined
+              ? updateData.addressCountry
+              : currentUser.addressCountry,
+          addressPhone:
+            updateData.addressPhone !== undefined
+              ? updateData.addressPhone
+              : currentUser.addressPhone,
+        };
+        assertArtistShippableOrigin(mergedProfile, "Shipping address");
+        await assertPostalAddressCoherence(
+          {
+            city: mergedProfile.addressCity,
+            state: mergedProfile.addressState,
+            zipCode: mergedProfile.addressZipCode,
+            country: mergedProfile.addressCountry,
+          },
+          "Shipping address",
+        );
+      }
+
       // Update user first
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: updateData,
       });
+
+      // Retry labels in the background — never block profile save on FedEx.
+      if (
+        addressFieldsTouched &&
+        hasCompleteArtistShippingProfile(updatedUser)
+      ) {
+        void this.fedexService
+          .retryPendingShipmentsForArtist(userId)
+          .then((retryResult) => {
+            this.logger.log(
+              `Retried pending shipments for ${userId}: ${JSON.stringify(retryResult)}`,
+            );
+          })
+          .catch((retryError: any) => {
+            this.logger.error(
+              `Failed to retry pending shipments for ${userId}: ${retryError?.message}`,
+            );
+          });
+      }
 
       // Handle talent types (many-to-many relationship)
       if (updateProfileDto.talentTypeIds !== undefined) {
@@ -428,6 +531,9 @@ export class ProfileService {
         { dtoField: "location", dbField: "location" },
         { dtoField: "website", dbField: "website" },
         { dtoField: "phone", dbField: "phone" },
+        { dtoField: "addressLine1", dbField: "addressLine1" },
+        { dtoField: "addressCity", dbField: "addressCity" },
+        { dtoField: "addressZipCode", dbField: "addressZipCode" },
       ];
 
       for (const { dtoField, dbField } of fieldsToTrack) {
@@ -456,10 +562,12 @@ export class ProfileService {
       );
 
       this.logger.log(`Profile updated for user ${userId}`);
+      // Return the same shape as GET /profile so the client cache has shipping fields.
+      const profile = await this.getAuthenticatedProfile(userId);
       return {
         success: true,
         message: PROFILE_MESSAGES.SUCCESS.PROFILE_UPDATED,
-        profile: updatedUser,
+        profile,
       };
     } catch (error) {
       this.logger.error(`Failed to update profile for user ${userId}:`, error);
@@ -1079,6 +1187,40 @@ export class ProfileService {
           chapaBankCode,
         },
       });
+
+      // Mirror into durable SellerPayoutCapability (architecture source of truth for checkout)
+      const provider = paymentMethodPreference as "paypal" | "chapa";
+      const hasPaypal = Boolean(
+        (paypalEmail ?? updated.paypalEmail)?.toString().trim(),
+      );
+      const hasChapa = Boolean(
+        (chapaAccountNumber ?? updated.chapaAccountNumber)?.toString().trim(),
+      );
+      if (
+        (provider === "paypal" && hasPaypal) ||
+        (provider === "chapa" && hasChapa)
+      ) {
+        await this.prisma.sellerPayoutCapability.upsert({
+          where: { userId_provider: { userId, provider } },
+          create: {
+            userId,
+            provider,
+            payoutSupport: "full",
+            paypalEmail: updated.paypalEmail,
+            chapaAccountName: updated.chapaAccountName,
+            chapaAccountNumber: updated.chapaAccountNumber,
+            chapaBankCode: updated.chapaBankCode,
+          },
+          update: {
+            payoutSupport: "full",
+            paypalEmail: updated.paypalEmail,
+            chapaAccountName: updated.chapaAccountName,
+            chapaAccountNumber: updated.chapaAccountNumber,
+            chapaBankCode: updated.chapaBankCode,
+            updatedAt: new Date(),
+          },
+        });
+      }
 
       this.logger.log(
         `Payment method preference updated for user ${userId}: ${paymentMethodPreference}`,

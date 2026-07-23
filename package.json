@@ -65,7 +65,8 @@
     "swagger:export": "ts-node scripts/generate-swagger.ts --export",
     "swagger:validate": "ts-node scripts/generate-swagger.ts --validate",
     "insert:test-withdrawals": "dotenv -e env/local.env -- ts-node scripts/insert-test-withdrawals.ts",
-    "insert:test-earnings": "dotenv -e env/local.env -- ts-node scripts/insert-test-earnings.ts"
+    "insert:test-earnings": "dotenv -e env/local.env -- ts-node scripts/insert-test-earnings.ts",
+    "backfill:transaction-currency": "dotenv -e env/local.env -- ts-node scripts/backfill-transaction-currency.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
@@ -99,6 +100,7 @@
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "country-state-city": "^3.2.1",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "express": "^4.21.0",
@@ -107,12 +109,14 @@
     "google-auth-library": "^9.14.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "libphonenumber-js": "^1.13.8",
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.15",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-http-bearer": "^1.0.1",
+    "postal-codes-js": "^2.5.2",
     "qrcode": "^1.5.4",
     "react-apexcharts": "^1.8.0",
     "reflect-metadata": "^0.2.0",

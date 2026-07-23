@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database";
 import { EventService } from "../../libraries/event";
@@ -26,6 +27,9 @@ import {
 } from "./events";
 import { ARTWORK_MESSAGES, ARTWORK_CONSTANTS } from "./constants";
 import { CreateCommentDto, UpdateCommentDto } from "./dto";
+import { UploadService } from "../../libraries/upload";
+import { assertArtistShippableOrigin } from "../fedex/fedex-validation";
+import { S3Service } from "../../libraries/s3/s3.service";
 
 @Injectable()
 export class ArtworkService {
@@ -36,7 +40,70 @@ export class ArtworkService {
     private readonly eventService: EventService,
     private readonly configurationService: ConfigurationService,
     private readonly settingsService: SettingsService,
+    private readonly uploadService: UploadService,
+    private readonly s3Service: S3Service,
   ) {}
+
+  private async resolvePhotoUrl(photo: string): Promise<string | null> {
+    const trimmed = photo?.trim();
+    if (!trimmed || this.s3Service.isBlockedMediaUrl(trimmed)) {
+      return null;
+    }
+
+    if (!trimmed.startsWith("http") && !trimmed.startsWith("data:")) {
+      try {
+        return await this.uploadService.getPresignedDownloadUrl(trimmed, 604800);
+      } catch (error: any) {
+        this.logger.warn(
+          `Failed to presign artwork photo key ${trimmed}: ${error?.message}`,
+        );
+        return this.uploadService.getPublicUrl(trimmed);
+      }
+    }
+
+    const s3Object = this.s3Service.parseS3ObjectFromUrl(trimmed);
+    if (s3Object) {
+      try {
+        return await this.s3Service.getPresignedDownloadUrl(
+          s3Object.key,
+          s3Object.bucket,
+          604800,
+        );
+      } catch (error: any) {
+        this.logger.warn(
+          `Failed to presign artwork photo ${trimmed}: ${error?.message}`,
+        );
+      }
+    }
+
+    return trimmed;
+  }
+
+  private async resolvePhotos(
+    photos: string[] | null | undefined,
+  ): Promise<string[]> {
+    if (!photos?.length) {
+      return [];
+    }
+
+    const resolved = await Promise.all(photos.map((photo) => this.resolvePhotoUrl(photo)));
+    return resolved.filter((url): url is string => Boolean(url));
+  }
+
+  private async withResolvedPhotos<T extends { photos: string[] }>(
+    artwork: T,
+  ): Promise<T> {
+    return {
+      ...artwork,
+      photos: await this.resolvePhotos(artwork.photos),
+    };
+  }
+
+  private async withResolvedPhotosList<T extends { photos: string[] }>(
+    artworks: T[],
+  ): Promise<T[]> {
+    return Promise.all(artworks.map((artwork) => this.withResolvedPhotos(artwork)));
+  }
 
   async create(createArtworkDto: CreateArtworkDto, userId: string) {
     try {
@@ -64,7 +131,18 @@ export class ArtworkService {
       console.log("Checking if user exists in database...");
       const user = await this.prisma.user.findUnique({
         where: { id: trimmedUserId },
-        select: { id: true, name: true, email: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          addressLine1: true,
+          addressLine2: true,
+          addressCity: true,
+          addressState: true,
+          addressZipCode: true,
+          addressCountry: true,
+          addressPhone: true,
+        },
       });
 
       console.log(
@@ -114,6 +192,20 @@ export class ArtworkService {
       this.logger.debug(
         `User verified: ${user.id} (${user.email}) - Proceeding with artwork creation`,
       );
+
+      // Enforce complete shippable origin (same rules as FedEx rates + label create).
+      try {
+        assertArtistShippableOrigin(
+          user,
+          "Shipping address",
+        );
+      } catch (error: any) {
+        throw new BadRequestException(
+          error?.message ||
+            "You must add a complete shipping address to your profile before submitting an artwork. " +
+              "This is required so buyers see accurate FedEx shipping rates and labels can be generated when a sale is made.",
+        );
+      }
 
       // Convert dimensions to JSON format for Prisma
       const { dimensions, categoryIds, ...rest } = createArtworkDto;
@@ -471,15 +563,17 @@ export class ArtworkService {
       ]);
 
       // Transform artworks to include like counts and other stats
-      const artworksWithStats = artworks.map((artwork) => ({
-        ...artwork,
-        categories: artwork.categories?.map((ac) => ac.category) || [],
-        likeCount: artwork.interactions?.length || 0,
-        commentCount: artwork._count?.comments || 0,
-        reviewCount: artwork._count?.reviews || 0,
-        interactions: undefined, // Remove interactions array from response
-        _count: undefined, // Remove _count from response
-      }));
+      const artworksWithStats = await this.withResolvedPhotosList(
+        artworks.map((artwork) => ({
+          ...artwork,
+          categories: artwork.categories?.map((ac) => ac.category) || [],
+          likeCount: artwork.interactions?.length || 0,
+          commentCount: artwork._count?.comments || 0,
+          reviewCount: artwork._count?.reviews || 0,
+          interactions: undefined,
+          _count: undefined,
+        })),
+      );
 
       return {
         artworks: artworksWithStats,
@@ -703,6 +797,36 @@ export class ArtworkService {
         throw new NotFoundException("Artwork not found");
       }
 
+      // Hide disputed artworks from public direct links.
+      // Owner, admin, and the buyer who purchased it may still view.
+      if (artwork.status === "DISPUTED") {
+        const isOwner = !!userId && artwork.userId === userId;
+        let allowed = isOwner;
+
+        if (userId && !allowed) {
+          const viewer = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+          });
+          if (viewer?.role?.toLowerCase() === "admin") {
+            allowed = true;
+          } else {
+            const purchase = await this.prisma.orderItem.findFirst({
+              where: {
+                artworkId: id,
+                order: { userId },
+              },
+              select: { id: true },
+            });
+            allowed = !!purchase;
+          }
+        }
+
+        if (!allowed) {
+          throw new NotFoundException("Artwork not found");
+        }
+      }
+
       // Type assertion to help TypeScript understand the included relations
       const artworkWithRelations = artwork as typeof artwork & {
         interactions: Array<{
@@ -754,7 +878,7 @@ export class ArtworkService {
         user: review.User,
       }));
 
-      return {
+      return this.withResolvedPhotos({
         ...artworkWithRelations,
         categories:
           artworkWithRelations.categories?.map((ac) => ac.category) || [],
@@ -766,7 +890,7 @@ export class ArtworkService {
         commentCount: artworkWithRelations.comments?.length || 0,
         reviewCount: reviews.length,
         averageRating,
-      };
+      });
     } catch (error) {
       this.logger.error(`❌ Failed to fetch artwork ${id}:`, error);
       throw error;
@@ -1043,7 +1167,7 @@ export class ArtworkService {
       ]);
 
       return {
-        artworks,
+        artworks: await this.withResolvedPhotosList(artworks),
         pagination: {
           page,
           limit,

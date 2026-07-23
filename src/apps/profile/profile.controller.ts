@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -23,6 +24,10 @@ import { AuthGuard } from "@/core/guards/auth.guard";
 import { Public } from "@/core/decorators/public.decorator";
 import { UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBody, ApiResponse } from "@nestjs/swagger";
+import {
+  CheckoutCapabilityService,
+  PaymentProviderId,
+} from "../checkout/checkout-capability.service";
 
 /**
  * Profile Controller
@@ -32,7 +37,71 @@ import { ApiTags, ApiOperation, ApiBody, ApiResponse } from "@nestjs/swagger";
 @UseGuards(AuthGuard)
 @Controller("profile")
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly checkoutCapabilityService: CheckoutCapabilityService,
+  ) {}
+
+  /**
+   * GET /profile/payout-capabilities
+   * List seller payout capabilities (MUST come before @Get(":id"))
+   */
+  @Get("payout-capabilities")
+  @ApiOperation({ summary: "List connected seller payout capabilities" })
+  async listPayoutCapabilities(@Request() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const data =
+      await this.checkoutCapabilityService.listSellerPayoutCapabilities(userId);
+    return { success: true, data };
+  }
+
+  /**
+   * POST /profile/payout-capabilities/:provider
+   * Connect a payout provider
+   */
+  @Post("payout-capabilities/:provider")
+  @ApiOperation({ summary: "Connect a seller payout capability" })
+  async connectPayout(
+    @Request() req: any,
+    @Param("provider") provider: string,
+    @Body()
+    body: {
+      paypalEmail?: string;
+      chapaAccountName?: string;
+      chapaAccountNumber?: string;
+      chapaBankCode?: string;
+    },
+  ) {
+    const userId = req.user?.id || req.user?.userId;
+    const p = provider.toLowerCase() as PaymentProviderId;
+    if (p !== "paypal" && p !== "chapa") {
+      return { success: false, message: "Unsupported provider" };
+    }
+    const data = await this.checkoutCapabilityService.connectSellerPayout(
+      userId,
+      p,
+      body,
+    );
+    return { success: true, data };
+  }
+
+  /**
+   * DELETE /profile/payout-capabilities/:provider
+   * Disconnect a payout provider (blocked if balance remains)
+   */
+  @Delete("payout-capabilities/:provider")
+  @ApiOperation({ summary: "Disconnect a seller payout capability" })
+  async disconnectPayout(
+    @Request() req: any,
+    @Param("provider") provider: string,
+  ) {
+    const userId = req.user?.id || req.user?.userId;
+    const p = provider.toLowerCase() as PaymentProviderId;
+    if (p !== "paypal" && p !== "chapa") {
+      return { success: false, message: "Unsupported provider" };
+    }
+    return this.checkoutCapabilityService.disconnectSellerPayout(userId, p);
+  }
 
   /**
    * GET /profile/payment-method-preference

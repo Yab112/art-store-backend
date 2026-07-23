@@ -16,6 +16,7 @@ import { ApiTags, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { ArtworkService } from "./artwork.service";
 import { CreateArtworkDto, UpdateArtworkDto, ArtworkQueryDto } from "./dto";
 import { AuthGuard } from "@/core/guards/auth.guard";
+import { Public } from "@/core/decorators/public.decorator";
 // import { ArtworkStatus } from '@prisma/client';
 
 @ApiTags("Artworks")
@@ -62,16 +63,18 @@ export class ArtworkController {
         artworkId: artwork.id,
         artwork,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       // Log the full error for debugging
       console.error("Error submitting artwork:", error);
 
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to submit artwork. Please try again.";
+
       return {
         success: false,
-        message:
-          error.message ||
-          error.response?.message ||
-          "Failed to submit artwork. Please try again.",
+        message,
       };
     }
   }
@@ -123,6 +126,8 @@ export class ArtworkController {
   }
 
   @Get(":id")
+  @Public()
+  @UseGuards(AuthGuard)
   async findOne(@Param("id") id: string, @Request() req: any) {
     const userId = req.user?.id;
     const artwork = await this.artworkService.findOne(id, userId);

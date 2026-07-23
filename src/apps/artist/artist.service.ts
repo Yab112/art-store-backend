@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../core/database/prisma.service";
 import { SettingsService } from "../settings/settings.service";
+import { BalanceService } from "../balance/balance.service";
 import { Decimal } from "@prisma/client/runtime/library";
 import * as fs from "fs";
 import * as path from "path";
@@ -18,6 +19,7 @@ export class ArtistService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly balanceService: BalanceService,
   ) {}
 
   /**
@@ -70,10 +72,14 @@ export class ArtistService {
         .filter((w) => w.status === "COMPLETED" && w.method === "CHAPA")
         .reduce((sum, w) => sum + Number(w.amount), 0);
 
-      // Available balances
-      const availableBalance = Math.max(0, totalEarnings - totalWithdrawn);
-      const availableBalancePaypal = Math.max(0, totalEarningsPaypal - totalWithdrawnPaypal);
-      const availableBalanceChapa = Math.max(0, totalEarningsChapa - totalWithdrawnChapa);
+      const [paypalBal, chapaBal] = await Promise.all([
+        this.balanceService.getWithdrawable(userId, "paypal"),
+        this.balanceService.getWithdrawable(userId, "chapa"),
+      ]);
+
+      const availableBalancePaypal = paypalBal.available;
+      const availableBalanceChapa = chapaBal.available;
+      const availableBalance = availableBalancePaypal + availableBalanceChapa;
 
       // Get all order items for artworks sold by this artist (orders with status PAID)
       const orderItems = await this.prisma.orderItem.findMany({
@@ -348,19 +354,8 @@ export class ArtistService {
         );
       }
 
-      // 4. Check for active disputes
-      const activeDisputes = await this.prisma.dispute.findMany({
-        where: {
-          targetUserId: userId,
-          status: "IN_PROGRESS",
-        },
-      });
-
-      if (activeDisputes.length > 0) {
-        throw new BadRequestException(
-          `You have ${activeDisputes.length} active dispute(s). Please resolve all disputes before requesting withdrawals.`,
-        );
-      }
+      // 4. Check for active disputes — replaced by reserved disputed amounts in available balance
+      // (sellers can still withdraw non-disputed funds)
 
       // 5. Determine method and check balance is sufficient
       const isChapa = !!bankCode;
