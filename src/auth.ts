@@ -666,7 +666,7 @@ export const auth = betterAuth({
     useSecureCookies: (() => {
       const port = process.env.PORT;
       const baseURL = process.env.BETTER_AUTH_URL || process.env.BACKEND_URL;
-      const isHTTPS = baseURL?.startsWith("https://") ?? false;
+      const isHTTPS = baseURL?.startsWith("https://") ?? false; //
       console.log(
         "🔐 Better Auth useSecureCookies:",
         isHTTPS,
